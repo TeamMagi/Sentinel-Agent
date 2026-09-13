@@ -67,7 +67,8 @@ async def _run(args) -> int:
     target, scope, budget_cfg = load_scope_config(args.scope)
     actor_pairs = load_actors(args.actors)
     endpoints = _resolve_endpoints(args, scope.allowed_hosts)
-    scanner = Scanner(target, scope, budget_cfg, out_dir=args.out, llm=_build_llm(args))
+    llm = _build_llm(args)
+    scanner = Scanner(target, scope, budget_cfg, out_dir=args.out, llm=llm)
 
     if args.dry_run:
         scanner.dry_run(actor_pairs, endpoints)
@@ -77,9 +78,24 @@ async def _run(args) -> int:
         return 0
 
     pipeline = None
+    agent = None
     try:
         sessions = await scanner.build_sessions(actor_pairs)
-        if args.loop:
+        if args.agent:
+            from pentestai.orchestrator import AgenticOrchestrator, ParallelOrchestrator
+            if not args.no_bootstrap:
+                await scanner._bootstrap_ids(sessions, endpoints)
+            by_name = {s.actor.name: s for s in sessions}
+            if args.scouts > 1:
+                agent = ParallelOrchestrator(
+                    scanner.executor, endpoints, llm=llm, planner=scanner.planner,
+                    base_url=target, scouts=args.scouts, max_iterations=args.max_iter)
+            else:
+                agent = AgenticOrchestrator(
+                    scanner.executor, endpoints, llm=llm, planner=scanner.planner,
+                    base_url=target, max_iterations=args.max_iter)
+            findings = (await agent.run(by_name)).findings
+        elif args.loop:
             pipeline = Pipeline(scanner, endpoints, max_iterations=args.max_iter, enrich=args.enrich)
             findings = (await pipeline.run(sessions)).findings
         else:
@@ -93,6 +109,8 @@ async def _run(args) -> int:
     if pipeline is not None:
         print(f"[loop] {len(pipeline.transitions)} durum geçişi · "
               f"{sum(1 for t in pipeline.transitions if t.startswith('EXPAND'))} pivot")
+    if agent is not None:
+        print(f"[agent] {len(agent.trace.steps)} aksiyon · {agent.trace.wall_sec}s")
     print(f"[done] {len(findings)} bulgu · {confirmed} CONFIRMED · {root}")
     return 0
 
@@ -118,6 +136,11 @@ def main(argv=None) -> int:
                    help="bulguları LLM ile zenginleştir (severity/impact/remediation); --llm gerekir")
     p.add_argument("--loop", action="store_true",
                    help="self-improving orchestrator (CONFIRMED bulgudan pivot hipotezler türet)")
+    p.add_argument("--agent", action="store_true",
+                   help="agentic reasoning döngüsü (her turda sıradaki aksiyona karar verir; "
+                        "--llm ile LLM, yoksa deterministik seçici)")
+    p.add_argument("--scouts", type=int, default=1,
+                   help="paralel scout sayısı (--agent ile; >1 → ParallelOrchestrator, tek bütçe/policy paylaşır)")
     p.add_argument("--max-iter", type=int, default=60, dest="max_iter",
                    help="--loop için maksimum hipotez iterasyonu")
     args = p.parse_args(argv)
