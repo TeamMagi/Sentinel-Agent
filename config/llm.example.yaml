@@ -10,7 +10,8 @@ llm:
   temperature: 0                   # 0 = tekrar-üretilebilir öneri (önerilen)
   max_tokens: 2048                 # düşünen model reasoning'i think:false ile kapatılır → bütçe JSON'a kalır
   # think: yalnızca reasoning ("thinking") yetenekli modeller için (ör. qwen3.8).
-  #   false → düşünme kapalı: tüm üretim bütçesi katı JSON'a gider (önerilen; güvenilir parse).
-  #   true  → düşünme açık: seçim kalitesi artabilir ama max_tokens'ı yükselt (düşünme bütçeyi yer).
+  #   Hipotez üretimi JSON ŞEMA (structured outputs) ile zorlandığından her iki modda da
+  #   geçerli çıktı gelir; fark hız/kapsam: false → hızlı ve yeterli (önerilen),
+  #   true → daha kapsamlı ama yavaş; bu durumda max_tokens'ı yükselt (düşünme bütçeyi yer).
   #   (satırı sil → klasik instruct modelleri için "think" anahtarı hiç gönderilmez.)
   think: false
