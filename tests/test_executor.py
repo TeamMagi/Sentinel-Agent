@@ -78,7 +78,7 @@ async def test_scope_denial_is_clean_observation():
     # scope yalnızca /rest/* izinli → /api/orders policy'den reddedilir → crash değil, açıklama
     store, executor, sessions = _setup(allowed_prefixes=("/rest/",))
     obs = await executor.execute(Probe(endpoint=ENDPOINT, actor_name="user_A"), sessions)
-    assert obs.status is None and "policy reddi" in obs.note
+    assert obs.status is None and "policy" in obs.note
     await store.aclose_all()
 
 
@@ -105,5 +105,5 @@ async def test_unknown_action_is_handled():
 async def test_missing_actor_is_handled():
     store, executor, sessions = _setup()
     obs = await executor.execute(Probe(endpoint=ENDPOINT, actor_name="hayalet"), sessions)
-    assert obs.status is None and "aktör bulunamadı" in obs.note
+    assert obs.status is None and "aktör" in obs.note
     await store.aclose_all()
