@@ -84,6 +84,29 @@ async def test_malformed_json_is_dropped_without_crash():
 
 
 @pytest.mark.asyncio
+async def test_payload_disables_thinking():
+    # Qwen3 gibi düşünen modelde reasoning kapatılır → num_predict bütçesi JSON'a kalır.
+    cap: dict = {}
+    client = OllamaLLMClient(transport=_transport(cap, "[]"))
+    await client.complete("s", "u")
+    assert cap["payload"]["think"] is False
+
+
+@pytest.mark.asyncio
+async def test_think_block_is_stripped_before_parse():
+    # Düşünen model think:false'a uymayıp <think>...</think> koyarsa: blok '[' / ']' içerir ve
+    # eski find/rfind kesici bozuk dilim alırdı. Strip sayesinde temiz JSON dizi parse edilir.
+    content = (
+        "<think>Kullanıcı /api/x[0] gibi id'leri denemeli, [id] parametresi kritik.</think>"
+        '[{"type":"idor","path_template":"/api/x/{id}","method":"GET"}]'
+    )
+    client = OllamaLLMClient(transport=_transport({}, content))
+    hyps = await client.propose_hypotheses("GET /api/x/{id}")
+    assert len(hyps) == 1
+    assert hyps[0].type == "idor"
+
+
+@pytest.mark.asyncio
 async def test_non_200_raises_runtime_error():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="boom")
