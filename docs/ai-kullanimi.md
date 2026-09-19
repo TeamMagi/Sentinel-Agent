@@ -41,3 +41,11 @@ Bu, aracın en kritik tasarım kararıdır ve runtime AI'ı güvenli kılan şey
 Kısaca: LLM "neyi deneyelim ve sonuç ne anlama geliyor" sorusunu yanıtlar; "gerçekten açık var mı"
 sorusunu **kod** yanıtlar. LLM tamamen devre dışı bırakılsa (`--llm none`) araç yine deterministik
 olarak çalışır ve kanıtlı bulgu üretir — AI yalnızca kapsama ve açıklama kalitesini artırır.
+
+### Veri gizliliği: local model (Ollama) ile hedef verisi buluta çıkmaz
+
+`--llm ollama` seçildiğinde akıl yürütme, makinede çalışan **yerel** bir modelle (Ollama) yapılır.
+Bu modda hipotez üretimi için gönderilen hedef verisi (endpoint envanteri, recon özeti) **hiçbir
+bulut API'sine gitmez** — istek `localhost:11434`'te kalır ve API key gerekmez. Bulut sağlayıcıları
+(Gemini/Anthropic) yalnızca açıkça seçildiğinde kullanılır; varsayılan `--llm none`'dır. Hangi modda
+olursa olsun hedefe giden **tüm trafik** yalnızca deterministik `Replayer`'dan geçer; LLM ağa dokunmaz.

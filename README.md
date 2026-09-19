@@ -164,11 +164,35 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 | `--dry-run` | istekleri authorize'dan geçir ama **gönderme** (plan önizlemesi) |
 | `--loop` | self-improving orchestrator: CONFIRMED bulgudan pivot hipotezler türet |
 | `--llm none\|gemini\|ollama\|anthropic` | hipotez/triyaj LLM'i (varsayılan `none` — **LLM'siz de çalışır**) |
+| `--llm-config <dosya>` | LLM ayarlarını dosyadan oku (ör. `config/llm.yaml`); CLI flag'leri dosyayı override eder |
+| `--llm-model <ad>` | model adı (ör. `qwen2.5:14b-instruct`, `gemini-3.6-flash`) |
 | `--enrich` | bulgulara LLM ile severity/impact/remediation ekle (`--llm` gerekir) |
 | `--no-bootstrap` | per-actor own-id crawl'ını atla (id'leri config'te verdiysen) |
 
 > 🤖 **LLM zorunlu değil.** Varsayılan `--llm none`; deterministik kural-tabanlı hipotezlerle araç
 > tam çalışır ve kanıtlı `CONFIRMED` üretir. LLM yalnızca **kapsamı ve açıklama kalitesini** artırır.
+
+### 🧠 Local LLM (Ollama) — buluta veri çıkmadan
+
+API key istemeden, **yerel** bir modelle hipotez üretmek için Ollama kullan. Hedef verisi
+(endpoint envanteri vb.) makineden çıkmaz — bulut API'sine gitmez.
+
+```bash
+# 1) Modeli indir (24GB GPU önerisi: hız için 14B, kalite için coder-32B)
+ollama pull qwen2.5:14b-instruct
+
+# 2) LLM ayar dosyasını hazırla (opsiyonel; CLI flag'i de yeterli)
+cp config/llm.example.yaml config/llm.yaml
+
+# 3) --llm ollama ile tara (flag config'i override eder)
+docker compose run --rm sentinel python -m scripts.run_scan \
+    --scope config/scope.yaml --actors config/actors.yaml \
+    --endpoints config/endpoints.yaml --mode active --out runs/ \
+    --llm ollama --llm-model qwen2.5:14b-instruct
+```
+
+> Ollama çıktısı `format: json` ile geçerli JSON'a zorlanır ve `temperature` varsayılanı `0`'dır
+> (tekrar-üretilebilir öneri). Model bozuk JSON üretse bile öneri sessizce elenir — tarama çökmez.
 
 ---
 
