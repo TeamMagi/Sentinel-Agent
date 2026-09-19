@@ -1,0 +1,24 @@
+name: sentinel-agent
+
+services:
+  # Geliştirme / test ortamı — herkeste aynı Python + Playwright + bağımlılıklar
+  sentinel:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app                     # canlı kod (WSL2 Linux FS'inde olmalı — hız + watch)
+      - /app/.venv                 # host .venv'i imajın içine sızdırma
+    stdin_open: true
+    tty: true
+    command: sleep infinity        # dev container ayakta kalsın: `docker compose exec sentinel bash`
+    depends_on:
+      - juice-shop
+    # Konteyner içinden hedefe erişim: http://juice-shop:3000
+    # Host'tan erişim:              http://localhost:3000
+
+  # Kalibrasyon hedefi — OWASP Juice Shop (kasıtlı zafiyetli, izinli test hedefi)
+  juice-shop:
+    image: bkimminich/juice-shop
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

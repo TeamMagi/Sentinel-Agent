@@ -1,0 +1,12 @@
+# Satır sonlarını repo'da LF'e normalize et (cross-platform takım + Linux container).
+# CRLF'li Dockerfile/shell script Linux'ta kırılır — bu dosya onu önler.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.gz binary
+*.zip binary
+*.sqlite binary
+*.sqlite3 binary
