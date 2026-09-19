@@ -235,6 +235,17 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 > 💡 İlk denemede `--dry-run` ekle: hiçbir istek göndermeden, policy'nin hangi isteklere
 > ALLOW/DENY verdiğini önizlersin.
 
+**Kurulabilir CLI (Docker'sız, R-D3):** `pip install .` sonrası aynı tarama `sentinel scan ...`
+komutuyla da çalışır (`--scope/--actors/--endpoints` aynı bayraklar); `--scan-mode
+quick|standard|deep` bütçeyi ve tarama genişliğini ölçekler (`quick` ≈ 40 istek/300s, hızlı
+IDOR/BFLA-only geçiş; `deep` geniş bütçe + wordlist/GraphQL enümerasyonu):
+
+```bash
+pip install .
+sentinel scan --scope config/scope.yaml --actors config/actors.yaml \
+    --endpoints config/endpoints.yaml --scan-mode quick --out runs/
+```
+
 ### CLI referansı (`run_scan.py`)
 
 | Flag | Açıklama |
@@ -242,6 +253,7 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 | `--scope / --actors / --endpoints` | config YAML dosyaları (zorunlu: scope + actors; endpoint kaynağı) |
 | `--openapi <spec>` / `--har <file>` | endpoint'leri OpenAPI spec'inden veya tarayıcı HAR export'undan keşfet |
 | `--mode passive\|active` | `passive`: yalnızca listele · `active`: gerçek differential test |
+| `--scan-mode quick\|standard\|deep` | bütçeyi + tarama genişliğini ölçekler (`quick`≈40 istek/300s; `deep`=geniş bütçe+enümerasyon); verilmezse scope.yaml'daki budget aynen kalır |
 | `--dry-run` | istekleri authorize'dan geçir ama **gönderme** (plan önizlemesi) |
 | `--enumerate` | wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme) |
 | `--login-url / --register-url / --logout-url` | brute-force/default-creds · zayıf şifre · session-lifecycle taramalarını tetikler |

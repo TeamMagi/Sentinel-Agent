@@ -110,7 +110,7 @@ Durum: ✅ var · 🟡 kısmi · ⬜ yeni. Efor kabaca adam-saat.
 |---|---|---|---|---|---|---|
 | **R-D1** | **Per-role coverage + profil-etiketli bulgu** — "hangi aktör hangi endpoint'e ulaştı", "found as user_A" | Escape, StackHawk | ✅ | ~3s | — | `Finding.found_as`/`victim_as` (`Scanner._tag`, oracle'lara dokunmadan) + `CoverageReporter` (`report/coverage.py`) → Markdown "Per-Role Coverage" tablosu + HTML "Kapsam" sekmesi (`sessions` verilince) |
 | **R-D2** | **Dedup: `CWE+endpoint+param`; `sources[]` izi + agreement bump** (çok sinyal → confidence↑) | p1-triage | ✅ | ~3s | — | `FindingDeduplicator` (`report/dedup.py`) — kök-neden tek grup, verdict değişmez, agreement>1'de confidence bump (kopya üzerinde); Markdown "Correlated Findings" özeti (ayrıntı listesi kaybolmaz) |
-| **R-D3** | **Olgunluk paketi** — kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı erken durdurma (~40 çağrı/$0.30/300s) | StackHawk, strix, MAPTA, appsecsanta | 🟡 | ~6s | — | `pip install` → `sentinel scan …`; modlar bütçeyi ölçekliyor; erken durdurma çalışıyor |
+| **R-D3** | **Olgunluk paketi** — kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı erken durdurma (~40 çağrı/$0.30/300s) | StackHawk, strix, MAPTA, appsecsanta | ✅ | ~6s | — | `pip install .` → `sentinel scan …` (+ `sentinel-mcp`) çalışıyor (canlı doğrulandı); `--scan-mode quick\|standard\|deep` bütçe+genişliği ölçekliyor (quick=40 istek/300s); `BudgetTracker` kill-switch erken durduruyor (`test_limits.py` + `test_cli.py`); `Finding.cvss` (classify tek kaynak) + `Finding.epss` (opsiyonel, canlı çekilmez — hook hazır) |
 
 ---
 
