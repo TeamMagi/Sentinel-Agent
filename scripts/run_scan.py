@@ -104,7 +104,9 @@ async def _run(args) -> int:
             findings = await scanner.run_recon_scan(
                 sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich,
                 enumerate_more=args.enumerate, exposure_scan=not args.no_exposure_scan,
-                info_leak_scan=not args.no_info_leak_scan)
+                info_leak_scan=not args.no_info_leak_scan,
+                rate_limit_scan=not args.no_rate_limit_scan,
+                login_url=args.login_url, register_url=args.register_url)
     finally:
         await scanner.aclose()
 
@@ -138,6 +140,10 @@ def main(argv=None) -> int:
                    help="A4 bilinen path/imza taramasını (.env/.git/backup/... + eski API sürümü) atla")
     p.add_argument("--no-info-leak-scan", action="store_true",
                    help="A5 bilgi sızıntısı taramasını (fingerprint + hata tetikleme) atla")
+    p.add_argument("--no-rate-limit-scan", action="store_true",
+                   help="B4 rate-limit/burst taramasını atla")
+    p.add_argument("--login-url", help="B4: brute-force/credential-stuffing taraması için login endpoint'i")
+    p.add_argument("--register-url", help="B4: zayıf şifre politikası taraması için kayıt endpoint'i")
     p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default=None,
                    help="hipotez/enrich LLM'i; --llm-config'i override eder "
                         "(env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
