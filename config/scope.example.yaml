@@ -9,6 +9,9 @@ scope:
   denied_path_patterns: ["*/reset*", "*/admin/db*", "*/export*"]
   allowed_methods: ["GET", "HEAD"]    # yıkıcı method default kapalı (v0 read-only)
   destructive_tests: false
+  # false: yalnızca loopback/private IP'ye çözülen host'lara izin verilir (localhost, RFC1918,
+  # docker-compose servis adları). true yapmak PUBLIC IP'lere izin verir — yalnızca yazılı yetkili
+  # bir hedefi taradığından EMİNSEN aç (DESIGN.md §479, SSRF/DNS-rebinding savunması).
   external_network: false
 
 budget:
