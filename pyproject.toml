@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21"]
-mcp = ["mcp>=1.0"]
+mcp = ["mcp>=2.0"]   # v1'de FastMCP idi; v2'de MCPServer'a taşındı (mcpserver.py bu API'yi kullanır)
 
 [project.scripts]
 sentinel = "pentestai.cli:main"
