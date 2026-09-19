@@ -44,7 +44,7 @@ eşlemesi ve kabul kriterlerinin uzun hali **[ROADMAP.md](ROADMAP.md)**'de.
 
 ## Dalga 1 — Güven derinleştirme *(en yüksek getiri)*
 
-### R-A1 — Canary planting · *(Sorumlu: Serhat · ~7s)*
+### R-A1 — Canary planting · *(Sorumlu: Serhat · ~7s)* ✅ tamamlandı
 Tarama öncesi kurban hesabına **benzersiz işaret verisi** ek (B1 write kapısını kullanır); saldırgan
 cevabında belirirse tartışmasız leaked-marker. **Kabul:** Juice Shop'ta canary'li IDOR'da FP=0,
 marker canary değeriyle eşleşiyor. *(Kaynak: MAPTA, AuthProbe)*

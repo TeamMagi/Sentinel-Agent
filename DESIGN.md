@@ -405,6 +405,8 @@ async def test_idor(endpoint, A: Actor, B: Actor, scope) -> Finding:
 
 **bfla.py (Stage 1):** düşük yetkili aktör admin-only endpoint'i çağırır. Kontrol: admin aynı endpoint'te 200 mü (endpoint gerçekten var mı)? Verdict: düşük yetkili 200 + beklenen şekil alıyorsa CONFIRMED, 403 ise REJECTED.
 
+**canary.py (R-A1, ROADMAP.md Eksen A):** `CanaryPlanter` — tarama başlamadan kurbanın objesine, saldırganın önceden bilemeyeceği benzersiz bir değer (`snt-canary-<hex>`) yazar (B1 write kapısından geçer: `destructive_tests` + `allowed_methods` her zaman zorlanır; kapı reddederse ya da yazma başarısızsa sessizce `None` döner — canary'siz, önceki davranış korunur). `IdorOracle.run(..., canary=...)` bu değeri `MarkerExtractor.extract`'e `extra` olarak geçirir: canary tanım olarak saldırganın kendi meşru yanıtında OLAMAYACAĞI için `public_data` filtresini bile aşan tartışmasız bir leaked-marker adayıdır. Verdict mantığı DEĞİŞMEZ — canary yalnızca marker havuzunu güçlendirir, CONFIRMED kararı yine "değer gerçekten saldırganın yanıtında görüldü mü" testinden geçer.
+
 ### 10.7 recon/ (Stage 1)
 - **openapi.py:** Swagger/OpenAPI varsa yut → endpoint + parametre + object-id taşıyan path'ler (dev kısayolu).
 - **har.py:** kullanıcının browser'dan export ettiği HAR → gerçek istekleri `CapturedRequest`'e çevir.
