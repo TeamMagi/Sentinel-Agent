@@ -10,16 +10,26 @@ EPS = [
     Endpoint(method="GET", path_template="/api/orders/{id}", id_param="id"),
     Endpoint(method="GET", path_template="/api/admin/config", id_param="id"),
     Endpoint(method="GET", path_template="/api/health", id_param="id"),
+    Endpoint(method="PUT", path_template="/api/orders/{id}", id_param="id"),
+    Endpoint(method="POST", path_template="/api/uploads", id_param="id"),
 ]
 
 
 def test_deterministic_rules():
     hs = HypothesisGenerator().deterministic(EPS)
-    types = {(h.type, h.endpoint.path_template) for h in hs}
-    assert ("idor", "/api/orders/{id}") in types     # path param → IDOR
-    assert ("excessive_data_exposure", "/api/orders/{id}") in types  # obje → BOPLA
-    assert ("bfla", "/api/admin/config") in types     # admin → BFLA
-    assert ("idor", "/api/health") not in types       # id yok → aday değil
+    types = {(h.type, h.endpoint.path_template, h.endpoint.method) for h in hs}
+    assert ("idor", "/api/orders/{id}", "GET") in types     # path param → IDOR
+    assert ("excessive_data_exposure", "/api/orders/{id}", "GET") in types  # obje → BOPLA
+    assert ("bfla", "/api/admin/config", "GET") in types     # admin → BFLA
+    plain_types = {(h.type, h.endpoint.path_template) for h in hs}
+    assert ("idor", "/api/health") not in plain_types       # id yok → aday değil
+    # B1: csrf + mass_assignment yalnızca yazma-metodu + id'li endpoint'te
+    assert ("csrf", "/api/orders/{id}", "PUT") in types
+    assert ("mass_assignment", "/api/orders/{id}", "PUT") in types
+    assert ("state_change_authz", "/api/orders/{id}", "PUT") in types
+    # B1: file_upload — path'inde "upload" geçen endpoint
+    assert ("file_upload", "/api/uploads", "POST") in types
+    assert ("csrf", "/api/uploads", "POST") not in types    # yazma metodu var ama id yok
 
 
 @pytest.mark.asyncio
