@@ -1,0 +1,82 @@
+# Sentinel-Agent — Kalibrasyon vaka seti (OWASP crAPI — completely ridiculous API, izinli hedef)
+#
+# Her vaka bir YER GERÇEĞİDİR. Etiketler crAPI'nin BELGELENMİŞ zafiyetlerinden türetilmiştir;
+# **yayımlanacak sayı öncesi sabit sürümde HTTP ile tek tek doğrulanmalıdır** (döngüsellik yok).
+# crAPI'de "hardened ikiz" yoktur; negatif vakalar public/tasarım-gereği endpoint'lerdir.
+#
+# expect: CONFIRMED → gerçekten zafiyetli (etmezse FN) · not_vulnerable → FP kapanı
+
+cases:
+  # ---------- POZİTİF: gerçek zafiyetler ----------
+  - type: idor
+    endpoint: "/identity/api/v2/vehicle/{vehicleId}/location"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — başka kullanıcının aracının konumuna erişim."
+
+  - type: idor
+    endpoint: "/workshop/api/mechanic/receive_report"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — report_id ile başka kullanıcının servis raporuna erişim."
+
+  - type: idor
+    endpoint: "/community/api/v2/community/posts/{postId}"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — post id ile başka kullanıcının gönderisine/PII'sine erişim."
+
+  - type: mass_assignment
+    endpoint: "/workshop/api/shop/orders/{order_id}"
+    method: PUT
+    expect: CONFIRMED
+    note: "Sipariş güncellemede fazla-alan (ör. status/paid) set edilebiliyor."
+
+  - type: ssrf
+    endpoint: "/workshop/api/merchant/contact_mechanic"
+    method: POST
+    expect: CONFIRMED
+    note: "mechanic_api_url alanı sunucudan çekiliyor → SSRF."
+
+  - type: excessive_data_exposure
+    endpoint: "/community/api/v2/community/posts/recent"
+    method: GET
+    expect: CONFIRMED
+    note: "Gönderi listesinde başka kullanıcıların araç/PII alanları dönüyor (aşırı veri ifşası)."
+
+  - type: jwt
+    endpoint: "/identity/api/v2/user/dashboard"
+    method: GET
+    expect: CONFIRMED
+    note: "JWT zayıf/None-alg doğrulaması → token forge (bozuk auth)."
+
+  - type: nosqli
+    endpoint: "/community/api/v2/coupon/validate-coupon"
+    method: POST
+    expect: CONFIRMED
+    note: "Kupon doğrulamada NoSQL operatör enjeksiyonu."
+
+  - type: bfla
+    endpoint: "/workshop/api/mechanic/mechanic_report"
+    method: POST
+    expect: CONFIRMED
+    note: "Mekanik-only fonksiyon düşük yetkili kullanıcıyla çağrılabiliyor (fonksiyon-seviyesi)."
+
+  # ---------- NEGATİF: zafiyet YOK ----------
+  - type: unauthorized_access
+    endpoint: "/identity/api/auth/login"
+    method: POST
+    expect: not_vulnerable
+    note: "Login endpoint'i — kimlik doğrulama üretir, korunan kaynak değil."
+
+  - type: idor
+    endpoint: "/identity/api/auth/signup"
+    method: POST
+    expect: not_vulnerable
+    note: "Kayıt endpoint'i obje-referansı taşımaz → IDOR olamaz."
+
+  - type: unauthorized_access
+    endpoint: "/identity/api/auth/v3/check-otp"
+    method: POST
+    expect: not_vulnerable
+    note: "OTP doğrulama — anonim erişilebilir olması tasarım gereği (zafiyet: rate-limit, ayrı vaka)."

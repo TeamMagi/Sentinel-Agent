@@ -1,0 +1,24 @@
+# Sentinel-Agent — Çok-hedefli benchmark takımı (R-A3).
+#
+# Her hedef ayrı taranır (kendi scope/actors/endpoints ile), findings.json üretilir; sonra:
+#   python -m scripts.benchmark --suite benchmarks/suite.yaml
+# birleşik precision / recall / FP-rate tablosunu (benchmark_suite.md/json) üretir.
+#
+# `findings`: o hedefin taramasının findings.json yolu (suite.yaml'a göre göreli/mutlak).
+# Henüz koşulmamış hedefin findings'i yoksa o hedef boş bulgu setiyle (tümü FN/TN) değerlendirilir.
+
+targets:
+  - name: juiceshop
+    target: "http://localhost:3000"
+    expected: juiceshop.expected.yaml
+    findings: ../runs/juiceshop/findings.json
+
+  - name: vampi
+    target: "http://localhost:5000"
+    expected: vampi.expected.yaml
+    findings: ../runs/vampi/findings.json
+
+  - name: crapi
+    target: "http://localhost:8888"
+    expected: crapi.expected.yaml
+    findings: ../runs/crapi/findings.json

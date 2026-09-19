@@ -310,6 +310,45 @@ tarama çökmez. `temperature` varsayılanı `0`'dır (tekrar-üretilebilir öne
 
 ---
 
+## 📐 Çok-hedefli benchmark (kalibrasyon)
+
+İddia ("kanıtlı, deterministik, düşük false-positive") ölçülebilir olmalı. Benchmark, **etiketli
+yer-gerçeği** (ground truth) üstünde bir taramanın `findings.json`'ını değerlendirir → precision /
+recall / **FP-rate**. Metodoloji, AuthProbe'un **"vulnerable ↔ hardened ikiz, 0-FP"** yaklaşımıdır:
+her hedefte hem gerçek zafiyet (pozitif) hem tasarım-gereği güvenli (`not_vulnerable`, negatif)
+vakalar bulunur; böylece FP oranı **varsayıma değil etikete** dayanır. Etiketler araç çıktısından
+değil, doğrudan HTTP ile bağımsız doğrulanarak konur (döngüsellik yok).
+
+**Hedefler (≥3) ve etiketli vaka sayıları** (`benchmarks/*.expected.yaml`):
+
+| Hedef | Vaka seti | Vaka |
+|---|---|---|
+| OWASP Juice Shop | `benchmarks/juiceshop.expected.yaml` | 7 |
+| VAmPI | `benchmarks/vampi.expected.yaml` | 12 |
+| crAPI | `benchmarks/crapi.expected.yaml` | 12 |
+| **Toplam** | `benchmarks/suite.yaml` | **31** |
+
+> Not: VAmPI/crAPI etiketleri, uygulamaların **belgelenmiş** zafiyetlerinden türetilmiştir ve
+> yayımlanacak sayı öncesi **sabit sürümde HTTP ile tek tek doğrulanmalıdır** (Juice Shop seti
+> canlı doğrulanmıştır: precision %100 / recall %100).
+
+**Yeniden üretme** — her hedefi ayrı tarayıp birleşik tabloyu üret:
+
+```bash
+# her hedef için scope/actors/endpoints hazırla, tara → runs/<hedef>/findings.json
+python -m scripts.run_scan --scope config/vampi.scope.yaml --actors config/vampi.actors.yaml \
+    --openapi vampi-openapi.json --out runs/vampi/
+# ... (juiceshop, crapi benzer) ...
+
+# birleşik precision/recall/FP-rate tablosu → benchmarks/benchmark_suite.md
+python -m scripts.benchmark --suite benchmarks/suite.yaml
+```
+
+Tek hedef için: `python -m scripts.benchmark --run runs/<id> --expected benchmarks/juiceshop.expected.yaml`
+(regresyon kapısı: `--min-precision 1.0 --min-recall 1.0`).
+
+---
+
 ## 🏗️ Mimari
 
 ```

@@ -17,8 +17,28 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from pentestai.bench import Benchmark   # noqa: E402
+from pentestai.bench.suite import BenchmarkSuite, load_suite_findings   # noqa: E402
 
 _DEFAULT_EXPECTED = "benchmarks/juiceshop.expected.yaml"
+
+
+def _run_suite(suite_path: str, out: str | None) -> int:
+    """Çok-hedefli değerlendirme (R-A3): suite.yaml → birleşik precision/recall/FP tablosu."""
+    base = pathlib.Path(suite_path).parent
+    suite, meta = BenchmarkSuite.from_yaml(suite_path)
+    findings_by_target = load_suite_findings(meta, base)
+    result = suite.evaluate(findings_by_target)
+    out_dir = pathlib.Path(out) if out else base
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "benchmark_suite.md").write_text(result.to_markdown(), encoding="utf-8")
+    (out_dir / "benchmark_suite.json").write_text(
+        json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+    have = sorted(findings_by_target)
+    print(f"[suite] {len(suite.targets)} hedef · findings yüklendi: {have or 'yok (tümü FN/TN)'}")
+    print(f"[suite] TOPLAM precision={result.precision:.1%} · recall={result.recall:.1%} · "
+          f"FP-rate={result.fp_rate:.1%} · {result.cases} vaka")
+    print(f"[suite] yazıldı: {out_dir / 'benchmark_suite.md'}")
+    return 0
 
 
 def main(argv=None) -> int:
@@ -28,6 +48,7 @@ def main(argv=None) -> int:
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--run", help="koşum dizini (içindeki findings.json okunur; çıktı buraya yazılır)")
     src.add_argument("--findings", help="doğrudan findings.json yolu")
+    src.add_argument("--suite", help="çok-hedefli takım (benchmarks/suite.yaml) — R-A3")
     p.add_argument("--target", default="", help="rapora yazılacak hedef etiketi")
     p.add_argument("--out", help="benchmark.md/json çıktı dizini (varsayılan: --run dizini)")
     p.add_argument("--min-precision", type=float, default=None,
@@ -35,6 +56,9 @@ def main(argv=None) -> int:
     p.add_argument("--min-recall", type=float, default=None,
                    help="regresyon kapısı: recall bu değerin altındaysa çıkış kodu 2")
     args = p.parse_args(argv)
+
+    if args.suite:
+        return _run_suite(args.suite, args.out)
 
     run_dir = pathlib.Path(args.run) if args.run else None
     findings_path = pathlib.Path(args.findings) if args.findings else run_dir / "findings.json"
