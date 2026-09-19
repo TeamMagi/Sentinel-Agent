@@ -33,6 +33,10 @@ htmlcov/
 /playwright-report/
 /.playwright/
 
+# ---- Claude Code (takım: settings.json izlenir; kişisel dosyalar ignore) ----
+.claude/settings.local.json
+.claude/*.local.json
+
 # ---- IDE / OS ----
 .idea/
 .vscode/
