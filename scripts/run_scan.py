@@ -49,7 +49,8 @@ def _build_llm(args) -> LLMClient | None:
         return AnthropicLLMClient(**_drop_none(model=model, max_tokens=max_tokens))
     if provider == "ollama":
         return OllamaLLMClient(**_drop_none(
-            model=model, host=cfg.get("host"), temperature=temperature, max_tokens=max_tokens))
+            model=model, host=cfg.get("host"), temperature=temperature, max_tokens=max_tokens,
+            think=cfg.get("think")))
     return None
 
 

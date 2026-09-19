@@ -29,6 +29,15 @@ def test_missing_file_returns_empty_dict(tmp_path):
     assert load_llm_config(str(tmp_path / "yok.yaml")) == {}
 
 
+def test_reads_think_flag(tmp_path):
+    # Reasoning modeli için düşünme aç/kapat bayrağı (yalnızca ollama'da kullanılır).
+    p = tmp_path / "llm.yaml"
+    p.write_text("llm:\n  provider: ollama\n  model: qwen3.8:27b\n  think: false\n", encoding="utf-8")
+    cfg = load_llm_config(str(p))
+    assert cfg["think"] is False
+    assert cfg["model"] == "qwen3.8:27b"
+
+
 def test_partial_config_only_returns_present_keys(tmp_path):
     p = tmp_path / "llm.yaml"
     p.write_text("llm:\n  provider: gemini\n", encoding="utf-8")
