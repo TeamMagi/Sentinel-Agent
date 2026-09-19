@@ -71,3 +71,21 @@ def test_deny_payload_too_large():
     d = _authz("http://localhost:3000/api/x", scope=_scope(max_payload_bytes=4),
                method="HEAD", body=b"x" * 10)
     assert isinstance(d, Deny) and "payload" in d.reason
+
+
+def test_deny_destructive_when_flag_off():
+    # allowed_methods yıkıcı method'u içerse bile destructive_tests=False ise blok (§5, iki katmanlı kapı)
+    scope = _scope(allowed_methods=["GET", "HEAD", "PUT", "DELETE"], destructive_tests=False)
+    d = _authz("http://localhost:3000/api/orders/1", scope=scope, method="DELETE")
+    assert isinstance(d, Deny) and "destructive" in d.reason
+
+
+def test_allow_destructive_when_flag_on():
+    scope = _scope(allowed_methods=["GET", "HEAD", "PUT", "DELETE"], destructive_tests=True)
+    d = _authz("http://localhost:3000/api/orders/1", scope=scope, method="DELETE")
+    assert isinstance(d, Allow)
+
+
+def test_safe_methods_unaffected_by_destructive_flag():
+    d = _authz("http://localhost:3000/api/orders/1", scope=_scope(destructive_tests=False))
+    assert isinstance(d, Allow)

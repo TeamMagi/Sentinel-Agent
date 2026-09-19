@@ -8,11 +8,11 @@ actors:
       login_url: "http://localhost:3000/rest/user/login"
       credentials: { email: "a@test.local", password: "REDACTED" }
       token_location: { kind: "bearer", from: "json:authentication.token" }
-    own_object_ids: { basket: "1", order: "A-100" }
+    own_object_ids: { basket: "1", basketitem: "1" }   # basket=login yanıtındaki bid; basketitem=sepete eklenen BasketItem.id
 
   - name: user_B
     role: user
     auth:
       type: storagestate                # elle login → export edilmiş Playwright state
       storagestate_path: "./.secrets/user_B.storagestate.json"
-    own_object_ids: { basket: "2", order: "B-200" }
+    own_object_ids: { basket: "2", basketitem: "2" }

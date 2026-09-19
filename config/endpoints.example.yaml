@@ -1,14 +1,16 @@
 # Stage 0: recon yok — test edilecek endpoint'leri elle ver.
 # resource_key, actor.own_object_ids içindeki anahtarla eşleşmeli (baseline/positive control).
+# NOT: path'ler gerçek Juice Shop route'larıyla doğrulanmıştır (`/api/baskets/{id}` yoktur —
+# Sequelize REST kaydı `/rest/basket/{id}`dir, bkz. README "Demo — kanıtlı bulgu üret").
 endpoints:
   - method: GET
-    path_template: "/api/orders/{id}"
-    id_param: id
-    id_location: path
-    resource_key: order
-
-  - method: GET
-    path_template: "/api/baskets/{id}"
+    path_template: "/rest/basket/{id}"
     id_param: id
     id_location: path
     resource_key: basket
+
+  - method: PUT
+    path_template: "/api/BasketItems/{id}"
+    id_param: id
+    id_location: path
+    resource_key: basketitem
