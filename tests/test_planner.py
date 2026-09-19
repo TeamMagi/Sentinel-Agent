@@ -17,6 +17,7 @@ def test_deterministic_rules():
     hs = HypothesisGenerator().deterministic(EPS)
     types = {(h.type, h.endpoint.path_template) for h in hs}
     assert ("idor", "/api/orders/{id}") in types     # path param → IDOR
+    assert ("excessive_data_exposure", "/api/orders/{id}") in types  # obje → BOPLA
     assert ("bfla", "/api/admin/config") in types     # admin → BFLA
     assert ("idor", "/api/health") not in types       # id yok → aday değil
 
