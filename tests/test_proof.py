@@ -64,3 +64,39 @@ def test_store_no_proof_dir_without_confirmed(tmp_path):
     f = Finding(id="F-001", type="idor", endpoint="/x", verdict="REJECTED")
     root = store.save_run(rid, [f])
     assert not (root / "proof").exists()
+
+
+def _confirmed_with_markers(mtype, markers, body_text):
+    """Verilen tip + marker listesi + gövde ile CONFIRMED bulgu (redaction/harf-büyüklüğü senaryoları)."""
+    ev = Evidence(
+        attack_request=CapturedRequest(method="GET", url="http://t/x"),
+        attack_response=NormalizedResponse(status=200, body_text=body_text, body_normalized=body_text),
+        positive_control=True, negative_control=True, baseline_stable=True,
+        leaked_markers=markers,
+    )
+    return Finding(id="F-009", type=mtype, endpoint="/x", verdict="CONFIRMED",
+                   confidence="high", victim="A", attacker="B", evidence=ev)
+
+
+def test_reprove_proven_when_one_marker_redacted_but_another_survives():
+    # Redaction gövdedeki ürün adını <REDACTED> yaptı ama fiyat sağ kaldı → hâlâ PROVEN.
+    p = build_proof(_confirmed_with_markers(
+        "idor", ["Apple Juice (1000ml)", "1.99"],
+        '{"Products":[{"name":"<REDACTED>","price":1.99}]}'))
+    proven, reason = reprove(p)
+    assert proven is True and "doğrulandı" in reason
+
+
+def test_reprove_signature_marker_case_insensitive():
+    # İmza-tipi marker küçük harf saklanır ('sqlite'), gövdede büyük harf geçer (SQLITE_ERROR).
+    p = build_proof(_confirmed_with_markers(
+        "sqli", ["sqlite"], "<title>Error: SQLITE_ERROR: syntax error</title>"))
+    assert reprove(p)[0] is True
+
+
+def test_reprove_failed_when_all_markers_removed():
+    # Redaction değil, tahrif: tüm marker'lar gövdeden silinirse FAILED (tahrif-duyarlılık).
+    p = build_proof(_confirmed_with_markers(
+        "idor", ["Apple Juice (1000ml)", "1.99"], '{"Products":[]}'))
+    proven, reason = reprove(p)
+    assert proven is False and "tahrif" in reason
