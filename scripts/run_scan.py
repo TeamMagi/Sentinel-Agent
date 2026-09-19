@@ -56,7 +56,8 @@ async def _run(args) -> int:
 
     try:
         sessions = await scanner.build_sessions(actor_pairs)
-        findings = await scanner.run_recon_scan(sessions, endpoints, bootstrap=not args.no_bootstrap)
+        findings = await scanner.run_recon_scan(
+            sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich)
     finally:
         await scanner.aclose()
 
@@ -80,6 +81,8 @@ def main(argv=None) -> int:
     p.add_argument("--llm", choices=["none", "gemini", "anthropic"], default="none",
                    help="hipotez üretiminde LLM (anahtar env'den: GEMINI_API_KEY / ANTHROPIC_API_KEY)")
     p.add_argument("--llm-model", help="LLM model adı (ör. gemini-3.6-flash)")
+    p.add_argument("--enrich", action="store_true",
+                   help="bulguları LLM ile zenginleştir (severity/impact/remediation); --llm gerekir")
     args = p.parse_args(argv)
     return asyncio.run(_run(args))
 
