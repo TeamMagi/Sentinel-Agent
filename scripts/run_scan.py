@@ -105,7 +105,7 @@ async def _run(args) -> int:
                 sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich,
                 enumerate_more=args.enumerate, exposure_scan=not args.no_exposure_scan,
                 info_leak_scan=not args.no_info_leak_scan,
-                rate_limit_scan=not args.no_rate_limit_scan,
+                rate_limit_scan=not args.no_rate_limit_scan, cve_scan=not args.no_cve_scan,
                 login_url=args.login_url, register_url=args.register_url)
     finally:
         await scanner.aclose()
@@ -142,7 +142,11 @@ def main(argv=None) -> int:
                    help="A5 bilgi sızıntısı taramasını (fingerprint + hata tetikleme) atla")
     p.add_argument("--no-rate-limit-scan", action="store_true",
                    help="B4 rate-limit/burst taramasını atla")
-    p.add_argument("--login-url", help="B4: brute-force/credential-stuffing taraması için login endpoint'i")
+    p.add_argument("--no-cve-scan", action="store_true",
+                   help="B7 sürüm→CVE eşleme + default-credentials taramasını atla")
+    p.add_argument("--login-url",
+                   help="B4/B7: brute-force/credential-stuffing + default-credentials taraması "
+                        "için login endpoint'i")
     p.add_argument("--register-url", help="B4: zayıf şifre politikası taraması için kayıt endpoint'i")
     p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default=None,
                    help="hipotez/enrich LLM'i; --llm-config'i override eder "
