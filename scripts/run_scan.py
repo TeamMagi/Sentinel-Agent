@@ -21,7 +21,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 from pentestai.config import load_actors, load_endpoints, load_scope_config  # noqa: E402
 from pentestai.llm import AnthropicLLMClient, GeminiLLMClient, LLMClient  # noqa: E402
 from pentestai.models import Endpoint  # noqa: E402
-from pentestai.recon import OpenApiRecon  # noqa: E402
+from pentestai.recon import HarRecon, OpenApiRecon  # noqa: E402
 from pentestai.scanner import Scanner  # noqa: E402
 
 
@@ -33,18 +33,20 @@ def _build_llm(args) -> LLMClient | None:
     return None
 
 
-def _resolve_endpoints(args) -> list[Endpoint]:
+def _resolve_endpoints(args, allowed_hosts: list[str]) -> list[Endpoint]:
     if args.openapi:
         return OpenApiRecon().load(args.openapi)
+    if args.har:
+        return HarRecon().load(args.har, allowed_hosts=allowed_hosts)
     if args.endpoints:
         return [ep for ep, _ in load_endpoints(args.endpoints)]
-    raise SystemExit("--openapi veya --endpoints ver.")
+    raise SystemExit("--openapi, --har veya --endpoints ver.")
 
 
 async def _run(args) -> int:
     target, scope, budget_cfg = load_scope_config(args.scope)
     actor_pairs = load_actors(args.actors)
-    endpoints = _resolve_endpoints(args)
+    endpoints = _resolve_endpoints(args, scope.allowed_hosts)
     scanner = Scanner(target, scope, budget_cfg, out_dir=args.out, llm=_build_llm(args))
 
     if args.dry_run:
@@ -73,6 +75,7 @@ def main(argv=None) -> int:
     p.add_argument("--actors", required=True)
     p.add_argument("--endpoints", help="endpoint YAML (veya --openapi)")
     p.add_argument("--openapi", help="OpenAPI/Swagger spec (json/yaml)")
+    p.add_argument("--har", help="browser HAR export (endpoint keşfi)")
     p.add_argument("--mode", choices=["passive", "active"], default="active")
     p.add_argument("--stage", type=int, default=1)
     p.add_argument("--out", default="runs/")
