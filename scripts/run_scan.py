@@ -19,7 +19,9 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from pentestai.config import load_actors, load_endpoints, load_scope_config  # noqa: E402
-from pentestai.llm import AnthropicLLMClient, GeminiLLMClient, LLMClient  # noqa: E402
+from pentestai.llm import (  # noqa: E402
+    AnthropicLLMClient, GeminiLLMClient, LLMClient, OllamaLLMClient,
+)
 from pentestai.models import Endpoint  # noqa: E402
 from pentestai.orchestrator import Pipeline  # noqa: E402
 from pentestai.recon import HarRecon, OpenApiRecon  # noqa: E402
@@ -31,6 +33,8 @@ def _build_llm(args) -> LLMClient | None:
         return GeminiLLMClient(model=args.llm_model) if args.llm_model else GeminiLLMClient()
     if args.llm == "anthropic":
         return AnthropicLLMClient(model=args.llm_model) if args.llm_model else AnthropicLLMClient()
+    if args.llm == "ollama":
+        return OllamaLLMClient(model=args.llm_model) if args.llm_model else OllamaLLMClient()
     return None
 
 
@@ -90,9 +94,9 @@ def main(argv=None) -> int:
     p.add_argument("--out", default="runs/")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
-    p.add_argument("--llm", choices=["none", "gemini", "anthropic"], default="none",
-                   help="hipotez üretiminde LLM (anahtar env'den: GEMINI_API_KEY / ANTHROPIC_API_KEY)")
-    p.add_argument("--llm-model", help="LLM model adı (ör. gemini-3.6-flash)")
+    p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default="none",
+                   help="hipotez/enrich LLM'i (env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
+    p.add_argument("--llm-model", help="LLM model adı (ör. gemini-3.6-flash, qwen2.5:14b-instruct)")
     p.add_argument("--enrich", action="store_true",
                    help="bulguları LLM ile zenginleştir (severity/impact/remediation); --llm gerekir")
     p.add_argument("--loop", action="store_true",
