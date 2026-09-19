@@ -87,6 +87,7 @@ async def _run(args) -> int:
             if not args.no_bootstrap:
                 await scanner._bootstrap_ids(sessions, endpoints)
             by_name = {s.actor.name: s for s in sessions}
+            by_name["anonymous"] = scanner.anon   # unauthorized_access için kimlik doğrulamasız oturum
             if args.scouts > 1:
                 agent = ParallelOrchestrator(
                     scanner.executor, endpoints, llm=llm, planner=scanner.planner,
