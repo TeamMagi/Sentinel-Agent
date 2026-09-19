@@ -1,8 +1,11 @@
-"""Sentinel-Agent CLI (ince katman → Scanner). DESIGN.md §10.12.
+"""Sentinel-Agent CLI (ince katman → Scanner orchestrator). DESIGN.md §10.12.
 
-Örnek:
+Örnek (endpoint dosyasıyla):
   python -m scripts.run_scan --scope config/scope.yaml --actors config/actors.yaml \
       --endpoints config/endpoints.yaml --mode active --out runs/
+Örnek (OpenAPI spec'inden keşif):
+  python -m scripts.run_scan --scope config/scope.yaml --actors config/actors.yaml \
+      --openapi openapi.json --mode active
   ... --dry-run   # istekleri authorize'dan geçir ama GÖNDERME (plan önizlemesi)
 """
 from __future__ import annotations
@@ -16,13 +19,23 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from pentestai.config import load_actors, load_endpoints, load_scope_config  # noqa: E402
+from pentestai.models import Endpoint  # noqa: E402
+from pentestai.recon import OpenApiRecon  # noqa: E402
 from pentestai.scanner import Scanner  # noqa: E402
+
+
+def _resolve_endpoints(args) -> list[Endpoint]:
+    if args.openapi:
+        return OpenApiRecon().load(args.openapi)
+    if args.endpoints:
+        return [ep for ep, _ in load_endpoints(args.endpoints)]
+    raise SystemExit("--openapi veya --endpoints ver.")
 
 
 async def _run(args) -> int:
     target, scope, budget_cfg = load_scope_config(args.scope)
     actor_pairs = load_actors(args.actors)
-    endpoints = load_endpoints(args.endpoints)
+    endpoints = _resolve_endpoints(args)
     scanner = Scanner(target, scope, budget_cfg, out_dir=args.out)
 
     if args.dry_run:
@@ -34,7 +47,7 @@ async def _run(args) -> int:
 
     try:
         sessions = await scanner.build_sessions(actor_pairs)
-        findings = await scanner.run_active(sessions, endpoints)
+        findings = await scanner.run_recon_scan(sessions, endpoints, bootstrap=not args.no_bootstrap)
     finally:
         await scanner.aclose()
 
@@ -48,11 +61,13 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="run_scan", description="Sentinel-Agent access-control scanner")
     p.add_argument("--scope", required=True)
     p.add_argument("--actors", required=True)
-    p.add_argument("--endpoints", required=True)
+    p.add_argument("--endpoints", help="endpoint YAML (veya --openapi)")
+    p.add_argument("--openapi", help="OpenAPI/Swagger spec (json/yaml)")
     p.add_argument("--mode", choices=["passive", "active"], default="active")
-    p.add_argument("--stage", type=int, default=0)
+    p.add_argument("--stage", type=int, default=1)
     p.add_argument("--out", default="runs/")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
     args = p.parse_args(argv)
     return asyncio.run(_run(args))
 
