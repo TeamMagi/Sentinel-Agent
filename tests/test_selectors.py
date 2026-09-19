@@ -65,7 +65,8 @@ def test_schema_shape():
     s = action_select_json_schema()
     assert s["properties"]["actions"]["type"] == "array"
     item = s["properties"]["actions"]["items"]
-    assert item["properties"]["action"]["enum"] == ["probe", "run_oracle"]
+    # Faz 4 aksiyon tipleri şemada mevcut (ProposeAction ile hizalı)
+    assert {"probe", "run_oracle", "enumerate_ids", "escalate_role"} <= set(item["properties"]["action"]["enum"])
 
 
 @pytest.mark.asyncio

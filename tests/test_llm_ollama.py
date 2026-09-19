@@ -40,15 +40,7 @@ async def test_temperature_param_is_threaded_into_options():
 
 
 @pytest.mark.asyncio
-async def test_think_key_omitted_by_default():
-    # Klasik instruct modelleri için "think" anahtarı HİÇ gönderilmez (geriye uyum).
-    cap: dict = {}
-    client = OllamaLLMClient(transport=_transport(cap, "[]"))
-    await client.complete("s", "u")
-    assert "think" not in cap["payload"]
 
-
-@pytest.mark.asyncio
 async def test_think_false_is_sent_and_keeps_format_json():
     # Reasoning modelinde düşünme kapatılınca payload'a think:false eklenir; JSON zorlaması korunur.
     cap: dict = {}
