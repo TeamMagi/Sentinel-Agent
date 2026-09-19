@@ -103,7 +103,8 @@ async def _run(args) -> int:
         else:
             findings = await scanner.run_recon_scan(
                 sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich,
-                enumerate_more=args.enumerate, exposure_scan=not args.no_exposure_scan)
+                enumerate_more=args.enumerate, exposure_scan=not args.no_exposure_scan,
+                info_leak_scan=not args.no_info_leak_scan)
     finally:
         await scanner.aclose()
 
@@ -135,6 +136,8 @@ def main(argv=None) -> int:
                    help="wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme)")
     p.add_argument("--no-exposure-scan", action="store_true",
                    help="A4 bilinen path/imza taramasını (.env/.git/backup/... + eski API sürümü) atla")
+    p.add_argument("--no-info-leak-scan", action="store_true",
+                   help="A5 bilgi sızıntısı taramasını (fingerprint + hata tetikleme) atla")
     p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default=None,
                    help="hipotez/enrich LLM'i; --llm-config'i override eder "
                         "(env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
