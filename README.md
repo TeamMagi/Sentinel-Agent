@@ -165,7 +165,7 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 | `--loop` | self-improving orchestrator: CONFIRMED bulgudan pivot hipotezler türet |
 | `--llm none\|gemini\|ollama\|anthropic` | hipotez/triyaj LLM'i (varsayılan `none` — **LLM'siz de çalışır**) |
 | `--llm-config <dosya>` | LLM ayarlarını dosyadan oku (ör. `config/llm.yaml`); CLI flag'leri dosyayı override eder |
-| `--llm-model <ad>` | model adı (ör. `qwen2.5:14b-instruct`, `gemini-3.6-flash`) |
+| `--llm-model <ad>` | model adı (ör. `qwen3.8:27b`, `qwen2.5:14b-instruct`, `gemini-3.6-flash`) |
 | `--enrich` | bulgulara LLM ile severity/impact/remediation ekle (`--llm` gerekir) |
 | `--no-bootstrap` | per-actor own-id crawl'ını atla (id'leri config'te verdiysen) |
 
@@ -178,21 +178,33 @@ API key istemeden, **yerel** bir modelle hipotez üretmek için Ollama kullan. H
 (endpoint envanteri vb.) makineden çıkmaz — bulut API'sine gitmez.
 
 ```bash
-# 1) Modeli indir (24GB GPU önerisi: hız için 14B, kalite için coder-32B)
-ollama pull qwen2.5:14b-instruct
+# 1) Modeli indir
+ollama pull qwen2.5:14b-instruct     # hızlı instruct modeli
+# ya da bir reasoning modeli (24GB GPU'ya Q4 olarak sığar, thinking destekli):
+ollama pull qwen3.8:27b
 
 # 2) LLM ayar dosyasını hazırla (opsiyonel; CLI flag'i de yeterli)
-cp config/llm.example.yaml config/llm.yaml
+cp config/llm.example.yaml config/llm.yaml   # provider / model / host / think burada
 
 # 3) --llm ollama ile tara (flag config'i override eder)
 docker compose run --rm sentinel python -m scripts.run_scan \
     --scope config/scope.yaml --actors config/actors.yaml \
     --endpoints config/endpoints.yaml --mode active --out runs/ \
-    --llm ollama --llm-model qwen2.5:14b-instruct
+    --llm ollama --llm-model qwen3.8:27b --enrich
 ```
 
-> Ollama çıktısı `format: json` ile geçerli JSON'a zorlanır ve `temperature` varsayılanı `0`'dır
-> (tekrar-üretilebilir öneri). Model bozuk JSON üretse bile öneri sessizce elenir — tarama çökmez.
+**Yapılandırılmış çıktı (structured outputs).** Hipotez üretimi, enrich ve aksiyon-seçimde model bir
+JSON **şemaya** (grammar-constrained) zorlanır; bu, local modellerin `format:"json"` ile verdiği
+bozuk/eksik/tek-nesne JSON'ı giderir. Model yine şema-dışı bir şey üretirse öneri sessizce elenir —
+tarama çökmez. `temperature` varsayılanı `0`'dır (tekrar-üretilebilir öneri).
+
+**Reasoning ("thinking") modelleri (ör. `qwen3.8:27b`).** `config/llm.yaml`'daki `think` alanı:
+- `false` → düşünme kapalı; tüm üretim bütçesi JSON'a gider — **hızlı ve yeterli (önerilen)**.
+- `true` → düşünme açık; daha kapsamlı ama yavaş — bu durumda `max_tokens`'ı yükselt (düşünme bütçeyi yer).
+- (satırı sil → klasik instruct modelleri için `think` anahtarı hiç gönderilmez — geriye tam uyum.)
+
+> `host` alanı Ollama sunucusunu gösterir (varsayılan `http://localhost:11434`). Sistem kurulumu yerine
+> kullanıcı-alanı bir sunucu çalıştırıyorsan (ör. `:11435`), `host`'u ona yönlendir.
 
 ---
 
