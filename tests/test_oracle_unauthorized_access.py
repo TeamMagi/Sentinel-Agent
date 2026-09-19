@@ -75,6 +75,27 @@ async def test_confirmed_on_function_endpoint_without_id():
 
 
 @pytest.mark.asyncio
+async def test_public_search_endpoint_downgraded_to_likely_not_confirmed():
+    # public-by-design arama (query 'id', yönetim değil) anonim 200 dönse bile CONFIRMED OLMAMALI
+    # → LIKELY (§5: anonim 200 tek başına auth-bypass kanıtı değil; FP önlenir).
+    ep = Endpoint(method="GET", path_template="/rest/products/search",
+                  id_param="q", id_location="query")
+    store, oracle, victim, anon = _setup(vulnerable_id_handler, ep)
+    f = await oracle.run(ep, victim, anon, resource_key="q")
+    assert f.verdict == base.LIKELY and f.verdict != base.CONFIRMED
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_public_collection_without_id_downgraded_to_likely():
+    ep = Endpoint(method="GET", path_template="/api/products")   # id yok, yönetim değil
+    store, oracle, victim, anon = _setup(vulnerable_admin_handler, ep)
+    f = await oracle.run(ep, victim, anon, resource_key="")
+    assert f.verdict == base.LIKELY
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
 async def test_anon_session_carries_no_credentials():
     ep = Endpoint(method="GET", path_template="/api/profile/{id}", id_param="id")
     store, oracle, victim, anon = _setup(secure_id_handler, ep)
