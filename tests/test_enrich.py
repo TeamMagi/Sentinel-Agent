@@ -37,7 +37,9 @@ def _finding(verdict, markers=None):
 async def test_enrich_sets_fields_but_not_verdict():
     enricher = FindingEnricher(MockLLMClient(completion=ENRICHMENT))
     f = await enricher.enrich(_finding("CONFIRMED", markers=["alice@secret.com"]))
-    assert f.severity == "High" and f.impact == "IMPACT-METNI" and f.remediation == "FIX-METNI"
+    # severity LLM önerisi yalnızca severity_suggested'a yazılır; severity kararını kod verir (classify)
+    assert f.severity_suggested == "High" and f.severity is None
+    assert f.impact == "IMPACT-METNI" and f.remediation == "FIX-METNI"
     assert f.verdict == "CONFIRMED"      # LLM verdict'e DOKUNMADI
     assert f.triage_note is None          # CONFIRMED'de triage yok
 
