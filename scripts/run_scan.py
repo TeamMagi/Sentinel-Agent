@@ -106,7 +106,8 @@ async def _run(args) -> int:
                 enumerate_more=args.enumerate, exposure_scan=not args.no_exposure_scan,
                 info_leak_scan=not args.no_info_leak_scan,
                 rate_limit_scan=not args.no_rate_limit_scan, cve_scan=not args.no_cve_scan,
-                login_url=args.login_url, register_url=args.register_url)
+                login_url=args.login_url, register_url=args.register_url,
+                logout_url=args.logout_url)
     finally:
         await scanner.aclose()
 
@@ -148,6 +149,10 @@ def main(argv=None) -> int:
                    help="B4/B7: brute-force/credential-stuffing + default-credentials taraması "
                         "için login endpoint'i")
     p.add_argument("--register-url", help="B4: zayıf şifre politikası taraması için kayıt endpoint'i")
+    p.add_argument("--logout-url",
+                   help="B3: session lifecycle taraması (logout invalidation + JWT exp claim) "
+                        "için logout endpoint'i — verilince tetiklenir, oturumu SONLANDIRIR "
+                        "(diğer testlerden sonra çalışır)")
     p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default=None,
                    help="hipotez/enrich LLM'i; --llm-config'i override eder "
                         "(env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
