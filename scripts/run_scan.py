@@ -21,6 +21,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 from pentestai.config import load_actors, load_endpoints, load_scope_config  # noqa: E402
 from pentestai.llm import AnthropicLLMClient, GeminiLLMClient, LLMClient  # noqa: E402
 from pentestai.models import Endpoint  # noqa: E402
+from pentestai.orchestrator import Pipeline  # noqa: E402
 from pentestai.recon import HarRecon, OpenApiRecon  # noqa: E402
 from pentestai.scanner import Scanner  # noqa: E402
 
@@ -56,15 +57,23 @@ async def _run(args) -> int:
         scanner.passive(endpoints)
         return 0
 
+    pipeline = None
     try:
         sessions = await scanner.build_sessions(actor_pairs)
-        findings = await scanner.run_recon_scan(
-            sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich)
+        if args.loop:
+            pipeline = Pipeline(scanner, endpoints, max_iterations=args.max_iter, enrich=args.enrich)
+            findings = (await pipeline.run(sessions)).findings
+        else:
+            findings = await scanner.run_recon_scan(
+                sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich)
     finally:
         await scanner.aclose()
 
     run_id, root = scanner.save(findings, args.mode)
     confirmed = sum(1 for f in findings if f.verdict == "CONFIRMED")
+    if pipeline is not None:
+        print(f"[loop] {len(pipeline.transitions)} durum geçişi · "
+              f"{sum(1 for t in pipeline.transitions if t.startswith('EXPAND'))} pivot")
     print(f"[done] {len(findings)} bulgu · {confirmed} CONFIRMED · {root}")
     return 0
 
@@ -86,6 +95,10 @@ def main(argv=None) -> int:
     p.add_argument("--llm-model", help="LLM model adı (ör. gemini-3.6-flash)")
     p.add_argument("--enrich", action="store_true",
                    help="bulguları LLM ile zenginleştir (severity/impact/remediation); --llm gerekir")
+    p.add_argument("--loop", action="store_true",
+                   help="self-improving orchestrator (CONFIRMED bulgudan pivot hipotezler türet)")
+    p.add_argument("--max-iter", type=int, default=60, dest="max_iter",
+                   help="--loop için maksimum hipotez iterasyonu")
     args = p.parse_args(argv)
     return asyncio.run(_run(args))
 
