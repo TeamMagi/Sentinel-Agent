@@ -253,9 +253,26 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 | `--llm-model <ad>` | model adı (ör. `qwen3.8:27b`, `qwen2.5:14b-instruct`, `gemini-3.6-flash`) |
 | `--enrich` | bulgulara LLM ile severity/impact/remediation ekle (`--llm` gerekir) |
 | `--no-bootstrap` | per-actor own-id crawl'ını atla (id'leri config'te verdiysen) |
+| `--fail-on none\|low\|medium\|high\|critical` | CI kapısı: bu eşik ve üstünde CONFIRMED bulgu varsa çıkış kodu 2 |
+| `--baseline <önceki-findings.json>` | bilinen (aynı kök-neden+verdict) bulguları `--fail-on`'dan muaf tut — raporda sebebiyle kalır, silinmez |
 
 > 🤖 **LLM zorunlu değil.** Varsayılan `--llm none`; deterministik kural-tabanlı hipotezlerle araç
 > tam çalışır ve kanıtlı `CONFIRMED` üretir. LLM yalnızca **kapsamı ve açıklama kalitesini** artırır.
+
+### 🔌 MCP tool-server (diğer ajanlar için "deterministik hâkim")
+
+Sentinel'in `authorize→replay→oracle` çekirdeği, [Model Context Protocol](https://modelcontextprotocol.io)
+üzerinden tipli araçlar olarak açılabilir — Claude Code gibi başka bir ajan, kendi verdict'ini
+üretmek yerine Sentinel'i çağırıp deterministik kanıt alır.
+
+```bash
+pip install -e ".[mcp]"     # opsiyonel bağımlılık — mcp SDK
+sentinel-mcp --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
+```
+
+Araçlar: `list_actors`, `list_endpoints`, `probe` (keşif, verdict yok), `run_oracle`
+(authorize→replay→oracle — `verdict`'i her zaman deterministik Oracle verir), `reverify`
+(flakiness eleme). Tüm sonuçlar redaction'lıdır; MCP istemcisi asla ağa dokunmaz.
 
 ### 🧠 Local LLM (Ollama) — buluta veri çıkmadan
 

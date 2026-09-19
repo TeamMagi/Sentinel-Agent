@@ -87,7 +87,7 @@ Yerel Ollama; verdict+confidence+reason döner; **asla silmez**, `likely_fp` iş
 
 ## Dalga 3 — Konumlandırma + olgunluk
 
-### R-C3 — MCP tool-server · *(Sorumlu: Serhat · ~6s)*
+### R-C3 — MCP tool-server · *(Sorumlu: Serhat · ~6s)* ✅ tamamlandı
 `Replayer` + oracle'lar tipli **MCP araçları** olarak açılır → diğer ajanlar (Claude Code) Sentinel'i
 "deterministik hâkim" olarak çağırır. **Kabul:** `sentinel-mcp` authorize→replay→oracle'ı tipli araç
 olarak sunuyor. *(Kaynak: appsecsanta, strix)*
