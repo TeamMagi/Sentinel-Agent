@@ -7,7 +7,10 @@ rapora/evidence'a ham yazılmaz (redaction).
 import json
 
 from pentestai.agent import (
-    ConfusedDeputyOracle, DestructiveWriteOracle, ExfiltrationOracle, encoded_variants,
+    ConfusedDeputyOracle,
+    DestructiveWriteOracle,
+    ExfiltrationOracle,
+    encoded_variants,
 )
 from pentestai.agent.base import CONFIRMED, INCONCLUSIVE, REJECTED
 from pentestai.classify import assign

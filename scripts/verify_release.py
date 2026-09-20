@@ -31,7 +31,6 @@ import hashlib
 import json
 import pathlib
 import re
-import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "provenance" / "file_manifest.json"
