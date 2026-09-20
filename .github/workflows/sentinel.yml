@@ -53,6 +53,12 @@ jobs:
       - name: 0-FP negatif-ikiz kapısı
         run: python -m scripts.bench_guard
 
+      # AS-7: yer gerçeği etiketleri (benchmarks/) ve dedektör template'leri sessizce
+      # değişmiş mi? Kasıtlı değişiklikten sonra `python -m scripts.verify_release --update`
+      # çalıştırılıp manifest commit'lenmelidir. Ağsız, import'suz, yalnız stdlib.
+      - name: Sürüm bütünlüğü (manifest + linkler)
+        run: python -m scripts.verify_release
+
   dast:
     runs-on: ubuntu-latest
     needs: test
