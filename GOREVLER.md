@@ -18,7 +18,9 @@ Sorumluluklar **toplam yük eşit** olacak şekilde paylaştırılır. Atamalar 
 > **Durum (2026-09-17):** **RK turu bitti** — Serhat (RK-1, RK-3, RK-4, RK-8, RK-7, RK-11,
 > RK-13 — 27s) ve Görkem (RK-2, RK-5, RK-6, RK-9, RK-10, RK-12 — 27s) görevlerinin **tamamı**
 > tamamlandı. Yeni tur: **Dalga 5–6 (AS-1…AS-9)** — Kaggle "AI Agent Security" çözümlerinin
-> incelenmesinden çıkan görevler (**Serhat 17s / Görkem 17s**).
+> incelenmesinden çıkan görevler (**Serhat 17s / Görkem 17s**). **Serhat'ın 4 görevi (AS-1, AS-3,
+> AS-6, AS-9 — 17s) tamamlandı** (541 test yeşil, `make lint` temiz); Görkem'in AS-2/AS-4/AS-5/AS-7
+> açık.
 
 ---
 
@@ -223,12 +225,21 @@ değişmedi, yalnızca doküman. *(Kaynak: strix, appsecsanta)*
 > hedefleri; `UNTRUSTED_TO_ACTION` + `DESTRUCTIVE_WRITE` **`destructive_tests` + scope kapısı**
 > arkasında; canary sırlar sentetik, redaction zorunlu.
 
-### AS-1 — Agent hedef adaptörü + `AgentOracle` soyut tabanı · *(Sorumlu: Serhat · ~5s)*
+### ✅ AS-1 — Agent hedef adaptörü + `AgentOracle` soyut tabanı · *(Sorumlu: Serhat · ~5s)* — **tamamlandı**
 Sentinel'i bir LLM-ajan/MCP hedefine bağlayan adaptör: ajanın **trace**'inden tipli modeller
 (`ToolCall`, `AgentTrace` — çağrı adı, argümanlar, çıktının **kaynağı**) + `AgentOracle(ABC)`.
 Diğer üç predicate oracle'ı bunun üstüne kurulur. Tüm ajan trafiği `Replayer`/scope kapısından
 geçer; LLM ağa dokunmaz (değişmez §5.1). **Kabul:** sahte ajan trace'iyle ağsız test; yeni predicate
 eklemek çekirdeği değiştirmiyor; scope dışı tool çağrısı reddedilip loglanıyor. *(Kaynak: yarışma SDK'sı)*
+
+`models.ToolCall`/`AgentTrace` eklendi. `oracle/agent_base.py::AgentOracle` — `_in_scope_calls`
+her `target_url`'lü çağrıyı `PolicyEngine.authorize`'dan geçirir (POST + `destructive_tests`
+kapısı — ajan çıktısına scope kararı devredilmez); reddedilenler `logging.warning` ile loglanır,
+kanıt sayılmaz. `agentadapter/adapter.py`: `AgentAdapter(ABC)` + `HttpAgentAdapter` (hedefin
+`/invoke` uç noktasına `Replayer` üzerinden POST'lar, JSON trace'i güvenli varsayılanlarla
+ayrıştırır — bozuk alan crash etmez) + `StaticAgentAdapter` (önceden yakalanmış trace, ağsız
+replay). `tests/test_oracle_agent_base.py` (4 test) + `tests/test_agentadapter.py` (4 test),
+hepsi ağsız (`MockTransport`).
 
 ### ✅ AS-2 — `ConfusedDeputyOracle` + `DestructiveWriteOracle` · *(Sorumlu: Görkem · ~5s)* — **tamamlandı**
 **CD:** açık kullanıcı niyeti olmadan yan-etkili tool-call (ör. `email.send`) tetiklendi mi.
@@ -237,12 +248,21 @@ kanıtıyla; DW yalnızca `destructive_tests` açıkken. **Kabul:** her iki orac
 REJECTED yolları ayrı ağsız test; kullanıcı aksiyonu **açıkça istediğinde** CD REJECTED (FP kapanı).
 *(Kaynak: predicate CONFUSED_DEPUTY / DESTRUCTIVE_WRITE)*
 
-### AS-3 — `UntrustedToActionOracle` (prompt-injection → aksiyon) · *(Sorumlu: Serhat · ~6s)*
+### ✅ AS-3 — `UntrustedToActionOracle` (prompt-injection → aksiyon) · *(Sorumlu: Serhat · ~6s)* — **tamamlandı**
 **Benign kullanıcı + saldırgan kontrolündeki dış içerik** tehdit modeli (1. çözümün kapanışta
 önerdiği ayrım): güvenilmez içeriğe (`web.search`/`email.read`/tool çıktısı) gömülü yönerge
 ayrıcalıklı bir aksiyonu tetikliyor mu. **Kaynak-izleme** (hangi güvenilmez çıktı hangi aksiyonu
 besledi) kanıt olarak kaydedilir. **Kabul:** enjeksiyon→aksiyon zinciri CONFIRMED; aynı aksiyonu
 kullanıcı kendi istediğinde REJECTED; ağsız test. *(Kaynak: predicate UNTRUSTED_TO_ACTION; Agent-Sentry)*
+
+`oracle/untrusted_to_action.py::UntrustedToActionOracle(AgentOracle)`: kaynak-izleme en-uzun-
+ortak-alt-dize (≥16 karakter) ile — güvenilmez `ToolCall.output`'u ile sonraki ayrıcalıklı
+çağrının argümanları arasında örtüşme ararsa CONFIRMED (nedensellik: yalnızca ÖNCEKİ turdaki
+güvenilmez içerik sayılır). FP kapanı: aksiyonun tool ailesi (`email.send` → "email")
+`AgentTrace.user_intent`'te geçiyorsa REJECTED. `classify.py`'ye `untrusted_to_action` → CWE-829
+/ LLM01:2025 / High eklendi. `tests/test_oracle_untrusted_to_action.py` (5 test, ağsız):
+CONFIRMED · kullanıcı-istedi REJECTED · zincir-yok REJECTED · nedensellik-ters REJECTED ·
+scope-dışı aksiyon kanıt sayılmıyor.
 
 ### ✅ AS-4 — `ExfiltrationOracle` + canary sır · *(Sorumlu: Görkem · ~5s)* — **tamamlandı**
 `CanaryPlanter` (R-A1) mantığını ajana taşı: sentetik `SECRET_MARKER` canary'si dışarı giden çağrıda
@@ -261,12 +281,18 @@ kalibre ediyoruz, hiçbiri "dokunmadığımız" holdout değil → overfit'i öl
 versin. **Kabul:** holdout hedefli suite değerlendirmesi; rapor iki tabloyu ayrı gösteriyor; ağsız
 değerlendirme testi. *(Kaynak: yarışma private-LB mimarisi)*
 
-### AS-6 — Robustluk marjı (drift'e dayanıklı CONFIRMED) · *(Sorumlu: Serhat · ~3s)*
+### ✅ AS-6 — Robustluk marjı (drift'e dayanıklı CONFIRMED) · *(Sorumlu: Serhat · ~3s)* — **tamamlandı**
 1. çözümün skoru 44.5→46.5 yapan dersi: **kıl payı geçen kanıt, ortam değişince kaybolur** (llama.cpp
 sürümü logitleri 2'ye kadar kaydırıyordu). Bizde karşılığı: oracle kararın **ne kadar rahat**
 verildiğini raporlasın (kaç owner-private marker sızdı, baseline'dan ayrışma miktarı); düşük marjlı
 CONFIRMED'ler raporda **işaretlensin** (verdict değişmez). **Kabul:** `Evidence`'a marj alanı; düşük
 marj raporda görünür; marj hesabı ağsız testlerle kapsanıyor. *(Kaynak: 1. çözüm — margin > +5)*
+
+`margin.py` — `classify.py` ile aynı desen (ayrı, saf, post-hoc enrichment; `Scanner.run`/`save`
+her ikisinde de çağrılır, idempotent). `Finding.confirmation_margin` = (sızan bağımsız marker
+sayısı − 1) + (baseline'dan durum-kodu ayrışması varsa +1); `Finding.low_margin` marj ≤ 0 (yalnızca
+CONFIRMED için ZORUNLU asgari kanıtla geçti) iken True. Verdict'e dokunmaz. `render_md.py`
+düşük-marjlı bulguları "⚠ Düşük marj" satırıyla işaretler. `tests/test_margin.py` (8 test, ağsız).
 
 ### ✅ AS-7 — Sürüm bütünlüğü: dosya manifesti + `verify_release` · *(Sorumlu: Görkem · ~3s)* — **tamamlandı**
 RK-9'u (bulgu bazlı imzalı bundle) **repo/sürüm düzeyine** taşı: yayımlanan artefaktların hash
@@ -274,12 +300,22 @@ manifesti + `scripts/verify_release.py` — **ağsız, hedefsiz, yalnız stdlib*
 aritmetiğini ve yerel doküman linklerini doğrular. **Kabul:** `python -m scripts.verify_release`
 ağsız çalışıp temizde 0, bozulmuş artefaktta non-zero döner; ağsız test. *(Kaynak: 5. çözüm — provenance)*
 
-### AS-9 — Ops olgunluğu: ruff + terimler sözlüğü + `experiments/` düzeni · *(Sorumlu: Serhat · ~3s)*
+### ✅ AS-9 — Ops olgunluğu: ruff + terimler sözlüğü + `experiments/` düzeni · *(Sorumlu: Serhat · ~3s)* — **tamamlandı**
 Depoda **fiilen linter yok**. `ruff` (`E,W,F,I,UP,B,SIM`) + `make lint` + CI lint işi; `docs/sozluk.md`
 (oracle/detector/marker/verdict/canary/holdout… terim birliği); benchmark koşuları için
 `experiments/<ad>/` düzeni (tek doğruluk kaynağı: değerlendirilen konfig = koşulan konfig).
 **Kabul:** `make lint` temiz; sözlük README/DESIGN'dan linkli; CI'da lint kapısı var.
 *(Kaynak: 3. repo — harness/ops disiplini)*
+
+`pyproject.toml` `[tool.ruff]` (line-length 110 — Türkçe yorumlar; `UP045`/`UP007` bilinçli
+ignore edildi, kod tabanı baştan beri `typing.Optional`/`Union` kullanıyor, ~200 satırlık salt-
+stilistik depo-geneli diffe değmiyor — gerekçe pyproject'te). İlk koşuda 292 hata çıktı (çoğu
+import-sıralama + pyupgrade); `ruff --fix` + 9 elle-düzeltme (lambda→def, blind-except→
+`BudgetExceeded`, kullanılmayan değişken, `Detector` için B024 per-file-ignore — iki alt-aile
+`run`/`scan`'den yalnızca birini override eder, zorunlu `@abstractmethod` tasarımı bozar) sonrası
+**temiz**. `make lint` (Makefile) + CI `lint` işi (`.github/workflows/sentinel.yml`).
+`docs/sozluk.md` — DESIGN.md §2 ve README'den linkli. `experiments/README.md` — konvansiyon
+dokümante edildi. 541/541 test hâlâ yeşil (yalnızca stilistik/import değişimi, davranış aynı).
 
 ---
 
@@ -312,7 +348,7 @@ Efor açık uçlu → yük dengesine sayılmaz; Dalga 1–2 bitmeden başlanmaz.
 
 | | Dalga 5 (agent-security) | Dalga 6 (metodoloji) | Toplam |
 |---|---|---|---|
-| **Serhat** | AS-1(5) + AS-3(6) = 11 | AS-6(3) + AS-9(3) = 6 | **17 saat** |
+| **Serhat** ✅ | AS-1(5) + AS-3(6) = 11 | AS-6(3) + AS-9(3) = 6 | **17 saat — bitti** |
 | **Görkem** ✅ | AS-2(5) + AS-4(5) = 10 | AS-5(4) + AS-7(3) = 7 | **17 saat — bitti** |
 
 **Önerilen sıra:** **AS-1 önce** (adaptör + `AgentOracle` tabanı; AS-2/AS-3/AS-4 ona bağlı) → sonra
