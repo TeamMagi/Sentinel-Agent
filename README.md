@@ -242,11 +242,12 @@ target data leaves the machine):**
 | Target | Stack | Cases | Precision | Recall | FP-rate | TP/FN/FP/TN |
 |---|---|---|---|---|---|---|
 | OWASP Juice Shop | Node/Express | 7 (4 pos / 3 neg) | **100%** | **100%** | **0%** | 4/0/0/3 |
-| VAmPI | Python/Flask | 12 (4 pos / 8 neg) | 66.7% | 50% | 12.5% | 2/2/1/7 |
+| VAmPI | Python/Flask | 12 (4 pos / 8 neg) | **100%** | 50% | **0%** | 2/2/0/8 |
 
-Juice Shop's committed reference run and the exact reproduction commands are in
-**[`benchmarks/juiceshop.result.md`](benchmarks/juiceshop.result.md)**; the labelled ground truth
-for each target is in **[`benchmarks/*.expected.yaml`](benchmarks/)**.
+Each target's committed reference run and exact reproduction commands are in
+**[`benchmarks/juiceshop.result.md`](benchmarks/juiceshop.result.md)** and
+**[`benchmarks/vampi.result.md`](benchmarks/vampi.result.md)**; the labelled ground truth is in
+**[`benchmarks/*.expected.yaml`](benchmarks/)**.
 
 **Read those numbers carefully** — the point of this project is honest measurement:
 
@@ -254,15 +255,17 @@ for each target is in **[`benchmarks/*.expected.yaml`](benchmarks/)**.
   numbers are optimistic and **do not measure generalization**. The local LLM reproduces the same
   `4/0/0/3` as the committed `--llm none` reference; the LLM only widens coverage, it does not
   manufacture the verdicts.
-- **VAmPI is a second, differently-stacked target** and shows the real gap. The tool *proved* a
-  cross-user BOLA (one user reads another's private book secret) and an error-based SQLi, but it
-  **missed two** vulnerabilities on id-less endpoints the deterministic planner doesn't generate
-  hypotheses for (excessive-data on `GET /users/v1/_debug`, mass-assignment on `POST
-  /users/v1/register`) and produced **one false positive** — it confirmed IDOR on
-  `GET /users/v1/{username}`, which is actually public-by-design (an anonymous request returns the
-  same email). That single FP is exactly the kind of weakness the Juice Shop number can't reveal.
+- **VAmPI is a second, differently-stacked target** and shows the honest gap. The tool *proved* a
+  cross-user BOLA (one user reads another's private book secret) and an error-based SQLi, and it
+  cleared every negative trap (0 false positives). It still **misses two** vulnerabilities on
+  id-less endpoints the deterministic planner doesn't generate hypotheses for (excessive-data on
+  `GET /users/v1/_debug`, mass-assignment on `POST /users/v1/register`) — a coverage limit, not a
+  correctness one. Benchmarking here also surfaced a real bug: the IDOR oracle used to confirm
+  `GET /users/v1/{username}`, which is public-by-design (an anonymous request returns the same
+  email). We fixed it by adding an **anonymous-access gate** — if the "leaked" data is reachable
+  without auth, there is no authorization boundary, so it is no longer a finding.
 - **FP-rate is measured against the negative "trap" cases**, not the tool's whole output; a 0% here
-  means no trap was wrongly confirmed, not that the tool never errs — VAmPI proves it can.
+  means no trap was wrongly confirmed, not a guarantee the tool never errs.
 - Both targets are **calibrated, not holdout**. True generalization needs an untouched holdout
   target, which this suite still lacks and the reports say so rather than pretending otherwise.
 
