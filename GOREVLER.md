@@ -43,22 +43,22 @@ puan) → T3/T4 → 16–30.
 
 ## A) Dışarıya çıkmadan önce temizlenecekler
 
-### [ ] 1. Benchmark tablosunu README'den çıkar · *(Görkem · ~1s)*
+### [x] 1. Benchmark tablosunu README'den çıkar · *(Görkem · ~1s)*
 "Canlı koşum, 2026-09-16", 3 hedef / 31 vaka, precision %100, FP-rate %0, TP/FN/FP/TN dağılımı —
 **hepsi**. **Metodoloji anlatımı KALSIN** (vulnerable↔hardened ikiz mantığı, etiketlerin gerçek HTTP
 davranışından konması, FP kapanı olarak negatif vakalar); **rakam gitsin**. Gerçek koşum çıkınca geri
 konur; o zaman en güçlü koz olur.
 
-### [ ] 2. Badge'lerden test sayısını sil · *(Görkem · ~0.5s)*
+### [x] 2. Badge'lerden test sayısını sil · *(Görkem · ~0.5s)*
 **Durum:** README satır 10 → `tests-541 passing`; proje yapısındaki "(276 test)" ile çelişiyor ve
 her koşumda eskiyor. Badge tamamen kalkacak.
 
-### [ ] 3. Tarihli / sürümlü iddiaları gözden geçir · *(Görkem · ~1.5s)*
+### [x] 3. Tarihli / sürümlü iddiaları gözden geçir · *(Görkem · ~1.5s)*
 `OWASP Juice Shop (v20.2.0)`, `VAmPI (vulnerable=1)`, `crAPI (main)` sürüm etiketleri **ve**
 "VAmPI e-posta güncelleme yalnızca kendi hesabını değiştirir", "crAPI mechanic_report POST = 405"
 gibi gözlem cümleleri de birer **ölçüm iddiasıdır**. Gerçekten koşulana kadar dursun.
 
-### [ ] 4. `make demo` çıktı örneğini kaldır · *(Görkem · ~0.5s)*
+### [x] 4. `make demo` çıktı örneğini kaldır · *(Görkem · ~0.5s)*
 `[done] 6 bulgu · 1 CONFIRMED · runs/run-.../` satırı gerçek bir demo çıktısı gibi duruyor. Gerçek
 çıktı alınana kadar çıkarılmalı.
 
@@ -70,7 +70,7 @@ Kalan iş: görüntülerin **güncel arayüzü** gösterdiğini doğrulamak; gö
 
 ## B) Dil
 
-### [ ] 6. README **İNGİLİZCE** olacak · *(Görkem · ~4s)*
+### [x] 6. README **İNGİLİZCE** olacak · *(Görkem · ~4s)*
 Jüri Amazon, U.S. Bank, Corteva, Blue Cross Blue Shield tarafından; hiçbiri Türkçe okumayacak.
 Bu maddeyi 10/11/13/16/17/18/19 ile **tek geçişte** yap (README'yi iki kez yazma).
 
@@ -91,17 +91,17 @@ Commit mesajları, `CLAUDE.md`, `DESIGN.md` Türkçe kalır — bunlar jüriye g
 > Puanlama kriteri: *"How intuitive, accessible, and practical is the solution for its intended
 > users?"* — **şu an en zayıf eksen.** Bu blok en çok puan getiren bloktur.
 
-### [ ] 10. README'nin ilk ekranı `make demo` + panel ekran görüntüsü olsun · *(Görkem · ~1.5s)*
+### [x] 10. README'nin ilk ekranı `make demo` + panel ekran görüntüsü olsun · *(Görkem · ~1.5s)*
 Şu an okuyan önce Docker, WSL2 ve üç YAML dosyası görüyor.
 
-### [ ] 11. "Neden WSL2 + Docker" bölümünü README'den çıkar · *(Görkem · ~1s)*
+### [x] 11. "Neden WSL2 + Docker" bölümünü README'den çıkar · *(Görkem · ~1s)*
 `docs/gelistirme-ortami.md`'ye taşı (**dosya henüz yok, oluşturulacak**); OneDrive tuzağı notu da
 oraya. Doğru bilgi ama okuyana "bu araç zor" diyor.
 
 ### [ ] 12. `cp config/*.example.yaml` adımlarını demo yolundan kaldır · *(Serhat · ~2.5s)*
 `make demo` **kendi config'ini üretmeli**; kullanıcı hiçbir dosya kopyalamamalı. (Kod işi.)
 
-### [ ] 13. Web panelini ön kapı yap, CLI'ı ikinci bölüme al · *(Görkem · ~1s)*
+### [x] 13. Web panelini ön kapı yap, CLI'ı ikinci bölüme al · *(Görkem · ~1s)*
 Şu an tersi. README yapısıyla birlikte (madde 6/10) yapılır.
 
 ### [ ] 14. Panel ilk açılışta örnek scope üretsin · *(Serhat · ~2s)*
@@ -116,22 +116,22 @@ açar, kanıtı görür. (Redaksiyonlu, gerçek bir koşumdan.)
 
 ## D) Konumlandırma · *(tamamı Görkem — README sahipliği)*
 
-### [ ] 16. Özgünlük iddiasını daralt · *(Görkem · ~1.5s)*
+### [x] 16. Özgünlük iddiasını daralt · *(Görkem · ~1.5s)*
 Differential authorization testing yeni değil: **Burp Autorize, AuthMatrix** ve README'de kendi
 referans verdiğiniz **AuthProbe**. Yeni olan üç şeyi öne al:
 1. deterministik **leaked-marker** ile verdict,
 2. **kurcalamaya-dayanıklı imzalı kanıt paketi**,
 3. **MCP** üzerinden başka ajanlara **kanıt motoru** olmak.
 
-### [ ] 17. Dedektör tablolarını README'nin dibine indir · *(Görkem · ~1s)*
+### [x] 17. Dedektör tablolarını README'nin dibine indir · *(Görkem · ~1s)*
 12 oracle + 20 dedektör listesi "bu ZAP klonu mu?" sorusunu davet ediyor ve gerçek farkı gömüyor.
 
-### [ ] 18. Etki hikâyesini son kullanıcıya bağla · *(Görkem · ~1s)*
+### [x] 18. Etki hikâyesini son kullanıcıya bağla · *(Görkem · ~1s)*
 Jürinin tema örnekleri tüketici tarafında (phishing, siber zorbalık, gizlilik); sizinki geliştirici
 aracı. **IDOR'un sıradan insanların sipariş / sağlık / mesaj verisinin sızma yolu olduğunu** somut
 bir ihlal örneğiyle **bir paragrafta** anlat.
 
-### [ ] 19. Kapsam sprawl'ını kes · *(Görkem · ~1s)*
+### [x] 19. Kapsam sprawl'ını kes · *(Görkem · ~1s)*
 Agent-security oracle'ları, template ekosistemi, sürüm bütünlüğü doğrulama, holdout → **vizyon
 dosyasında kalsın**; README'de "yol haritası" başlığı altında **tek satır** olsun.
 
@@ -139,25 +139,25 @@ dosyasında kalsın**; README'de "yol haritası" başlığı altında **tek sat�
 
 ## E) İç tutarlılık · *(tamamı Görkem)*
 
-### [ ] 20. `UntrustedToActionOracle` çelişkisini gider · *(Görkem · ~0.5s)*
+### [x] 20. `UntrustedToActionOracle` çelişkisini gider · *(Görkem · ~0.5s)*
 **Durum (doğrulandı):** README **satır 113** oracle tablosunda **uygulanmış** olarak listeli,
 **satır 147** agent-predicate tablosunda "*(yol haritasında)*" diyor. **Gerçek durum: UYGULANDI**
 (AS-3 bitti → `src/pentestai/oracle/untrusted_to_action.py`). → **satır 147 düzeltilecek**,
 satır 113 kalacak.
 
-### [ ] 21. Model isimlerini doğrula · *(Görkem · ~0.5s)*
+### [x] 21. Model isimlerini doğrula · *(Görkem · ~0.5s)*
 `qwen3.8:27b` (README 299/375/384/392 + `config/llm.example.yaml`) ve `gemini-3.6-flash`.
 **Var olmayan model adı, model tarafını bilen bir jüride kötü durur** — `ollama list` çıktısıyla ve
 sağlayıcı dokümanıyla birebir doğrula.
 
-### [ ] 22. Kod-dışı referansları kontrol et · *(Görkem · ~1s)*
+### [x] 22. Kod-dışı referansları kontrol et · *(Görkem · ~1s)*
 `DESIGN.md §5`, `docs/rakip-analizi-agent-security-2026-09.md`, `docs/sozluk.md`, `SECURITY.md`,
 `LICENSE §5`. **Durum:** bu beşinin hepsi artık **VAR** (`docs/sozluk.md` AS-9 ile eklendi) —
 `scripts/verify_release.py` yerel Markdown linklerini zaten kontrol ediyor, kırık link yok.
 Kalan iş: **bölüm numaralarının** (`DESIGN.md §5`, `LICENSE §5`) gerçekten o bölüme denk geldiğini
 doğrulamak. Olmayan dosyaya/bölüme link vermeyin.
 
-### [ ] 23. "Stage 0 / 1 / 2" tablosunu gerçekleşenle eşle · *(Görkem · ~0.5s)*
+### [x] 23. "Stage 0 / 1 / 2" tablosunu gerçekleşenle eşle · *(Görkem · ~0.5s)*
 Yarışma sonunda Stage 0 bitmişse tabloda öyle görünsün.
 
 ---
@@ -207,7 +207,7 @@ verdict → evidence + tek rapor.
 Aynı oracle'ın, yetkilendirmesi düzgün bir endpoint'te **REJECTED** demesi.
 **Kabul:** aynı oracle, aynı koşum, iki hedef → biri CONFIRMED biri REJECTED.
 
-### [ ] T3. LLM'siz hipotez üretimi (kapsam genişletme) · *(Görkem · ~5s)*
+### [x] T3. LLM'siz hipotez üretimi (kapsam genişletme) · *(Görkem · ~5s)*
 - path şablonundan çıkarım (`{id}`, `{uid}` segmentleri)
 - OpenAPI/HAR'dan tip bilgisi (integer/uuid parametreler)
 - bootstrap crawl'dan öğrenilen **id havuzu**
@@ -215,7 +215,7 @@ Aynı oracle'ın, yetkilendirmesi düzgün bir endpoint'te **REJECTED** demesi.
 
 **Kabul:** `--llm none` ile hipotez üretimi çalışır (madde 24'ün üçüncü karesi buna dayanır).
 
-### [ ] T4. Küçük ama **GERÇEK** benchmark · *(Görkem · ~3s)*
+### [x] T4. Küçük ama **GERÇEK** benchmark · *(Görkem · ~3s)*
 Juice Shop üstünde **5–6 etiketli vaka**, yarısı pozitif yarısı negatif.
 **Küçük ve gerçek, büyük ve boştan iyidir.** (Madde 1'de çıkarılan tablonun yerine bu konur.)
 
