@@ -8,6 +8,7 @@ import pytest
 from pentestai.detector.session_lifecycle import SessionLifecycleDetector
 from pentestai.models import Actor, AuthState, Scope
 from pentestai.net import Replayer, SessionStore
+from pentestai.oracle.base import INCONCLUSIVE
 from pentestai.policy import PolicyEngine
 
 BASE = "http://localhost:3000"
@@ -34,13 +35,37 @@ async def test_logout_invalidation_confirmed_when_token_still_works():
     def handler(request):
         if request.url.path == "/logout":
             return httpx.Response(200, json={"status": "ok"})
-        return httpx.Response(200, json={"secret": "still here"})   # logout sonrası da 200
+        if "authorization" in request.headers:
+            return httpx.Response(200, json={"secret": "still here"})   # logout sonrası da 200
+        return httpx.Response(403, json={"error": "forbidden"})   # anonim erişim GERÇEKTEN kapalı
 
     store, detector = _setup(handler)
     session = store.create(Actor(name="user_A", auth=AuthState(headers={"Authorization": "Bearer T"})))
+    anon = store.create(Actor(name="anonymous", role="anonymous"))
     findings = await detector.check_logout_invalidation(
-        session, f"{BASE}/logout", f"{BASE}/api/profile")
+        session, f"{BASE}/logout", f"{BASE}/api/profile", anon_session=anon)
     assert len(findings) == 1 and findings[0].verdict == "CONFIRMED"
+    assert findings[0].evidence.negative_control is True
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_logout_invalidation_inconclusive_when_endpoint_is_public():
+    # protected_url tasarımca public — anonim istek de 200 döner. Negatif kontrol başarısız
+    # olmalı ve "hâlâ 200" sinyali yanlış CONFIRMED üretmemeli (bkz. kod-tarama-raporu.md #1).
+    def handler(request):
+        if request.url.path == "/logout":
+            return httpx.Response(200, json={"status": "ok"})
+        return httpx.Response(200, json={"products": []})   # her zaman 200, auth'tan bağımsız
+
+    store, detector = _setup(handler)
+    session = store.create(Actor(name="user_A", auth=AuthState(headers={"Authorization": "Bearer T"})))
+    anon = store.create(Actor(name="anonymous", role="anonymous"))
+    findings = await detector.check_logout_invalidation(
+        session, f"{BASE}/logout", f"{BASE}/rest/products/search", anon_session=anon)
+    assert len(findings) == 1
+    assert findings[0].verdict == INCONCLUSIVE
+    assert findings[0].evidence.negative_control is False
     await store.aclose_all()
 
 
