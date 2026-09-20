@@ -24,4 +24,4 @@ verify:
 
 # AS-9: ruff (E,W,F,I,UP,B,SIM — bkz. pyproject.toml [tool.ruff]). Ağsız, hedefsiz.
 lint:
-	ruff check .
+	$(PYTHON) -m ruff check .
