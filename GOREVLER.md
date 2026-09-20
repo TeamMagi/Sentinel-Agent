@@ -14,6 +14,10 @@
 Sorumluluklar **toplam yük eşit** olacak şekilde paylaştırıldı (**Serhat 27s / Görkem 27s**).
 Atamalar değiştirilebilir — önemli olan yükün dengeli kalması.
 
+> **Durum (2026-09-17):** Serhat'ın tüm görevleri (**RK-1, RK-3, RK-4, RK-8, RK-7, RK-11,
+> RK-13 — 27s**) bitti, 484 test yeşil. Görkem'in görevleri (RK-2, RK-5, RK-6, RK-9, RK-10,
+> RK-12 — 27s) bu turun kapsamı dışında bırakıldı.
+
 ---
 
 ## Tamamlananlar (temizlendi)
@@ -71,12 +75,15 @@ Atamalar değiştirilebilir — önemli olan yükün dengeli kalması.
 
 ## Dalga 1 — Güven + kanıt motoru *(en yüksek getiri)*
 
-### RK-1 — Write→verify→restore→verify güvenli-yazma döngüsü · *(Sorumlu: Serhat · ~6s)*
-`StateChangingOracle`'a güvenli-yazma protokolü: operatör-onaylı test değeri **yaz** → yazıldığını
-**doğrula** → **geri al** → geri alındığını **doğrula**; yarıda kalırsa `recovery_state` kaydet;
-state-changing'de otomatik retry yasak (§10.11). `CanaryPlanter` ile birleşir. **Kabul:** Juice
-Shop'ta güvenli yazma-authz testi çalışır, mutasyon her koşumda geri alınır, ağsız testte
-restore-doğrulama yolu kapsanır. *(Kaynak: OpenBOLA)*
+### ✅ RK-1 — Write→verify→restore→verify güvenli-yazma döngüsü · *(Sorumlu: Serhat · ~6s)* — **tamamlandı**
+`StateChangingOracle.run()` artık mutasyon tespit edilince (verdict'ten bağımsız) kurbanın
+objesini kendi session'ıyla eski haline döndürüp okuyarak doğruluyor (`_restore_if_mutated`).
+DELETE'te otomatik geri alma yok (kaynağı yeniden yaratacak genel yol yok) → `Evidence.
+recovery_state`'e orijinal gövde kaydediliyor; PUT/PATCH/POST'ta restore yazması/doğrulaması
+başarısız olursa da aynı şekilde. `CanaryPlanter.generate_value()` ile birleşti: canary_planter
+enjekte edilirse sabit sentinel (8931) yerine paylaşılan rastgele/tahmin-edilemez değer
+kullanılıyor. `tests/test_oracle_state_change.py`: restore-başarı, DELETE recovery_state,
+restore-hatası ve canary-entegrasyonu yolları ağsız kapsandı. *(Kaynak: OpenBOLA)*
 
 ### RK-2 — JUnit XML + CSV reporter'ları · *(Sorumlu: Görkem · ~3s)*
 Mevcut `Reporter` ABC'sine iki alt sınıf: `report/render_junit.py` (CI test-paneli) +
@@ -84,11 +91,14 @@ Mevcut `Reporter` ABC'sine iki alt sınıf: `report/render_junit.py` (CI test-pa
 **Kabul:** `runs/<id>/` altında `junit.xml` + `report.csv`; GitHub/GitLab test sekmesi bulguları
 gösteriyor; ağsız render testi geçiyor. *(Kaynak: OpenBOLA, StackHawk)*
 
-### RK-3 — GraphQL BOLA oracle'ı (verdict üreten) · *(Sorumlu: Serhat · ~5s)*
-`recon/graphql.py` aday sorgu üretiyor ama verdict vermiyor. `GraphqlBolaOracle`: iki aktörle
-`build_query()` gövdesini koşup leaked-marker/differential uygular (verdict yalnız Oracle'dan).
-**Kabul:** GraphQL hedefte `id`-argümanlı sorguda CONFIRMED/REJECTED yolu ayrı ayrı test edilir.
-*(Kaynak: Escape)*
+### ✅ RK-3 — GraphQL BOLA oracle'ı (verdict üreten) · *(Sorumlu: Serhat · ~5s)* — **tamamlandı**
+`oracle/graphql_bola.GraphqlBolaOracle`: `recon/graphql.py`'nin bulduğu (field, id_arg)
+adaylarını iki aktörle koşup IdorOracle'la aynı 3-kontrol + leaked-marker disiplinini uygular.
+GraphQL'e özgü "erişim yok" biçimlerini (HTTP 200 + `errors` ya da `data.<field>: null`) status
+koduna güvenmeden tanır; sorgu GET+`?query=` ile gider (introspection'daki desenle aynı —
+salt-okunur, `destructive_tests` gerektirmez). `Scanner.discover_more` bulunan adayları otomatik
+test ediyor. `tests/test_oracle_graphql_bola.py` (5 test) + `classify.py`'ye `graphql_bola`
+eklendi (eksikti, düzeltildi). *(Kaynak: Escape)*
 
 ### ✅ RK-4 — Çift-yönlü 2×2 yetki matrisi (oracle koşumu) · *(Sorumlu: Serhat · ~4s)* — **tamamlandı**
 Doğrulandı: `Scanner.run_hypotheses`'ın `idor`/`state_change_authz`/`method_bypass`/`stored_xss`
@@ -119,30 +129,40 @@ R-B2'yi tamamla: yalnız URL'de değil **gövde/ikinci-el lookup'taki** obje id'
 `resource_key` çakışması (sürümlü path'ler) da burada çözülür. **Kabul:** gövdedeki obje id'sinde
 IDOR CONFIRMED testi geçiyor; UUID id yolu kapsanıyor. *(Kaynak: StingrAI)*
 
-### RK-8 — Provider adapter'ları (modern backend keşfi) · *(Sorumlu: Serhat · ~5s)*
-`recon/` altında opsiyonel adaptörler: Hasura / Supabase / PostgREST / Firebase trafiğinden
-**normalize envanter** → own-object bootstrap'ı güçlendirir. Adaptör etiketi yalnız gözlenen
-kanıtı tanımlar (protokol iddiası değil). **Kabul:** en az bir backend için gözlenen trafikten
-endpoint/obje envanteri çıkarılıyor; ağsız test. *(Kaynak: OpenBOLA)*
+### ✅ RK-8 — Provider adapter'ları (modern backend keşfi) · *(Sorumlu: Serhat · ~5s)* — **tamamlandı**
+`recon/providers.py`: `ProviderAdapter` (ABC) + `PostgrestAdapter`/`SupabaseAdapter`/
+`HasuraAdapter`/`FirebaseAdapter`. Her biri yalnızca GERÇEKTEN gözlenen bir imza (OpenAPI
+şeması, GoTrue health, Hasura `/v1/version` şekli, Firebase RTDB host+`.json`) varsa evidence
+döner; PostgREST/Supabase tablo envanterini kendi şemasından okur (tahmin değil).
+`Scanner.discover_more` bulunan envanteri endpoint listesine ekliyor. `tests/
+test_recon_providers.py` (10 test, ağsız). *(Kaynak: OpenBOLA)*
 
 ---
 
 ## Dalga 3 — Benimsenme / konumlandırma / gizlilik
 
-### RK-7 — Raporda opak handle'lar · *(Sorumlu: Serhat · ~2s)*
-Aktör adı/id yerine opak takma-ad (`identity-1`, `obj-7f…`) — redaksiyonun üstüne bir gizlilik
-katmanı (rapor paylaşılınca kimlik sızmaz). **Kabul:** rapor/HTML'de gerçek aktör adı/ham id yok,
-eşleme tablosu yalnız yerelde. *(Kaynak: OpenBOLA)*
+### ✅ RK-7 — Raporda opak handle'lar · *(Sorumlu: Serhat · ~2s)* — **tamamlandı**
+`report/anonymize.HandleAnonymizer`: aktör adlarını `identity-N`'e, bilinen kaynak id'lerini
+`obj-<hash6>`'a çevirir (kelime-sınırı korumalı regex — kısa id'ler alakasız sayılara
+karışmaz); eşleme yalnızca bellekte, hiçbir yere yazılmaz. `Scanner.save(anon_handles=True)`
+(CLI `--anon-handles`) yalnızca Markdown/HTML'e uygular — `findings.json`/SARIF/proof gerçek
+veriyle kalır (CI/replay bozulmaz). HtmlReporter'ın gömdüğü yapısal `json_body` de ayrıca
+temizlendi. `tests/test_report_anonymize.py` + `tests/test_scanner_anon.py` (uçtan uca).
+*(Kaynak: OpenBOLA)*
 
 ### RK-10 — "0-FP negative-twin" regresyon paketi · *(Sorumlu: Görkem · ~4s)*
 Benchmark'taki "vulnerable↔hardened ikiz" setini **CI regresyon paketi** olarak ürünleştir →
 kullanıcı kendi pipeline'ında "FP hâlâ 0 mı?" diye koşar. **Kabul:** `make bench-guard` (veya CI
 job) negatif-ikiz vakalarında yanlış CONFIRMED çıkarsa kırmızıya döner. *(Kaynak: AuthProbe; net-yeni)*
 
-### RK-11 — Air-gap / gizlilik modu · *(Sorumlu: Serhat · ~3s)*
-`--offline`/gizlilik modu: dışa **hiç** ağ yok (hedef dışı), telemetri yok; LLM yalnız yerel Ollama'ya
-izinli. "Hedef verisi makineden çıkmaz" garantisini resmîleştir. **Kabul:** modda bulut LLM/dış istek
-denemesi bloklanıp loglanıyor; ağsız test kanıtlıyor. *(Kaynak: Akto, OpenBOLA; net-yeni)*
+### ✅ RK-11 — Air-gap / gizlilik modu · *(Sorumlu: Serhat · ~3s)* — **tamamlandı**
+`airgap.AirgapPolicy` (saf karar kapısı — `PolicyEngine.authorize` gibi): CLI `--offline`
+verilince `_build_llm` bulut sağlayıcıyı (gemini/anthropic) istemci kurulmadan ÖNCE
+`AirgapViolation` ile reddeder + loglar (fail-closed); yalnızca yerel Ollama/LLM'siz koşuma
+izin verir. Asıl sızıntı yüzeyi LLM client'ların kendi httpx/SDK bağlantısıydı (Replayer/
+PolicyEngine'den hiç geçmiyor) — hedefe giden trafik zaten scope'la sınırlıydı. Telemetri kod
+tabanında hiç yoktu (arandı, doğrulandı) — bayrak bu boşluğu resmîleştiriyor. `tests/
+test_airgap.py` (9 test, ağsız). *(Kaynak: Akto, OpenBOLA; net-yeni)*
 
 ### RK-12 — Nuclei-tarzı topluluk template ekosistemi · *(Sorumlu: Görkem · ~6s)*
 Dedektör ailesini bir **YAML template formatına** aç → topluluk yeni imza/misconfig ekler, çekirdek
@@ -150,11 +170,11 @@ kod değişmeden breadth büyür. `detector/` bir `TemplateDetector` ile templat
 az bir dedektör template'ten sürülüyor; kötü template güvenle eleniyor (tarama çökmez); ağsız test.
 *(Kaynak: Nuclei; net-yeni)*
 
-### RK-13 — MCP "deterministik hâkim" konumlandırma · *(Sorumlu: Serhat · ~2s)*
-MCP tool-server bizde var ama pazarlanmıyor; sektörde en hızlı büyüyen kalıp ve rakiplerde yok.
-README/demo'ya "diğer AI ajanlarının kanıt motoru" hikâyesi + bir **"Claude Code + sentinel-mcp"**
-örnek akışı ekle. **Kabul:** çalışan örnek akış + docs bölümü; kod değişmez (doküman/demo).
-*(Kaynak: strix, appsecsanta)*
+### ✅ RK-13 — MCP "deterministik hâkim" konumlandırma · *(Sorumlu: Serhat · ~2s)* — **tamamlandı**
+README'nin MCP tool-server bölümüne konumlandırma anlatısı (XBOW/Strix tarzı ajanik araçların
+zero-FP garantisi veremediği yer) + çalışan bir **"Claude Code + sentinel-mcp"** örnek akışı
+eklendi (`claude mcp add` / `.mcp.json` + `list_actors`→`run_oracle` örnek diyaloğu). Kod
+değişmedi, yalnızca doküman. *(Kaynak: strix, appsecsanta)*
 
 ---
 
@@ -171,7 +191,7 @@ Efor açık uçlu → yük dengesine sayılmaz; Dalga 1–2 bitmeden başlanmaz.
 
 | | Dalga 1 | Dalga 2 | Dalga 3 | Toplam |
 |---|---|---|---|---|
-| **Serhat** | RK-1(6) + RK-3(5) + RK-4(4) = 15 | RK-8(5) = 5 | RK-7(2) + RK-11(3) + RK-13(2) = 7 | **27 saat** |
+| **Serhat** ✅ | RK-1(6) + RK-3(5) + RK-4(4) = 15 | RK-8(5) = 5 | RK-7(2) + RK-11(3) + RK-13(2) = 7 | **27 saat — bitti** |
 | **Görkem** | RK-2(3) + RK-9(4) = 7 | RK-5(5) + RK-6(5) = 10 | RK-10(4) + RK-12(6) = 10 | **27 saat** |
 
 **Önerilen sıra:** Dalga 1 önce (write-restore güvenlik döngüsü + JUnit/CSV CI çıktıları + GraphQL
