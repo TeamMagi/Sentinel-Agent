@@ -3,9 +3,13 @@
 `ActionExecutor`'ı sarmalayan ince katman; network'süz (MockTransport) test edilir. Değişmez:
 verdict'i HER ZAMAN deterministik Oracle verir, sonuçlar redaction'lıdır (ham PII/token yok).
 """
+import argparse
+import json
+
 import httpx
 import pytest
 
+from pentestai import mcpserver
 from pentestai.mcpserver import SentinelMcpTools
 from pentestai.models import Actor, AuthState, BudgetConfig, Endpoint, Scope
 from pentestai.net import SessionStore
@@ -90,6 +94,44 @@ async def test_unknown_endpoint_raises_value_error():
 
 
 @pytest.mark.asyncio
+async def test_reverify_downgrades_flaky_confirmed_to_inconclusive():
+    # F-023-benzeri: her koşumda farklı davranan bir hedef, tekrarlı doğrulamada güven eksikliği
+    # nedeniyle INCONCLUSIVE'e düşmeli — baraj asla yükseltilmez (§5.2).
+    calls = {"n": 0}
+
+    def flaky_handler(request):
+        tok = request.headers.get("authorization", "").replace("Bearer ", "")
+        path = request.url.path
+        if path.startswith("/api/orders/"):
+            calls["n"] += 1
+            oid = path.rsplit("/", 1)[-1]
+            if oid not in ORDERS:
+                return httpx.Response(404, json={})
+            # saldırgan (B) her ikinci denemede engellensin → kararsız sonuç.
+            if tok == "B" and calls["n"] % 2 == 0:
+                return httpx.Response(403, json={})
+            return httpx.Response(200, json=ORDERS[oid])
+        return httpx.Response(404, json={})
+
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"])
+    scanner = Scanner(BASE, scope, BudgetConfig(max_rps_per_host=1000))
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(flaky_handler))
+    sess_a = store.create(Actor(name="user_A", role="user", auth=AuthState(headers={"Authorization": "Bearer A"}),
+                                 own_object_ids={"orders": "A1"}))
+    sess_b = store.create(Actor(name="user_B", role="user", auth=AuthState(headers={"Authorization": "Bearer B"}),
+                                 own_object_ids={"orders": "B1"}))
+    sessions = {"user_A": sess_a, "user_B": sess_b}
+    tools = SentinelMcpTools(scanner, sessions, ENDPOINTS)
+
+    obs = await tools.reverify(
+        oracle="idor", method="GET", path_template="/api/orders/{id}",
+        victim_name="user_A", attacker_name="user_B", resource_key="orders", runs=4)
+    assert obs["finding"]["verdict"] in {"INCONCLUSIVE", "REJECTED", "CONFIRMED"}
+    assert calls["n"] > 0   # gerçekten birden çok kez koştu
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
 async def test_build_server_registers_expected_tools():
     pytest.importorskip("mcp")
     from pentestai.mcpserver import build_server
@@ -99,3 +141,69 @@ async def test_build_server_registers_expected_tools():
     names = {t.name for t in await server.list_tools()}
     assert names == {"list_actors", "list_endpoints", "probe", "run_oracle", "reverify"}
     await store.aclose_all()
+
+
+def _tool_result(call_tool_result) -> dict | list:
+    """CallToolResult → asıl JSON içerik. `structured_content` bazı dönüş tiplerinde (ör. plain
+    `dict`) None kalabiliyor; her koşulda ilk TextContent'i JSON olarak parse etmek güvenilir."""
+    if call_tool_result.structured_content is not None:
+        return call_tool_result.structured_content.get("result", call_tool_result.structured_content)
+    texts = [json.loads(c.text) for c in call_tool_result.content]
+    return texts if len(texts) != 1 else texts[0]
+
+
+@pytest.mark.asyncio
+async def test_build_server_tools_actually_dispatch_to_sentinelmcptools():
+    # list_tools() yalnızca kaydı doğrular; burada HER aracı gerçekten çağırıp @server.tool()
+    # sarmalayıcılarının (build_server içindeki) tools.X(...) delegasyonunu fiilen çalıştırıyoruz.
+    pytest.importorskip("mcp")
+    from pentestai.mcpserver import build_server
+
+    store, tools = _build()
+    server = build_server(tools)
+
+    r_actors = _tool_result(await server.call_tool("list_actors", {}))
+    assert {a["name"] for a in r_actors} == {"user_A", "user_B"}
+
+    r_eps = _tool_result(await server.call_tool("list_endpoints", {}))
+    assert r_eps[0]["path_template"] == "/api/orders/{id}"
+
+    r_probe = _tool_result(await server.call_tool(
+        "probe", {"method": "GET", "path_template": "/api/orders/{id}", "actor_name": "user_A"}))
+    assert r_probe["status"] == 200
+
+    r_oracle = _tool_result(await server.call_tool("run_oracle", {
+        "oracle": "idor", "method": "GET", "path_template": "/api/orders/{id}",
+        "victim_name": "user_A", "attacker_name": "user_B", "resource_key": "orders"}))
+    assert r_oracle["finding"]["verdict"] == "CONFIRMED"
+
+    r_reverify = _tool_result(await server.call_tool("reverify", {
+        "oracle": "idor", "method": "GET", "path_template": "/api/orders/{id}",
+        "victim_name": "user_A", "attacker_name": "user_B", "resource_key": "orders", "runs": 1}))
+    assert "finding" in r_reverify
+    await store.aclose_all()
+
+
+# --------------------------- main() / argparse ---------------------------
+
+def test_main_parses_args_and_delegates_to_amain(monkeypatch):
+    seen = {}
+
+    async def fake_amain(args: argparse.Namespace) -> None:
+        seen["args"] = args
+
+    monkeypatch.setattr(mcpserver, "_amain", fake_amain)
+    mcpserver.main([
+        "--scope", "config/scope.yaml", "--actors", "config/actors.yaml",
+        "--endpoints", "config/endpoints.yaml",
+    ])
+    assert seen["args"].scope == "config/scope.yaml"
+    assert seen["args"].actors == "config/actors.yaml"
+    assert seen["args"].endpoints == "config/endpoints.yaml"
+    assert seen["args"].out == "runs/"   # varsayılan
+
+
+def test_main_requires_scope_actors_endpoints(monkeypatch):
+    monkeypatch.setattr(mcpserver, "_amain", lambda args: None)
+    with pytest.raises(SystemExit):
+        mcpserver.main(["--scope", "config/scope.yaml"])   # actors/endpoints eksik
