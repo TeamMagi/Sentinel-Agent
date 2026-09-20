@@ -5,6 +5,7 @@ Network'süz (CLAUDE.md §6): httpx.MockTransport ile.
 import httpx
 import pytest
 
+from pentestai.auth.browser import BrowserAuthProvider
 from pentestai.auth.provider import TokenAuthProvider, build_auth_provider
 from pentestai.models import Scope
 from pentestai.net.replay import ScopeError
@@ -106,6 +107,19 @@ async def test_build_auth_provider_wires_policy_and_transport_for_token_type():
     )
     state = await provider.acquire()
     assert state.headers == {"Authorization": "Bearer wired"}
+
+
+def test_build_auth_provider_wires_browser_type():
+    provider = build_auth_provider(
+        {"type": "browser", "login_url": f"{BASE}/login",
+         "credentials": {"email": "a@test.local", "password": "x"},
+         "mfa_totp_secret": "JBSWY3DPEHPK3PXP", "headless": False},
+        policy=PolicyEngine(_scope()),
+    )
+    assert isinstance(provider, BrowserAuthProvider)
+    assert provider.login_url == f"{BASE}/login"
+    assert provider.mfa_totp_secret == "JBSWY3DPEHPK3PXP"
+    assert provider.headless is False
 
 
 @pytest.mark.asyncio
