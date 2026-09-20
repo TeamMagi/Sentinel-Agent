@@ -51,6 +51,11 @@ async def _run(args) -> int:
 
 
 def main(argv=None) -> int:
+    # Windows konsolu (varsayılan cp125x) ✅/🚨/❌ gibi karakterleri kodlayamayıp çöküyor;
+    # Docker/WSL2'de zaten UTF-8 olduğu için orada no-op.
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     p = argparse.ArgumentParser(prog="bench_guard",
                                 description="0-FP negatif-ikiz regresyon kapısı (RK-10)")
     p.add_argument("--out", help="bench_guard.md çıktısı için dizin")
