@@ -16,18 +16,21 @@ _The LLM reasons. A deterministic engine decides._
 
 ---
 
-## Try it in one command
+## Try it
 
-**No time to install anything?** Download [`docs/sample-report.html`](docs/sample-report.html) and
-open it in a browser — a real, redacted static report from an actual scan against OWASP Juice Shop
-(4 `CONFIRMED` findings, evidence and all). No server, no build step, just a double-click.
+**Zero install — just look at the output.** Download
+[`docs/sample-report.html`](docs/sample-report.html) and open it in a browser: a real, redacted
+report from an actual scan against OWASP Juice Shop (4 `CONFIRMED` findings, evidence and all). No
+server, no build step, just a double-click.
+
+**Run the whole thing yourself** (needs Docker Compose):
 
 ```bash
 make demo
 ```
 
 That boots a deliberately vulnerable target, creates two real user accounts, runs the scan and
-writes a report you can open in a browser. Then:
+writes a report you can open in a browser. Then explore the findings in the control panel:
 
 ```bash
 python -m scripts.serve_ui        # → http://127.0.0.1:8787
