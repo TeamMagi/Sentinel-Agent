@@ -57,6 +57,13 @@ def test_id_type_from_openapi_schema():
     assert IdTypeInferrer.from_openapi_schema(None) == UNKNOWN
 
 
+def test_id_type_from_openapi_schema_unhandled_type_is_unknown():
+    # "boolean"/"array"/"object" gibi ne integer ne string olan tipler → UNKNOWN'a düşer
+    # (bilinmeyen bir OpenAPI tipini sessizce STRING/INTEGER sanmak yanlış bogus id üretirdi).
+    assert IdTypeInferrer.from_openapi_schema({"type": "boolean"}) == UNKNOWN
+    assert IdTypeInferrer.from_openapi_schema({}) == UNKNOWN
+
+
 def test_bogus_id_is_format_valid_per_type():
     # Tipe uygun bogus: biçim GEÇERLİ olmalı ki sunucu 400 "malformed" değil 404 yoluna girsin.
     assert IdTypeInferrer.from_value(IdTypeInferrer.bogus_for(UUID)) == UUID
@@ -203,6 +210,14 @@ def test_learner_honors_exclude_list():
 
 def test_learner_returns_empty_for_non_json_body():
     assert SchemaMarkerLearner().learn(NormalizedResponse(status=200, body_text="plain")) == []
+
+
+def test_learner_caps_at_max_candidates():
+    # 25'ten fazla ayırt edici alan varsa öğrenici sonsuza kadar toplamamalı — bir tavan olmalı
+    # (aksi halde geniş bir yanıt gövdesi oracle'a devasa bir marker listesi taşırdı).
+    body = {f"field{i}": f"alice{i}@test.local" for i in range(30)}
+    got = SchemaMarkerLearner(max_candidates=5).learn(_resp(body))
+    assert len(got) == 5
 
 
 def test_marker_extractor_merges_learner_candidates_and_applies_exclude():
