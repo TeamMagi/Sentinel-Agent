@@ -1,4 +1,4 @@
-.PHONY: demo test bench-guard verify
+.PHONY: demo test bench-guard verify lint
 
 # Yorumlayıcı: yerel .venv varsa onu, yoksa python3'ü kullan (bazı sistemlerde `python` YOKTUR).
 # Elle geçersiz kılmak için: make bench-guard PYTHON=/usr/bin/python3.11
@@ -21,3 +21,7 @@ bench-guard:
 # Ağsız, import'suz, yalnız stdlib. Kasıtlı değişiklikten sonra: make verify ARGS=--update
 verify:
 	$(PYTHON) -m scripts.verify_release $(ARGS)
+
+# AS-9: ruff (E,W,F,I,UP,B,SIM — bkz. pyproject.toml [tool.ruff]). Ağsız, hedefsiz.
+lint:
+	ruff check .

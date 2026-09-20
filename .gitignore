@@ -5,6 +5,7 @@
 .env.*
 !.env.example
 runs/
+experiments/*/runs/
 *.sqlite
 *.sqlite3
 

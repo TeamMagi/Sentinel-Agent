@@ -3,8 +3,16 @@
 Değişmez: severity kararını KOD verir (verdict gibi); LLM önerisi severity_suggested'da kalır.
 """
 from pentestai.classify import (
-    CVSS_BASE_SCORE, SEVERITY_ORDER, TYPE_META, assign, assign_all, cvss_for, meta_for,
-    missing_types, severity_for_verdict, severity_of,
+    CVSS_BASE_SCORE,
+    SEVERITY_ORDER,
+    TYPE_META,
+    assign,
+    assign_all,
+    cvss_for,
+    meta_for,
+    missing_types,
+    severity_for_verdict,
+    severity_of,
 )
 from pentestai.models import Evidence, Finding
 

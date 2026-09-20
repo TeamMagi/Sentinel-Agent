@@ -18,11 +18,18 @@ from pentestai.net import Replayer, SessionStore
 from pentestai.oracle import BflaOracle, IdorOracle
 from pentestai.oracle.base import CONFIRMED, Oracle
 from pentestai.orchestrator import (
-    ActionExecutor, EnumerateIds, EscalateRole, InspectResponseForIds, MutateIdFormat,
-    Probe, RunOracle,
+    ActionExecutor,
+    EnumerateIds,
+    EscalateRole,
+    InspectResponseForIds,
+    MutateIdFormat,
+    Probe,
+    RunOracle,
 )
 from pentestai.orchestrator.idtools import (
-    detect_id_format, extract_ids_from_body, id_format_variants,
+    detect_id_format,
+    extract_ids_from_body,
+    id_format_variants,
 )
 from pentestai.policy import PolicyEngine
 

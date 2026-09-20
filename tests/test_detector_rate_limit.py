@@ -4,8 +4,8 @@ import pytest
 
 from pentestai.detector.rate_limit import RateLimitDetector
 from pentestai.models import Actor, Endpoint, Scope
-from pentestai.net.burst import BurstHarness
 from pentestai.net import SessionStore
+from pentestai.net.burst import BurstHarness
 from pentestai.policy import PolicyEngine
 
 BASE = "http://localhost:3000"

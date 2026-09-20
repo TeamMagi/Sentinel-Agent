@@ -6,8 +6,8 @@ import pytest
 
 from pentestai.detector.default_creds import DefaultCredentialsDetector
 from pentestai.models import Actor, Scope
-from pentestai.net.burst import BurstHarness
 from pentestai.net import SessionStore
+from pentestai.net.burst import BurstHarness
 from pentestai.policy import PolicyEngine
 
 BASE = "http://localhost:3000"

@@ -16,8 +16,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from pentestai.bench import Benchmark   # noqa: E402
-from pentestai.bench.suite import BenchmarkSuite, load_suite_findings   # noqa: E402
+from pentestai.bench import Benchmark  # noqa: E402
+from pentestai.bench.suite import BenchmarkSuite, load_suite_findings  # noqa: E402
 
 _DEFAULT_EXPECTED = "benchmarks/juiceshop.expected.yaml"
 

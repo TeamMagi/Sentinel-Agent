@@ -11,15 +11,32 @@ import threading
 import time
 
 import httpx
-import pytest
 
 from pentestai.models import (
-    BudgetConfig, CapturedRequest, Evidence, Finding, NormalizedResponse, Scope,
+    BudgetConfig,
+    CapturedRequest,
+    Evidence,
+    Finding,
+    NormalizedResponse,
+    Scope,
 )
 from pentestai.webui import (
-    ActorSpec, AuthSpec, BudgetSpec, EndpointSpec, RemediationCatalog, RequestGuard,
-    ScanBusyError, ScanManager, ScanOutcome, ScanRequest, ScanRunner, ScopeSpec, WebApp,
-    WebServer, narrow_budget, narrow_scope,
+    ActorSpec,
+    AuthSpec,
+    BudgetSpec,
+    EndpointSpec,
+    RemediationCatalog,
+    RequestGuard,
+    ScanBusyError,
+    ScanManager,
+    ScanOutcome,
+    ScanRequest,
+    ScanRunner,
+    ScopeSpec,
+    WebApp,
+    WebServer,
+    narrow_budget,
+    narrow_scope,
 )
 
 _HOST = "127.0.0.1:8787"

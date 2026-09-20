@@ -7,7 +7,7 @@
 _LLM akıl yürütür — deterministik motor kanıtlar._
 
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-484%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-541%20passing-brightgreen.svg)](tests/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg)](docker-compose.yml)
 [![Web UI](https://img.shields.io/badge/web%20ui-stdlib%20(0%20dep)-9775fa.svg)](#-web-arayüzü-kontrol-paneli)
 [![OWASP API](https://img.shields.io/badge/OWASP%20API%20Top%2010-%231%20BOLA-red.svg)](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
@@ -98,6 +98,19 @@ Araç iki tür denetleyici kullanır: **Oracle'lar** (çok-aktörlü, karşıla�
 | `StoredXssOracle` | **Depolanan (stored) XSS** | store→retrieve: enjekte edilen script başka aktöre kodlanmadan dönüyor mu |
 | `InjectionOracle` | **XSS · SQLi · NoSQLi · SSTI · Path Traversal** | yansıma / hata-diferansiyeli / şablon değerlendirme imzası |
 | `TimingOracle` | **Zamanlama-tabanlı kör enjeksiyon** | ölçülü gecikme farkı (blind SQLi/komut) |
+
+### 🤖 Agent-security oracle'ları — hedef bir LLM-ajan/MCP olduğunda (AS-1..AS-4)
+
+Yukarıdakiler hedefin bir HTTP API olduğunu varsayar. Hedef bir **LLM-ajan/MCP** ise
+`AgentOracle` (aynı "deney, yargı değil" felsefesiyle) hedefin `AgentTrace`'i (tool-call
+zinciri) üzerinde çalışır — `AgentAdapter` (`agentadapter/`) hedefe görevi gönderip trace'i
+tipli hale getirir. Dışa giden her tool-call (`target_url` taşıyan) yine scope/policy
+kapısından geçer; scope-dışı çağrılar kanıt sayılmadan reddedilir ve loglanır. Kaynak:
+[docs/rakip-analizi-agent-security-2026-09.md](docs/rakip-analizi-agent-security-2026-09.md).
+
+| Oracle | Predicate | Kanıt yöntemi |
+|---|---|---|
+| `UntrustedToActionOracle` | **UNTRUSTED_TO_ACTION** | güvenilmez içerik (web.search/email.read) çıktısı ile sonraki ayrıcalıklı tool-call arasında yapısal örtüşme (kaynak-izleme); kullanıcı aynı aksiyonu açıkça istediyse REJECTED |
 
 ### 🔎 Dedektörler — tek-istek imza / davranış
 
@@ -602,7 +615,10 @@ Sentinel-Agent/
 - **Testler yeşil olmadan merge yok** (özellikle `test_replay` cross-contamination guard'ı):
   ```bash
   make test          # veya: docker compose run --rm sentinel pytest -q
+  make lint           # ruff (AS-9) — ağsız statik kontrol; CI'da ayrı bir kapı
   ```
+- **Terim birliği:** oracle/detector/marker/verdict/canary/holdout/margin gibi terimler için
+  [docs/sozluk.md](docs/sozluk.md).
 
 ---
 

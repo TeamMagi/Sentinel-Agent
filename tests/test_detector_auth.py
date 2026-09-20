@@ -10,7 +10,11 @@ import httpx
 import pytest
 
 from pentestai.detector.auth_probes import (
-    JwtDetector, UserEnumDetector, _b64url_decode, _b64url_encode, _hs256,
+    JwtDetector,
+    UserEnumDetector,
+    _b64url_decode,
+    _b64url_encode,
+    _hs256,
 )
 from pentestai.models import Actor, AuthState, Endpoint, Scope
 from pentestai.net import Replayer, SessionStore

@@ -11,7 +11,11 @@ from pentestai.models import Actor, AuthState, Scope
 from pentestai.net import Replayer, SessionStore
 from pentestai.policy import PolicyEngine
 from pentestai.recon.providers import (
-    FirebaseAdapter, HasuraAdapter, PostgrestAdapter, ProviderRecon, SupabaseAdapter,
+    FirebaseAdapter,
+    HasuraAdapter,
+    PostgrestAdapter,
+    ProviderRecon,
+    SupabaseAdapter,
 )
 
 BASE = "http://localhost:3000"

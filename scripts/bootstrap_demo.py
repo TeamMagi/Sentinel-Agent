@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import pathlib
-import sys
 
 import httpx
 import yaml

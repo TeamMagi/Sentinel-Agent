@@ -10,7 +10,12 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from pentestai.evidence.proof import (
-    build_bundle, build_proof, is_bundle, proof_hash, reprove_any, verify_bundle,
+    build_bundle,
+    build_proof,
+    is_bundle,
+    proof_hash,
+    reprove_any,
+    verify_bundle,
 )
 from pentestai.evidence.store import EvidenceStore
 from pentestai.models import CapturedRequest, Evidence, Finding, NormalizedResponse
