@@ -225,6 +225,9 @@ python -m scripts.run_scan ... --llm ollama --llm-model qwen3.8:27b --enrich
 Hypothesis, enrichment and action selection are constrained to a JSON **schema**; anything
 off-schema is dropped rather than crashing the scan. `temperature` defaults to `0`.
 
+> **Full AI-usage disclosure** — which AI tools are used at build time and at run time, and the
+> hard limits on what the LLM may do: **[docs/AI_DISCLOSURE.md](docs/AI_DISCLOSURE.md)**.
+
 ---
 
 ## 📐 Does it actually work?
@@ -319,8 +322,7 @@ MCP client never touches the network, and every result is redacted.
 
 Agent-security predicates for LLM/MCP targets, a community YAML template ecosystem, release
 integrity verification, and holdout-based generalization measurement all exist in the codebase and
-are documented in [DESIGN.md](DESIGN.md) and
-[docs/rakip-analizi-agent-security-2026-09.md](docs/rakip-analizi-agent-security-2026-09.md).
+are documented in **[DESIGN.md](DESIGN.md)** (see §10.6 and §16).
 
 ---
 
