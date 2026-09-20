@@ -236,25 +236,35 @@ A claim like "proven, deterministic, low false-positive" is worthless unless it 
 against **labelled ground truth**. Labels are set by observing the target's real HTTP behaviour,
 never by reading the tool's own output — otherwise the measurement is circular.
 
-**One target, 7 labelled cases, run on 2026-09-18 with `--llm none`:**
+**Two targets, 19 labelled cases, run on 2026-09-20 with a local LLM (Ollama `qwen3.8:27b`, so no
+target data leaves the machine):**
 
-| Target | Cases | Precision | Recall | FP-rate | TP/FN/FP/TN |
-|---|---|---|---|---|---|
-| OWASP Juice Shop | 7 (4 positive / 3 negative) | 100% | 100% | **0%** | 4/0/0/3 |
+| Target | Stack | Cases | Precision | Recall | FP-rate | TP/FN/FP/TN |
+|---|---|---|---|---|---|---|
+| OWASP Juice Shop | Node/Express | 7 (4 pos / 3 neg) | **100%** | **100%** | **0%** | 4/0/0/3 |
+| VAmPI | Python/Flask | 12 (4 pos / 8 neg) | 66.7% | 50% | 12.5% | 2/2/1/7 |
 
-Full output, provenance and the exact reproduction commands:
-**[`benchmarks/juiceshop.result.md`](benchmarks/juiceshop.result.md)**.
+Juice Shop's committed reference run and the exact reproduction commands are in
+**[`benchmarks/juiceshop.result.md`](benchmarks/juiceshop.result.md)**; the labelled ground truth
+for each target is in **[`benchmarks/*.expected.yaml`](benchmarks/)**.
 
-**Read that number carefully** — the report says this too:
+**Read those numbers carefully** — the point of this project is honest measurement:
 
-- It covers **7 labelled cases**, not the tool's entire output. The run produced 49 findings, 6 of
-  them `CONFIRMED`; two of those are outside the label set and are excluded from the metrics.
-- **FP-rate 0%** means none of the 3 negative cases (a public-by-design endpoint, a non-object
-  endpoint) was wrongly confirmed. It does **not** mean the tool never produces false positives.
-- Juice Shop is a **calibrated** target — the labels were written while looking at it. These
-  numbers are optimistic and **do not measure generalization**. That requires a holdout target,
-  which this suite does not yet have, and the benchmark report says so rather than pretending
-  otherwise.
+- **Juice Shop is the *calibrated* target** — the labels were written while looking at it, so the
+  numbers are optimistic and **do not measure generalization**. The local LLM reproduces the same
+  `4/0/0/3` as the committed `--llm none` reference; the LLM only widens coverage, it does not
+  manufacture the verdicts.
+- **VAmPI is a second, differently-stacked target** and shows the real gap. The tool *proved* a
+  cross-user BOLA (one user reads another's private book secret) and an error-based SQLi, but it
+  **missed two** vulnerabilities on id-less endpoints the deterministic planner doesn't generate
+  hypotheses for (excessive-data on `GET /users/v1/_debug`, mass-assignment on `POST
+  /users/v1/register`) and produced **one false positive** — it confirmed IDOR on
+  `GET /users/v1/{username}`, which is actually public-by-design (an anonymous request returns the
+  same email). That single FP is exactly the kind of weakness the Juice Shop number can't reveal.
+- **FP-rate is measured against the negative "trap" cases**, not the tool's whole output; a 0% here
+  means no trap was wrongly confirmed, not that the tool never errs — VAmPI proves it can.
+- Both targets are **calibrated, not holdout**. True generalization needs an untouched holdout
+  target, which this suite still lacks and the reports say so rather than pretending otherwise.
 
 The methodology follows AuthProbe's **vulnerable ↔ hardened twin** approach: every target carries
 both real vulnerabilities and by-design-safe endpoints, so the false-positive rate rests on labels
