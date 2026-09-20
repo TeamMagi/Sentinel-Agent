@@ -54,8 +54,8 @@ def test_markdown_shows_baseline_reason_without_dropping_finding():
     known.baseline_status = "known"
     md = MarkdownReporter().render([known])
     assert "(F-001)" in md                       # bulgu raporda kalıyor
-    assert "bilinen (önceki koşumda" in md
-    assert "CI kapısını" in md
+    assert "known (same root cause" in md
+    assert "CI gate" in md
 
 
 def test_load_from_findings_json_file(tmp_path):

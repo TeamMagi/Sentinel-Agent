@@ -55,7 +55,7 @@ def test_junit_redacts_and_hides_marker_values():
     xml = JUnitReporter().render(_sample())
     assert "alice@test.local" not in xml       # PII sızmadı
     assert "orderRef-1" not in xml             # marker DEĞERİ yok
-    assert "2 kimliklendirici alan sızdı" in xml   # yalnızca SAYI
+    assert "2 identifying field(s) leaked" in xml   # yalnızca SAYI
 
 
 def test_junit_no_findings_is_valid_empty_suite():

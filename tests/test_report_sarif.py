@@ -66,4 +66,4 @@ def test_marker_values_are_not_leaked():
     # marker DEĞERİ (PII) SARIF'e girmemeli — mesaj yalnızca SAYI taşır.
     raw = SarifReporter().render([_f("idor", markers=["alice@secret.com"])], target="")
     assert "alice@secret.com" not in raw
-    assert "1 kimliklendirici alan sızdı" in raw
+    assert "1 identifying field(s) leaked" in raw
