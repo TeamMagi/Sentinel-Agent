@@ -76,10 +76,14 @@ gösteriyor; ağsız render testi geçiyor. *(Kaynak: OpenBOLA, StackHawk)*
 **Kabul:** GraphQL hedefte `id`-argümanlı sorguda CONFIRMED/REJECTED yolu ayrı ayrı test edilir.
 *(Kaynak: Escape)*
 
-### RK-4 — Çift-yönlü 2×2 yetki matrisi (oracle koşumu) · *(Sorumlu: Serhat · ~4s)*
-R-B1'in kalan dilimi: `report/matrix.py` raporu hazır; scanner artık (own/peer obje)×(own/higher rol)
-için **A→B kadar B→A** koşsun → asimetrik izolasyon gerçek koşumla yakalanır. **Kabul:** iki yön de
-test ediliyor, matris raporda dolu, tek-yön sızıntı işaretleniyor. *(Kaynak: AuthMatrix, StingrAI)*
+### ✅ RK-4 — Çift-yönlü 2×2 yetki matrisi (oracle koşumu) · *(Sorumlu: Serhat · ~4s)* — **tamamlandı**
+Doğrulandı: `Scanner.run_hypotheses`'ın `idor`/`state_change_authz`/`method_bypass`/`stored_xss`
+dispatch döngüleri (her victim × her attacker, kendisi hariç) **zaten** A→B kadar B→A'yı koşuyordu
+— eksik olan, `report/matrix.py`'nin bunu gerçek (stub değil) oracle kararlarıyla uçtan uca
+doğrulayan bir testti. `tests/test_scanner_matrix.py`: asimetrik ownership-check'li (yalnızca
+B'nin objesi korunuyor) sahte API → `run_hypotheses` gerçekten iki yönü de koşuyor (B→A CONFIRMED,
+A→B REJECTED) → `build_auth_matrix` asimetrik izolasyonu gerçek bulgulardan yakalıyor → Markdown
+raporda görünüyor. *(Kaynak: AuthMatrix, StingrAI)*
 
 ### RK-9 — İmzalı taşınabilir kanıt-paketi (proof bundle) · *(Sorumlu: Görkem · ~4s)*
 Mevcut `proof/<fid>.json`'ın üstüne **imzalı/hash'li, çevrimdışı yeniden-ispatlanabilir** bundle
