@@ -4,7 +4,9 @@ Tarayıcıdan site+tarama kontrolü, açığın yeri ve çözüm önerisi. Yeni 
 (stdlib http.server). Yalnızca sahibi olunan/yetki verilen hedeflerde çalıştır (§10 etik).
 
 Tarama scope'u İSTEKTEN değil buradaki --scope dosyasından gelir; panel yalnızca onu
-DARALTABİLİR (CLAUDE.md §5.6). --scope dosyası yoksa panel açılır ama tarama başlatılamaz (503).
+DARALTABİLİR (CLAUDE.md §5.6). --scope dosyası yoksa ve yanında bir *.example.yaml varsa panel
+onu ilk açılışta kopyalayıp kendi örnek scope'unu üretir (kullanıcı elle `cp` çalıştırmaz);
+hiçbiri yoksa panel açılır ama tarama başlatılamaz (503).
 
 Örnek:
   python -m scripts.serve_ui                          # http://127.0.0.1:8787
@@ -24,6 +26,21 @@ from pentestai.config import load_scope_config  # noqa: E402
 from pentestai.webui import RequestGuard, ScanManager, ScannerRunner, WebApp, WebServer  # noqa: E402
 
 _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _bootstrap_example_scope(scope_path: pathlib.Path) -> None:
+    """`scope_path` yoksa yanındaki `<ad>.example.yaml`'ı kopyalayıp ilk açılışta panelin
+    tarama başlatabilmesini sağlar — kullanıcı elle `cp config/scope.example.yaml ...` çalıştırmaz
+    (madde 14, GOREVLER.md). Örnek dosya da yoksa sessizce vazgeçer; çağıran 503 uyarısını basar."""
+    if scope_path.exists():   # var olan kullanıcı scope'unu asla ezme
+        return
+    example_path = scope_path.with_name(scope_path.stem + ".example" + scope_path.suffix)
+    if not example_path.exists():
+        return
+    # example_path scope_path ile aynı klasörde yaşar; o var olduğuna göre klasör de zaten var.
+    scope_path.write_text(example_path.read_text(encoding="utf-8"), encoding="utf-8")
+    print(f"[web-ui] {scope_path} yoktu — {example_path.name}'tan örnek scope oluşturuldu "
+          "(kendi hedefine karşı çalıştırmadan önce hedef/kimlik bilgilerini güncelle).")
 
 
 def _default_allowed_hosts(bind_host: str, port: int) -> list[str]:
@@ -58,13 +75,16 @@ def main(argv=None) -> int:
     guard = RequestGuard(allowed_hosts)
 
     scope_path = pathlib.Path(args.scope)
+    if not scope_path.exists():
+        _bootstrap_example_scope(scope_path)
+
     server_scope = server_budget = None
     if scope_path.exists():
         _, server_scope, server_budget = load_scope_config(str(scope_path))
         print(f"[web-ui] scope kilitlendi: {scope_path} (istek yalnızca daraltabilir)")
     else:
         print(f"[web-ui] UYARI: {scope_path} yok — panel açılır ama tarama BAŞLATILAMAZ "
-              "(cp config/scope.example.yaml config/scope.yaml)")
+              f"({scope_path.with_name(scope_path.stem + '.example' + scope_path.suffix)} de yok)")
 
     manager = ScanManager(ScannerRunner(out_dir=args.out))
     app = WebApp(
