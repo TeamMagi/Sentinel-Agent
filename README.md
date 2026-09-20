@@ -11,7 +11,7 @@ _LLM akıl yürütür — deterministik motor kanıtlar._
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg)](docker-compose.yml)
 [![Web UI](https://img.shields.io/badge/web%20ui-stdlib%20(0%20dep)-9775fa.svg)](#-web-arayüzü-kontrol-paneli)
 [![OWASP API](https://img.shields.io/badge/OWASP%20API%20Top%2010-%231%20BOLA-red.svg)](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
-[![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#-lisans)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 </div>
 
@@ -476,4 +476,5 @@ hedefler. Scope/policy engine tüm istekleri allowlist + IP pinning ile denetler
 
 ## 📄 Lisans
 
-TBD (takımla kararlaştırılacak).
+[Apache License 2.0](LICENSE) — topluluk/portföy kullanımı için izinli, patent korumalı bir lisans.
+Katkıda bulunanlar aynı lisans altında katkı sunar (bkz. [LICENSE](LICENSE) §5).
