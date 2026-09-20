@@ -18,6 +18,10 @@ _The LLM reasons. A deterministic engine decides._
 
 ## Try it in one command
 
+**No time to install anything?** Download [`docs/sample-report.html`](docs/sample-report.html) and
+open it in a browser — a real, redacted static report from an actual scan against OWASP Juice Shop
+(4 `CONFIRMED` findings, evidence and all). No server, no build step, just a double-click.
+
 ```bash
 make demo
 ```
