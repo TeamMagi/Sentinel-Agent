@@ -14,4 +14,4 @@ docker compose run --rm sentinel python -m scripts.run_scan \
     --mode active --no-bootstrap --out runs/
 
 echo ""
-echo "Rapor hazır: yukarıdaki [done] satırındaki runs/<run-id>/report.html dosyasını tarayıcıda aç."
+echo "Report ready: open runs/<run-id>/report.html from the [done] line above in your browser."
