@@ -418,9 +418,20 @@ haritası: **[DESIGN.md](DESIGN.md)**.
 
 ## 📊 Raporlama
 
-Her koşum `runs/<run-id>/` altına **JSON**, **Markdown** ve **HTML** raporları yazar (hepsi
-redaction'lı). `report.html` bağımlısız, tek dosyalık statik bir sayfadır (`file://` ile de açılır);
-web arayüzü ise aynı veriyi canlı olarak sunar. İkisi de gösterir:
+Her koşum `runs/<run-id>/` altına birden çok formatta rapor yazar (hepsi redaction'lı):
+
+| Dosya | Format | Kullanım |
+|---|---|---|
+| `findings.json` | JSON | ham bulgu verisi (viewer/entegrasyon) |
+| `report.md` | Markdown | insan-okur özet + yetki matrisi |
+| `report.html` | HTML | bağımsız, tek dosyalık interaktif panel (`file://` ile de açılır) |
+| `report.sarif` | SARIF 2.1.0 | GitHub code-scanning "Security" sekmesi |
+| `junit.xml` | JUnit XML | CI "Tests" sekmesi (RK-2) — verdict→test sonucu |
+| `report.csv` | CSV | kaynak-yetenek matrisi (RK-2) — elektronik tablo |
+| `proof/<id>.json` | JSON | çevrimdışı yeniden-ispatlanabilir kanıt fixture'ı |
+| `proof/<id>.bundle.json` | JSON | **imzalı/hash'li** taşınabilir kanıt-paketi (RK-9) |
+
+`report.html`/`report.md` gösterir:
 
 - 📋 Bulgu listesi + özet sayaçları (CONFIRMED / LIKELY / REJECTED / INCONCLUSIVE)
 - ✔️ Doğrulama kontrolleri (positive / negative / baseline-stable) rozetleri
@@ -429,6 +440,38 @@ web arayüzü ise aynı veriyi canlı olarak sunar. İkisi de gösterir:
 - 🌗 Açık/koyu tema
 
 Statik viewer'a herhangi bir `findings.json` dosyasını sürükle-bırak ile de yükleyebilirsin.
+
+### 🔏 İmzalı kanıt-paketi ve çevrimdışı yeniden-ispat (RK-9)
+
+Her CONFIRMED bulgu için `proof/<id>.bundle.json`, kanıt fixture'ını bir SHA-256 bütünlük
+hash'iyle mühürler → bir güvenlik ekibine/bug-bounty'ye **değiştirilemez kanıtla** teslim
+edilir. `SENTINEL_PROOF_KEY` ortam değişkeni verilirse paket ayrıca **HMAC-SHA256 ile imzalanır**
+(özgünlük). Çevrimdışı doğrulama (ağ/LLM yok):
+
+```bash
+python -m scripts.replay runs/<run-id>                 # bundle varsa hash + reprove
+python -m scripts.replay runs/<run-id> --key "$SENTINEL_PROOF_KEY"   # imzayı da doğrula
+```
+
+Hash doğrulanır ve kanıt yeniden-ispatlanırsa `PROVEN`; fixture kurcalanırsa (hash uyuşmaz) `FAILED`.
+
+### 🧩 Topluluk template ekosistemi (RK-12)
+
+Dedektör ailesi bir **YAML template formatına** açıktır — topluluk yeni imza/misconfig ekler,
+çekirdek kod değişmez:
+
+```bash
+python -m scripts.run_scan ... --templates templates/
+```
+
+Her template tek-istek + imza denetimidir (`templates/*.yaml`); geçersiz template'ler yükleme/koşum
+anında güvenle elenir (tarama çökmez).
+
+### 🛡️ 0-FP negatif-ikiz regresyon kapısı (RK-10)
+
+`make bench-guard` gerçek oracle'ları vulnerable↔hardened ikizlere karşı **ağsız** koşar;
+hardened ikizde tek bir yanlış CONFIRMED çıkarsa kırmızıya döner → kendi pipeline'ında
+"FP hâlâ 0 mı?" sorusunu belirlenimci yanıtlarsın (CI'da `bench-guard` işi).
 
 ---
 
