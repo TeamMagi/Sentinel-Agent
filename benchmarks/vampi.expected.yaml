@@ -1,72 +1,88 @@
 # Sentinel-Agent — Kalibrasyon vaka seti (VAmPI — erev0s/VAmPI, "vulnerable" mod, izinli hedef)
 #
-# Her vaka bir YER GERÇEĞİDİR (ground truth). Etiketler VAmPI'nin "vulnerable=true" modundaki
-# BELGELENMİŞ davranışından türetilmiştir; **yayımlanacak sayı öncesi sabit sürümde HTTP ile
-# tek tek doğrulanmalıdır** (juiceshop.expected.yaml'daki gibi döngüsellik olmadan).
+# Her vaka BAĞIMSIZ doğrulanmış bir YER GERÇEĞİDİR (ground truth): etiket araç çıktısından DEĞİL,
+# doğrudan HTTP ile hedefin GERÇEK davranışından konmuştur (döngüsellik yok).
 #
-# "vulnerable↔hardened ikiz" metodolojisi (AuthProbe): aynı hedefte pozitif (gerçek zafiyet) +
-# negatif (not_vulnerable) vakalar → FP oranı deterministik ölçülür. VAmPI'yi vulnerable=0 ile
-# çalıştırınca pozitiflerin çoğu not_vulnerable'a döner (hardened ikiz) — ayrı set olarak koşulur.
+# Doğrulama (2026-09-16, erev0s/vampi:latest, vulnerable=1, /createdb ile seed; iki kayıtlı
+# hesap name1/pass1 ve name2/pass2, admin/pass1):
+#   edx _debug     : GET /users/v1/_debug (anonim) = TÜM kullanıcıları PAROLALARIYLA döndürüyor.
+#   idor books     : name1 token -> GET /books/v1/<name2'nin kitabı> = 200, "secret" alanı sızdı;
+#                    anonim istek = 401 → auth ZORUNLU ama sahiplik kontrolü YOK = klasik BOLA.
+#   mass_assign reg: POST /users/v1/register {"admin":true} = 200; _debug'da yeni kayıt admin=true.
+#   sqli username  : GET /users/v1/name1' = 500 "sqlite3.OperationalError ... unrecognized token"
+#                    (SELECT * FROM users WHERE username = 'name1'') → error-based SQLi.
+#
+# YANLIŞ çıkan (önceki taslak "CONFIRMED" idi → gerçek davranışla not_vulnerable'a düzeltildi):
+#   state_change_authz email: PUT /users/v1/name2/email (name1 token) = 204 AMA _debug'da name1'in
+#                    KENDİ e-postası değişti (path'teki username yok sayılıyor, JWT kimliği kullanılıyor)
+#                    → başka kullanıcının e-postası DEĞİŞTİRİLEMİYOR = yazma-BOLA YOK.
+#   bfla delete    : DELETE /users/v1/name2 (name1=non-admin) = 401 "Only Admins may delete users!"
+#                    → fonksiyon-seviyesi yetki KONTROLÜ ÇALIŞIYOR (admin ile 200) = BFLA YOK.
+#   jwt forge      : token HS256; alg=none = 401; denenen zayıf secret'lar (secret/random/vampi/…)
+#                    reddedildi → bu imajda token forge REPRODUKE EDİLEMEDİ = doğrulanmış zafiyet değil.
+#   idor username  : GET /users/v1/<username> e-postayı ANONİM döndürüyor (auth kapısı yok) — aynı
+#                    veri zaten public /users/v1 listesinde. Bu bir authz-BYPASS (IDOR) değil; public/
+#                    aşırı-ifşa. `idor` türü için not_vulnerable (araç IDOR CONFIRM ederse FP).
 #
 # expect: CONFIRMED → gerçekten zafiyetli (araç CONFIRM etmeli, etmezse FN)
 #         not_vulnerable → burada bu tür zafiyet yok (araç CONFIRM ederse FP)
 
 cases:
-  # ---------- POZİTİF: gerçek zafiyetler ----------
+  # ---------- POZİTİF: HTTP ile doğrulanmış gerçek zafiyetler ----------
   - type: excessive_data_exposure
     endpoint: "/users/v1/_debug"
     method: GET
     expect: CONFIRMED
-    note: "Tüm kullanıcıları parola alanlarıyla ifşa eder (aşırı veri ifşası)."
-
-  - type: idor
-    endpoint: "/users/v1/{username}"
-    method: GET
-    expect: CONFIRMED
-    note: "BOLA — başka kullanıcının kaydına (email) sahiplik kontrolü olmadan erişim."
+    note: "Tüm kullanıcıları parola alanlarıyla ifşa eder (anonim erişilebilir) — aşırı veri ifşası."
 
   - type: idor
     endpoint: "/books/v1/{book_title}"
     method: GET
     expect: CONFIRMED
-    note: "BOLA — başka kullanıcının kitabındaki gizli değere (secret) erişim."
-
-  - type: state_change_authz
-    endpoint: "/users/v1/{username}/email"
-    method: PUT
-    expect: CONFIRMED
-    note: "Başka kullanıcının e-postasını güncelleme (yazma-BOLA) — yetki kontrolü yok."
+    note: "BOLA — auth zorunlu (anon=401) ama sahiplik kontrolü yok: başka kullanıcının secret'ına erişim."
 
   - type: mass_assignment
     endpoint: "/users/v1/register"
     method: POST
     expect: CONFIRMED
-    note: "Kayıtta admin alanı set edilebiliyor (fazla-alan → yetki yükseltme)."
+    note: "Kayıtta admin=true set edilebiliyor (fazla-alan → yetki yükseltme); _debug ile doğrulandı."
 
   - type: sqli
     endpoint: "/users/v1/{username}"
     method: GET
     expect: CONFIRMED
-    note: "String-format ile oluşturulan sorgu → error-based SQLi."
+    note: "String-format sorgu → error-based SQLi (tek tırnak SQLITE OperationalError tetikler)."
 
-  - type: jwt
+  # ---------- NEGATİF: zafiyet YOK / bu tür için değil (araç CONFIRM ederse FP) ----------
+  - type: idor
+    endpoint: "/users/v1/{username}"
+    method: GET
+    expect: not_vulnerable
+    note: "E-posta anonim/public döner (auth kapısı yok, veri /users/v1 listesinde de var) — authz-bypass IDOR değil."
+
+  - type: state_change_authz
     endpoint: "/users/v1/{username}/email"
     method: PUT
-    expect: CONFIRMED
-    note: "Zayıf/bilinen JWT secret'ı → token forge edilebilir."
+    expect: not_vulnerable
+    note: "Yalnızca JWT sahibinin KENDİ e-postasını günceller (path username yok sayılır) — cross-user yazma yok."
 
   - type: bfla
     endpoint: "/users/v1/{username}"
     method: DELETE
-    expect: CONFIRMED
-    note: "Admin-only silme fonksiyonu düşük yetkiyle çağrılabiliyor (fonksiyon-seviyesi)."
+    expect: not_vulnerable
+    note: "Admin-only kontrol çalışıyor: non-admin DELETE = 401 'Only Admins may delete users!'."
 
-  # ---------- NEGATİF: zafiyet YOK (hardened ikiz / public-by-design) ----------
+  - type: jwt
+    endpoint: "/users/v1/{username}/email"
+    method: PUT
+    expect: not_vulnerable
+    note: "alg=none reddedildi, zayıf secret bulunamadı — bu imajda token forge reprodüke edilemedi."
+
   - type: unauthorized_access
     endpoint: "/users/v1"
     method: GET
     expect: not_vulnerable
-    note: "Yalnızca kullanıcı ADLARINI listeler; public-by-design → yetkisiz erişim zafiyeti değil."
+    note: "Kullanıcı listesi (username+email) public-by-design → yetkisiz erişim zafiyeti değil (FP kapanı)."
 
   - type: idor
     endpoint: "/users/v1/login"
@@ -78,10 +94,10 @@ cases:
     endpoint: "/"
     method: GET
     expect: not_vulnerable
-    note: "Kök/健康 sayfası — kimlik doğrulama gerektirmez, hassas veri yok."
+    note: "Kök/bilgi sayfası — kimlik doğrulama gerektirmez, hassas veri yok."
 
   - type: mass_assignment
     endpoint: "/books/v1"
     method: POST
     expect: not_vulnerable
-    note: "Kitap oluşturma yalnızca sahibe bağlanır; fazla-alan ile yetki yükseltme yok."
+    note: "Kitap oluşturma sahibi JWT kimliğine bağlar; enjekte edilen owner/user alanı yok sayıldı (doğrulandı)."
