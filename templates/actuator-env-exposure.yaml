@@ -1,0 +1,22 @@
+# Nuclei-tarzı Sentinel template (RK-12) — Spring Boot actuator/env ifşası.
+#
+# İçerik-imza template'i → fp_guard açık (SPA/catch-all 200'ünden ayırt edilir).
+id: spring-actuator-env-exposure
+info:
+  name: "Spring Boot actuator/env ifşası"
+  severity: high
+  author: sentinel
+  description: "Kimlik doğrulamasız /actuator/env ortam değişkenlerini/profilleri sızdırıyor."
+type: exposure
+method: GET
+path: "/actuator/env"
+matchers_condition: and
+matchers:
+  - type: status
+    status: [200]
+  - type: word
+    part: body
+    condition: or
+    words:
+      - '"activeProfiles"'
+      - '"propertySources"'

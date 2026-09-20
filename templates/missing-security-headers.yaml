@@ -1,0 +1,25 @@
+# Nuclei-tarzı Sentinel template (RK-12) — eksik güvenlik header'ları.
+#
+# Global bir yanlış-yapılandırma (endpoint'e özel değil) → fp_guard kapalı (absence zaten sinyal).
+# severity yalnızca ipucudur; asıl severity/CWE/OWASP kararını classify verir (type: security_headers).
+id: missing-security-headers
+info:
+  name: "Eksik güvenlik header'ları (HSTS/CSP)"
+  severity: low
+  author: sentinel
+  description: >-
+    Yanıt Strict-Transport-Security ve Content-Security-Policy header'larını taşımıyor →
+    clickjacking/downgrade/enjeksiyon savunması eksik.
+type: security_headers
+method: GET
+path: "/"
+fp_guard: false
+matchers_condition: and
+matchers:
+  - type: status
+    status: [200]
+  - type: header_absent
+    condition: and
+    headers:
+      - Strict-Transport-Security
+      - Content-Security-Policy
