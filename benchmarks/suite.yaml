@@ -6,19 +6,35 @@
 #
 # `findings`: o hedefin taramasının findings.json yolu (suite.yaml'a göre göreli/mutlak).
 # Henüz koşulmamış hedefin findings'i yoksa o hedef boş bulgu setiyle (tümü FN/TN) değerlendirilir.
+#
+# `holdout` (AS-5): bu hedef "dokunulmamış" mı? Yarışmaların public↔private ayrımının karşılığı:
+#   holdout: false → KALİBRE hedef. Araç/etiketler bu hedefe bakılarak ayarlandı → metrikleri
+#                    iyimserdir (kendi sınavını kendi hazırlamış gibi).
+#   holdout: true  → HOLDOUT hedef. Etiketleri konurken araç çıktısına bakılmadı ve araçta
+#                    bu hedefe özel HİÇBİR ayar yapılmadı → **gerçek genelleme** burada ölçülür.
+# Rapor (benchmark_suite.md) ikisini AYRI tablolarda verir + aradaki farkı (overfit işareti) yazar.
+#
+# DÜRÜSTLÜK NOTU: aşağıdaki üç hedefin üçü de kalibre edilmiştir (etiketleri canlı HTTP ile
+# doğrulanıp düzeltildi, bkz. *.expected.yaml başlıkları) → hiçbiri bugün holdout SAYILAMAZ;
+# birini sonradan "holdout" diye işaretlemek yanlış bir genelleme iddiası olurdu.
+# Suite'e eklenecek BİR SONRAKİ hedef holdout olarak ayrılmalıdır: etiketlerini koy, araçta
+# ona özel hiçbir ayar yapma, `holdout: true` ver ve metriklerini asla geri besleme.
 
 targets:
   - name: juiceshop
     target: "http://localhost:3000"
     expected: juiceshop.expected.yaml
     findings: ../runs/juiceshop/findings.json
+    holdout: false        # kalibre (v20.2.0'a göre etiketlendi)
 
   - name: vampi
     target: "http://localhost:5000"
     expected: vampi.expected.yaml
     findings: ../runs/vampi/findings.json
+    holdout: false        # kalibre (2026-09-16 canlı doğrulama)
 
   - name: crapi
     target: "http://localhost:8888"
     expected: crapi.expected.yaml
     findings: ../runs/crapi/findings.json
+    holdout: false        # kalibre (2026-09-16 canlı doğrulama)
