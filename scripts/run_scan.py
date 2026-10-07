@@ -18,7 +18,9 @@ import sys
 # Kurulum yapılmadan da çalışsın diye src'yi path'e ekle.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from pentestai.config import load_actors, load_endpoints, load_scope_config  # noqa: E402
+from pentestai.config import (  # noqa: E402
+    load_actors, load_endpoints, load_llm_config, load_scope_config,
+)
 from pentestai.llm import (  # noqa: E402
     AnthropicLLMClient, GeminiLLMClient, LLMClient, OllamaLLMClient,
 )
@@ -28,13 +30,26 @@ from pentestai.recon import HarRecon, OpenApiRecon  # noqa: E402
 from pentestai.scanner import Scanner  # noqa: E402
 
 
+def _drop_none(**kw) -> dict:
+    """None değerleri eler → client constructor varsayılanları devreye girsin."""
+    return {k: v for k, v in kw.items() if v is not None}
+
+
 def _build_llm(args) -> LLMClient | None:
-    if args.llm == "gemini":
-        return GeminiLLMClient(model=args.llm_model) if args.llm_model else GeminiLLMClient()
-    if args.llm == "anthropic":
-        return AnthropicLLMClient(model=args.llm_model) if args.llm_model else AnthropicLLMClient()
-    if args.llm == "ollama":
-        return OllamaLLMClient(model=args.llm_model) if args.llm_model else OllamaLLMClient()
+    """LLM client'ı config + CLI'dan kurar. CLI flag'i config'i override eder:
+    --llm verilirse provider o olur; --llm-model verilirse model o olur."""
+    cfg = load_llm_config(args.llm_config) if args.llm_config else {}
+    provider = args.llm or cfg.get("provider") or "none"
+    model = args.llm_model or cfg.get("model")
+    temperature = cfg.get("temperature", 0.0)
+    max_tokens = cfg.get("max_tokens", 2048)
+    if provider == "gemini":
+        return GeminiLLMClient(**_drop_none(model=model, temperature=temperature, max_tokens=max_tokens))
+    if provider == "anthropic":
+        return AnthropicLLMClient(**_drop_none(model=model, max_tokens=max_tokens))
+    if provider == "ollama":
+        return OllamaLLMClient(**_drop_none(
+            model=model, host=cfg.get("host"), temperature=temperature, max_tokens=max_tokens))
     return None
 
 
@@ -94,8 +109,10 @@ def main(argv=None) -> int:
     p.add_argument("--out", default="runs/")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
-    p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default="none",
-                   help="hipotez/enrich LLM'i (env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
+    p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default=None,
+                   help="hipotez/enrich LLM'i; --llm-config'i override eder "
+                        "(env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
+    p.add_argument("--llm-config", help="LLM ayar dosyası (ör. config/llm.yaml); CLI flag'leri kazanır")
     p.add_argument("--llm-model", help="LLM model adı (ör. gemini-3.6-flash, qwen2.5:14b-instruct)")
     p.add_argument("--enrich", action="store_true",
                    help="bulguları LLM ile zenginleştir (severity/impact/remediation); --llm gerekir")
