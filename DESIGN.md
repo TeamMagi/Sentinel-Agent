@@ -554,4 +554,5 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 
 ## 16. Sonraki genişletmeler (v2+)
 
-Aynı iskelete yeni test tipi eklemek: yazma/silme authz (PUT/DELETE + CSRF), BOPLA mass-assignment, injection (SQLi/XSS payload kütüphaneleri + reflection oracle), SSRF, business-logic invariant'ları (kupon tek-kullanım, concurrency/race), OpenAPI-dışı GraphQL recon, SARIF export ile CI entegrasyonu.
+- [x] **BOPLA / excessive data exposure** (`oracle/bopla.BoplaOracle` + `SensitiveFieldScanner`): cevaptaki hassas alanları (kimlik bilgisi/kart/sır/yetki bayrağı) tarar; kanıt = dolu alanın varlığı, evidence'ta yalnızca alan ADI (değer değil). planner/dispatch/expander'a bağlı. 43/43 test yeşil.
+- [ ] Yazma/silme authz (PUT/DELETE + CSRF), mass-assignment, injection (SQLi/XSS + reflection oracle), SSRF, business-logic invariant'ları (kupon tek-kullanım, concurrency/race), GraphQL recon, SARIF export + CI.
