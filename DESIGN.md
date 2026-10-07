@@ -522,8 +522,10 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 - [x] 1.6 Orchestrator: `Scanner.run_recon_scan` + `run_hypotheses` (IDOR/BFLA dispatch) + CLI `--openapi`.
 
 **Stage 2 (agentic):**
-- [ ] 2.1 `orchestrator/pipeline` state machine.
-- [ ] 2.2 Self-improving döngü + gerektikçe specialized agent'lar.
+> **Durum:** çekirdek self-improving döngü hazır · 39/39 test yeşil. `orchestrator.Pipeline` (RECON→PLAN→(TEST→VERIFY→EXPAND)*→REPORT) + `HypothesisExpander` (CONFIRMED cevaptan pivot). Mock app'te pivotla yeni endpoint keşfi + Juice Shop'ta canlı doğrulandı (2 pivot, false-positive yok). CLI `--loop`.
+- [x] 2.1 `orchestrator/pipeline` state machine (budget-farkında; yeni kaynağa on-demand crawl bootstrap).
+- [x] 2.2 Self-improving döngü: `HypothesisExpander` — CONFIRMED bulgunun cevabındaki obje referanslarından pivot IDOR hipotezleri (bilinen endpoint eşleştirme + sezgisel sentez).
+- [ ] 2.3 (opsiyonel) Specialized agent'lar / LLM-güdümlü önceliklendirme.
 
 ---
 
