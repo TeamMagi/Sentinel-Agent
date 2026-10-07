@@ -104,7 +104,8 @@ async def _run(args) -> int:
     finally:
         await scanner.aclose()
 
-    run_id, root = scanner.save(findings, args.mode)
+    run_id, root = scanner.save(findings, args.mode,
+                                trace=agent.trace if agent is not None else None)
     confirmed = sum(1 for f in findings if f.verdict == "CONFIRMED")
     if pipeline is not None:
         print(f"[loop] {len(pipeline.transitions)} durum geçişi · "
