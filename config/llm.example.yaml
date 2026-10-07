@@ -5,7 +5,12 @@
 # CLI flag'i bu dosyayı override eder: --llm ollama verilirse provider alanı yok sayılır.
 llm:
   provider: ollama                 # none | ollama | gemini | anthropic
-  model: qwen2.5:14b-instruct      # 24GB GPU: 14b hız / coder-32b kalite
+  model: qwen3.8:27b               # 24GB GPU: qwen2.5:14b-instruct (hız) / qwen3.8:27b (reasoning)
   host: http://localhost:11434     # yalnızca ollama; gemini/anthropic için yok sayılır
   temperature: 0                   # 0 = tekrar-üretilebilir öneri (önerilen)
   max_tokens: 2048
+  # think: yalnızca reasoning ("thinking") yetenekli modeller için (ör. qwen3.8).
+  #   false → düşünme kapalı: tüm üretim bütçesi katı JSON'a gider (önerilen; güvenilir parse).
+  #   true  → düşünme açık: seçim kalitesi artabilir ama max_tokens'ı yükselt (düşünme bütçeyi yer).
+  #   (satırı sil → klasik instruct modelleri için "think" anahtarı hiç gönderilmez.)
+  think: false
