@@ -513,11 +513,12 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 - [x] 0.11 **Kalibrasyon:** Juice Shop `GET /rest/basket/{id}` BOLA → CONFIRMED, false-positive 0. ✅
 
 **Stage 1 (LLM):**
-- [ ] 1.1 `recon/openapi` + `recon/har` + per-actor `crawl` (own-object bootstrap).
-- [ ] 1.2 `llm/client` + `actions` (tipli) + `prompts` (data/instruction ayrımı).
-- [ ] 1.3 Hipotez üretimi: recon → object-id endpoint'leri + mutasyonlar.
+> **Durum:** çekirdek katmanlar hazır · 28/28 test yeşil. Kalan: recon/har + per-actor crawl, INCONCLUSIVE triage + LLM rapor, tam recon→plan→test orchestrator (Stage 2).
+- [~] 1.1 `recon/openapi` ✅ · `recon/har` + per-actor `crawl` (own-object bootstrap) BEKLİYOR.
+- [x] 1.2 `llm/client` (ABC + Mock + Anthropic) + `actions` (tipli) + `prompts` (data/instruction ayrımı).
+- [x] 1.3 Hipotez üretimi: `planner.HypothesisGenerator` (deterministik kurallar + LLM hook, dedupe).
 - [ ] 1.4 INCONCLUSIVE triage + LLM rapor (severity/impact/remediation, insan onayı).
-- [ ] 1.5 `oracle/bfla`.
+- [x] 1.5 `oracle/bfla` (`BflaOracle`).
 
 **Stage 2 (agentic):**
 - [ ] 2.1 `orchestrator/pipeline` state machine.
