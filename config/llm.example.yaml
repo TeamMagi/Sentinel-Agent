@@ -1,0 +1,11 @@
+# Kopyala: cp config/llm.example.yaml config/llm.yaml  (gerçek *.yaml git-ignore'lu)
+#
+# LLM YALNIZCA "neyi test edelim / sonuç ne demek" için akıl yürütür; ağa ASLA dokunmaz
+# ve CONFIRMED kararını her zaman deterministik motor verir (bkz. CLAUDE.md §5).
+# CLI flag'i bu dosyayı override eder: --llm ollama verilirse provider alanı yok sayılır.
+llm:
+  provider: ollama                 # none | ollama | gemini | anthropic
+  model: qwen2.5:14b-instruct      # 24GB GPU: 14b hız / coder-32b kalite
+  host: http://localhost:11434     # yalnızca ollama; gemini/anthropic için yok sayılır
+  temperature: 0                   # 0 = tekrar-üretilebilir öneri (önerilen)
+  max_tokens: 2048

@@ -1,0 +1,66 @@
+"""OllamaLLMClient — network'süz (httpx.MockTransport). Faz 0.1.
+
+format:json zorlamasını, temperature akışını ve yanıt parse'ını doğrular.
+"""
+import json
+
+import httpx
+import pytest
+
+from pentestai.llm.client import OllamaLLMClient
+
+
+def _transport(capture: dict, content: str) -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        capture["payload"] = json.loads(request.content)
+        capture["url"] = str(request.url)
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": content}})
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_complete_sends_format_json_and_default_temperature():
+    cap: dict = {}
+    client = OllamaLLMClient(transport=_transport(cap, "[]"))
+    out = await client.complete("sistem", "kullanici")
+
+    assert cap["payload"]["format"] == "json"            # local modeli geçerli JSON'a zorla
+    assert cap["payload"]["options"]["temperature"] == 0  # varsayılan tekrar-üretilebilir
+    assert cap["payload"]["stream"] is False
+    assert out == "[]"                                    # message.content doğru çıkarıldı
+
+
+@pytest.mark.asyncio
+async def test_temperature_param_is_threaded_into_options():
+    cap: dict = {}
+    client = OllamaLLMClient(temperature=0.7, transport=_transport(cap, "{}"))
+    await client.complete("s", "u")
+    assert cap["payload"]["options"]["temperature"] == 0.7
+
+
+@pytest.mark.asyncio
+async def test_propose_hypotheses_parses_typed_result():
+    content = '[{"type":"bfla","path_template":"/api/admin","method":"GET"}]'
+    client = OllamaLLMClient(transport=_transport({}, content))
+    hyps = await client.propose_hypotheses("GET /api/admin")
+    assert len(hyps) == 1
+    assert hyps[0].type == "bfla" and hyps[0].source == "llm"
+
+
+@pytest.mark.asyncio
+async def test_malformed_json_is_dropped_without_crash():
+    # Model bozuk/eksik çıktı verse bile sessizce elenir (crash yok) — kabul kriteri.
+    client = OllamaLLMClient(transport=_transport({}, "üzgünüm, JSON veremedim"))
+    hyps = await client.propose_hypotheses("GET /api/x/{id}")
+    assert hyps == []
+
+
+@pytest.mark.asyncio
+async def test_non_200_raises_runtime_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    client = OllamaLLMClient(transport=httpx.MockTransport(handler))
+    with pytest.raises(RuntimeError):
+        await client.complete("s", "u")
