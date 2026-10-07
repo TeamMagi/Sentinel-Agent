@@ -7,9 +7,10 @@ from pentestai.net import BudgetExceeded, BudgetTracker, Replayer, RetryPolicy, 
 from pentestai.policy import PolicyEngine
 
 
-def _scope(methods=("GET", "HEAD")):
+def _scope(methods=("GET", "HEAD"), destructive_tests=False):
     return Scope(allowed_hosts=["localhost"], allowed_ports=[3000],
-                 allowed_path_prefixes=["/"], allowed_methods=list(methods))
+                 allowed_path_prefixes=["/"], allowed_methods=list(methods),
+                 destructive_tests=destructive_tests)
 
 
 def _store(handler):
@@ -64,7 +65,7 @@ async def test_no_retry_on_state_changing():
 
     store = _store(handler)
     s = store.create(Actor(name="a", auth=AuthState()))
-    replayer = Replayer(PolicyEngine(_scope(methods=("GET", "POST"))),
+    replayer = Replayer(PolicyEngine(_scope(methods=("GET", "POST"), destructive_tests=True)),
                         retry=RetryPolicy(max_retries=3, backoff_base=0))
     resp = await replayer.replay(CapturedRequest(method="POST", url=URL), s)
     assert resp.status == 500 and calls["n"] == 1   # state-changing → retry YOK
