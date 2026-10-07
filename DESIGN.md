@@ -513,8 +513,8 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 - [x] 0.11 **Kalibrasyon:** Juice Shop `GET /rest/basket/{id}` BOLA → CONFIRMED, false-positive 0. ✅
 
 **Stage 1 (LLM):**
-> **Durum:** 33/33 test yeşil. **recon→plan→(crawl bootstrap)→IDOR+BFLA→(LLM enrich)→rapor** uçtan uca bağlı (`Scanner.run_recon_scan`); mock app + Juice Shop'ta canlı doğrulandı. Çoklu LLM sağlayıcı (Anthropic + **Gemini** `gemini-3.6-flash`). 1.4 LLM triyaj/rapor eklendi ve Gemini ile canlı doğrulandı — severity/impact/remediation LLM'e yazdırılır, **verdict değişmez**, LLM'e giden özet REDAKTE'dir. Kalan Stage 1: `recon/har`.
-- [~] 1.1 `recon/openapi` ✅ + per-actor `crawl` (own-object bootstrap) ✅ · `recon/har` BEKLİYOR.
+> **Durum:** ✅ **Stage 1 tamam.** 36/36 test yeşil. **recon→plan→(crawl bootstrap)→IDOR+BFLA→(LLM enrich)→rapor** uçtan uca bağlı (`Scanner.run_recon_scan`); mock app + Juice Shop'ta canlı doğrulandı. Çoklu LLM sağlayıcı (Anthropic + **Gemini** `gemini-3.6-flash`); enrichment'ta severity/impact/remediation LLM'e yazdırılır, **verdict değişmez**, özet REDAKTE'dir.
+- [x] 1.1 `recon/openapi` + `recon/har` (id-şablonlama, JSON/host filtresi) + per-actor `crawl` (own-object bootstrap).
 - [x] 1.2 `llm/client` (ABC + Mock + **Anthropic** + **Gemini**) + `actions` (tipli) + `prompts` (data/instruction ayrımı).
 - [x] 1.3 Hipotez üretimi: `planner.HypothesisGenerator` (deterministik kurallar + LLM hook, dedupe).
 - [x] 1.4 INCONCLUSIVE triage + LLM rapor (`enrich.FindingEnricher`; severity/impact/remediation, verdict değişmez, redakte özet). CLI `--enrich`.
