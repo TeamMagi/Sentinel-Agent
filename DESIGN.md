@@ -513,9 +513,9 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 - [x] 0.11 **Kalibrasyon:** Juice Shop `GET /rest/basket/{id}` BOLA → CONFIRMED, false-positive 0. ✅
 
 **Stage 1 (LLM):**
-> **Durum:** 29/29 test yeşil. **recon→plan→(crawl bootstrap)→IDOR+BFLA orchestrator BAĞLANDI** (`Scanner.run_recon_scan`); mock app'te + Juice Shop'ta canlı doğrulandı. Kalan: `recon/har`, 1.4 LLM triage/rapor.
+> **Durum:** 29/29 test yeşil. **recon→plan→(crawl bootstrap)→IDOR+BFLA orchestrator BAĞLANDI** (`Scanner.run_recon_scan`); mock app'te + Juice Shop'ta canlı doğrulandı. Çoklu LLM sağlayıcı (Anthropic + **Gemini**); Gemini `gemini-3.6-flash` ile canlı hipotez üretimi doğrulandı (CLI `--llm gemini`). Kalan: `recon/har`, 1.4 LLM triage/rapor.
 - [~] 1.1 `recon/openapi` ✅ + per-actor `crawl` (own-object bootstrap) ✅ · `recon/har` BEKLİYOR.
-- [x] 1.2 `llm/client` (ABC + Mock + Anthropic) + `actions` (tipli) + `prompts` (data/instruction ayrımı).
+- [x] 1.2 `llm/client` (ABC + Mock + **Anthropic** + **Gemini**) + `actions` (tipli) + `prompts` (data/instruction ayrımı).
 - [x] 1.3 Hipotez üretimi: `planner.HypothesisGenerator` (deterministik kurallar + LLM hook, dedupe).
 - [ ] 1.4 INCONCLUSIVE triage + LLM rapor (severity/impact/remediation, insan onayı).
 - [x] 1.5 `oracle/bfla` (`BflaOracle`).

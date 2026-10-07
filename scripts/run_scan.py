@@ -19,9 +19,18 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from pentestai.config import load_actors, load_endpoints, load_scope_config  # noqa: E402
+from pentestai.llm import AnthropicLLMClient, GeminiLLMClient, LLMClient  # noqa: E402
 from pentestai.models import Endpoint  # noqa: E402
 from pentestai.recon import OpenApiRecon  # noqa: E402
 from pentestai.scanner import Scanner  # noqa: E402
+
+
+def _build_llm(args) -> LLMClient | None:
+    if args.llm == "gemini":
+        return GeminiLLMClient(model=args.llm_model) if args.llm_model else GeminiLLMClient()
+    if args.llm == "anthropic":
+        return AnthropicLLMClient(model=args.llm_model) if args.llm_model else AnthropicLLMClient()
+    return None
 
 
 def _resolve_endpoints(args) -> list[Endpoint]:
@@ -36,7 +45,7 @@ async def _run(args) -> int:
     target, scope, budget_cfg = load_scope_config(args.scope)
     actor_pairs = load_actors(args.actors)
     endpoints = _resolve_endpoints(args)
-    scanner = Scanner(target, scope, budget_cfg, out_dir=args.out)
+    scanner = Scanner(target, scope, budget_cfg, out_dir=args.out, llm=_build_llm(args))
 
     if args.dry_run:
         scanner.dry_run(actor_pairs, endpoints)
@@ -68,6 +77,9 @@ def main(argv=None) -> int:
     p.add_argument("--out", default="runs/")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
+    p.add_argument("--llm", choices=["none", "gemini", "anthropic"], default="none",
+                   help="hipotez üretiminde LLM (anahtar env'den: GEMINI_API_KEY / ANTHROPIC_API_KEY)")
+    p.add_argument("--llm-model", help="LLM model adı (ör. gemini-3.6-flash)")
     args = p.parse_args(argv)
     return asyncio.run(_run(args))
 
