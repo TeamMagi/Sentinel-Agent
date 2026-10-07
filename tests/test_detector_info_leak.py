@@ -72,6 +72,17 @@ async def test_stack_trace_in_body_detected():
 
 
 @pytest.mark.asyncio
+async def test_debug_mode_detected():
+    def werkzeug_debug_handler(request):
+        return httpx.Response(500, text="<title>Werkzeug Debugger</title><h1>Traceback</h1>")
+
+    store, detector, session = _setup(werkzeug_debug_handler)
+    findings = await detector.scan(session)
+    assert any("debug mode" in f.evidence.leaked_markers[0].lower() for f in findings)
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
 async def test_error_trigger_finds_stack_trace_on_malformed_id():
     store, detector, session = _setup(error_trigger_handler)
     ep = Endpoint(method="GET", path_template="/api/orders/{id}", id_param="id")
