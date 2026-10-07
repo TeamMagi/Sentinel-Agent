@@ -3,8 +3,9 @@
 Sahte durumlu uygulama (MockTransport): vulnerable → saldırgan kurbanın objesini siler/değiştirir
 (CONFIRMED, kalıcı mutasyon kanıtı); secure → ownership check 403 döner (REJECTED).
 
-NOT: destructive_tests bayrağının PolicyEngine.authorize'a bağlanması ve Juice Shop canlı
-doğrulaması Görev 10'dadır; burada scope, yazma method'larına izin verecek şekilde kurulur.
+destructive_tests bayrağının PolicyEngine.authorize'a bağlanması: bkz. test_authorize.py
+(test_deny_destructive_when_flag_off / test_allow_destructive_when_flag_on). Burada scope,
+yazma method'larına izin verecek + destructive_tests=true şekilde kurulur.
 """
 import json
 
@@ -67,7 +68,7 @@ def make_app(secure: bool):
 
 def _setup(handler, method):
     scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"],
-                  allowed_methods=["GET", "PUT", "PATCH", "DELETE"])
+                  allowed_methods=["GET", "PUT", "PATCH", "DELETE"], destructive_tests=True)
     store = SessionStore(transport=httpx.MockTransport(handler))
     A = Actor(name="user_A", auth=AuthState(headers={"Authorization": "Bearer TOKEN_A"}),
               own_object_ids={"order": "A-1"})
@@ -111,6 +112,18 @@ async def test_rejected_put_on_secure():
     store, oracle, ep, A, B = _setup(make_app(secure=True), "PUT")
     f = await oracle.run(ep, A, B, resource_key="order")
     assert f.verdict == base.REJECTED
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_inconclusive_when_destructive_tests_disabled():
+    # policy kapısı destructive_tests=False'ta yıkıcı isteği reddeder → oracle sessizce
+    # yanlış yargı vermek yerine INCONCLUSIVE döner (§5.4).
+    store, oracle, ep, A, B = _setup(make_app(secure=False), "DELETE")
+    oracle.replayer.policy.scope = oracle.replayer.policy.scope.model_copy(
+        update={"destructive_tests": False})
+    f = await oracle.run(ep, A, B, resource_key="order")
+    assert f.verdict == base.INCONCLUSIVE
     await store.aclose_all()
 
 
