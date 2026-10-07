@@ -1,116 +1,119 @@
-# Görev Listesi — Zafiyet Kapsamı Genişletme (Tier A + Tier B)
+# Görev Listesi — Ürünleştirme Dalgaları (rakip-kıyas sonrası)
 
-> Bağlam: MVP (IDOR/BOLA + BFLA + BOPLA + reflected-XSS/error-SQLi + local LLM) **tamamlandı**
-> ve canlı doğrulandı. Bu dosya, yeni zafiyet türlerini eklemek için **Tier A** (mevcut oracle
-> desenine doğal uyan, hızlı kazanım) ve **Tier B** (yeni yetenek gerektiren) işleri kapsar.
-> Mimari ve stil için **[DESIGN.md](DESIGN.md)** + **[CLAUDE.md](CLAUDE.md)**.
-> Tier C (mimariye uymayan / ayrı araç gerektiren) işler ayrı dosyada: **[TIER_C.md](TIER_C.md)**.
+> Bağlam: **MVP + Tier A + Tier B** (IDOR/BOLA, BFLA, BOPLA, injection ailesi, SSRF/XXE/RFI,
+> CSRF, stored-XSS, session-lifecycle, exposure, info-leak, rate-limit, CVE/default-creds,
+> server-side) **tamamlandı ve canlı doğrulandı.** Ardından **kalite turu Q1–Q3** (CWE/OWASP +
+> deterministik severity · SARIF/CI · benchmark harness'i) bitti. Bu dosya artık, rakip/kıyas
+> araştırması sonrası çıkan **ürünleştirme yol haritasının** (bkz. **[ROADMAP.md](ROADMAP.md)**)
+> görevlerini Serhat ve Görkem arasında paylaştırır.
+>
+> Mimari/stil: **[DESIGN.md](DESIGN.md)** + **[CLAUDE.md](CLAUDE.md)** · Kalite turu artığı (Q4/Q5):
+> **[GOREVLER_Q.md](GOREVLER_Q.md)** · Mimariye uymayan breadth: **[TIER_C.md](TIER_C.md)**.
 
-Sorumluluklar Serhat ve Görkem arasında **toplam yük eşit** (32/32 saat) olacak şekilde paylaştırıldı;
-her ikisine birer **bloklayıcı altyapı** görevi geldi (Serhat: B1 write, Görkem: B6 OOB).
-Atamalar değiştirilebilir — önemli olan yükün dengeli kalması.
-
----
-
-## Ortak ilkeler (her yeni tür için — CLAUDE.md §3, §5, §6)
-
-Her yeni dedektör görevi şu **beş parçayı** içerir (aksi belirtilmedikçe):
-1. **Bileşen sınıfı** — differential türler için `Oracle` ABC'den yeni alt sınıf; tek-istek/imza
-   türleri için yeni hafif `Prober`/`Scanner` ailesi (bkz. "Mimari not").
-2. **planner + dispatch + expander** bağlama (`Scanner`, `HypothesisGenerator`).
-3. **LLM aksiyon/hipotez tipi** — `ProposeHypothesis`/`ProposeAction` enum + `prompts` + structured-outputs şeması.
-4. **Network'süz testler** (`httpx.MockTransport`/`respx`) — her verdict yolu.
-5. **Canlı kalibrasyon** — Juice Shop veya uygun hedefte doğrulama.
-
-**Değişmezler korunur:** LLM ağa dokunmaz · CONFIRMED'i yalnız kod verir (deterministik kanıt) ·
-kontroller geçmeden verdict yok · redaction zorunlu · scope kapısı her istekte.
-
-### Mimari not (bir kereye mahsus tasarım kararı — ilk Tier A görevinde netleşir)
-Tier A'nın bir kısmı differential değil **tek-istek + imza/header** denetimidir (ör. Open Redirect,
-CORS, header eksikleri, dosya ifşası). Bunlar için `Oracle`'a ek olarak `Probe`/`Detector` ADT'si
-tanımlanmalı (aynı `Finding`/`Evidence`/redaction sözleşmesi, differential kontrol yerine imza kanıtı).
-
-### Bağımlılıklar (önce yapılmalı — bloklayıcı; B1 ve B6 paralel başlar)
-- **[B1] write-method desteği** (`executor` + `destructive_tests` kapısı) → Mass Assignment, File Upload, CSRF, Stored XSS'in yazma adımı buna bağlı.
-- **[B6] OOB collector** (out-of-band geri çağrı altyapısı) → blind SSRF/XXE/RFI buna bağlı.
-- **[B2] timing primitive** → time-based blind SQLi/command injection buna bağlı.
+Sorumluluklar **toplam yük eşit** olacak şekilde paylaştırıldı (**Serhat 30s / Görkem 31s**).
+Atamalar değiştirilebilir — önemli olan yükün dengeli kalması. Görev gerekçeleri, kaynak makale
+eşlemesi ve kabul kriterlerinin uzun hali **[ROADMAP.md](ROADMAP.md)**'de.
 
 ---
 
-## Aşama A — Tier A (doğal uyum, read-only, deterministik)
+## Tamamlananlar (temizlendi)
 
-### A1 — Access-control genişletmeleri  ·  *(Sorumlu: Serhat · ~4 saat)*
-Horizontal privilege escalation (aynı-rol aktörler arası IDOR akışı), Admin panel bypass +
-Function-level authorization bypass (BFLA varyantları), Unauthorized API access, **HTTP method bypass**
-(alternatif method → durum farkı). Mevcut IDOR/BFLA oracle'ları örnek alınır.
-
-### A2 — Injection oracle genişletmeleri  ·  *(Sorumlu: Görkem · ~5 saat)*
-**NoSQL injection** (operatör enjeksiyonu → auth-bypass/hata imzası), **SSTI** (`{{7*7}}`→`49`
-yansıması), **Path Traversal / LFI** (`../../etc/passwd` → `root:x:0:0` imzası). `InjectionOracle`
-deseninden türetilir; zararsız payload, read-only.
-
-### A3 — Response-inspection prober (header/redirect/CORS)  ·  *(Sorumlu: Görkem · ~4 saat)*
-**Open Redirect** (Location header attacker domain), **CORS misconfiguration** (Origin→ACAO yansıması + credentials),
-**güvenlik header eksikleri** (HSTS/CSP/X-Frame → **Clickjacking tespiti**). Yeni `Probe` ADT'sini bu görev tanımlar (Mimari not).
-
-### A4 — Exposure scanner (dosya/endpoint ifşası)  ·  *(Sorumlu: Serhat · ~4 saat)*
-Bilinen path probe + imza: `.env` / `.git` / backup / source / config / log / source-map exposure,
-**Directory listing**, Swagger/GraphQL introspection & debug/doc exposure, **eski API versiyonları** (`/v1`,`/v2`).
-Yeni `ExposureScanner`; recon'a bağlanır. Kanıt = imza; PII/secret redakte.
-
-### A5 — Bilgi sızıntısı oracle  ·  *(Sorumlu: Serhat · ~3 saat)*
-Stack trace / error message disclosure, version & framework fingerprinting, internal IP / DB info disclosure.
-Hata tetikleme + response/header imza analizi. Ham sır/PII evidence'a yazılmaz (yalnızca tür/varlık).
-
-### A6 — User enumeration + JWT vulnerabilities  ·  *(Sorumlu: Görkem · ~4 saat)*
-**User/email enumeration** (login/reset/register'da geçerli-geçersiz kullanıcı differential yanıt/timing).
-**JWT vulns**: `alg=none`, imza doğrulanmıyor, zayıf secret (token forge → hâlâ 200 = deterministik kanıt).
+- ✅ **Tier A** (A1–A6): access-control genişletmeleri, injection oracle, response-inspection,
+  exposure, info-leak, user-enum + JWT.
+- ✅ **Tier B** (B1–B8): write altyapısı + mass-assignment/file-upload/CSRF, timing (blind),
+  stored-XSS + session, rate-limit/burst, recon/wordlist + GraphQL, OOB + SSRF/XXE/RFI,
+  CVE + default-creds, server-side (prototype-pollution/cache-poisoning).
+- ✅ **Kalite turu Q1–Q3**: CWE/OWASP + deterministik severity · SARIF + `--fail-on` + GitHub
+  action · benchmark harness'i (Juice Shop'ta precision %100 / recall %100 canlı doğrulandı).
+- ✅ **Ek düzeltmeler**: redaction'da kaçışlı-tırnak JSON bug'ı · `unauthorized_access`
+  public-endpoint false-positive'i.
 
 ---
 
-## Aşama B — Tier B (yeni yetenek gerektirir)
+## Ortak ilkeler (her görev için — CLAUDE.md §3, §5, §6)
 
-### B1 — Write-method altyapısı + Mass Assignment + File Upload + PUT/DELETE·CSRF authz  ·  *(Sorumlu: Serhat · ~7 saat)*  · **bloklayıcı altyapı**
-`executor`'a güvenli **yazma-metodu** desteği (`destructive_tests` kapısı, otomatik-retry yok).
-Üstüne: **Mass Assignment** (fazla alan — `role`/`isAdmin` — set oluyor mu?), **File Upload** (ext/MIME bypass),
-**tam PUT/DELETE authz + CSRF**.
-
-### B2 — Timing oracle (blind)  ·  *(Sorumlu: Görkem · ~4 saat)*  · **timing primitive**
-Zamanlama-tabanlı differential primitive; üstüne **time-based blind SQLi** ve **blind Command Injection**.
-Gürültüye karşı çoklu-örnek + eşik; budget dostu.
-
-### B3 — Stored XSS + Session lifecycle  ·  *(Sorumlu: Serhat · ~5 saat)*
-**Stored XSS** (store→retrieve iki-adım; B1'in yazma desteğini kullanır). **Session** lifecycle:
-fixation, logout sonrası geçerlilik, expiration, hijacking (kısmi). Çok-aktörlü oturum modeline oturur.
-
-### B4 — Rate-limit / burst harness  ·  *(Sorumlu: Serhat · ~5 saat)*
-Kontrollü burst altyapısı (budget-farkında). Üstüne: **rate limit eksikliği**, **brute force / credential
-stuffing / password spraying** tespiti, **weak password policy**. Hedefi ezmeyecek eşikler + kill-switch.
-
-### B5 — Recon/wordlist genişletme  ·  *(Sorumlu: Görkem · ~4 saat)*
-**API endpoint enumeration** (wordlist + differential varlık), **GraphQL** introspection → BOLA/BFLA
-GraphQL sorgularına uyarlama. recon katmanına eklenir.
-
-### B6 — OOB collector + SSRF/XXE/RFI  ·  *(Sorumlu: Görkem · ~6 saat)*  · **bloklayıcı altyapı**
-Out-of-band geri çağrı altyapısı (benzersiz token → dış geri-çağrı yakalama). Üstüne: **SSRF**,
-**XXE**, **RFI** (in-band varsa kısmi, blind için OOB).
-
-### B7 — Sürüm→CVE eşleme + server misconfig  ·  *(Sorumlu: Serhat · ~4 saat)*
-Version fingerprint → **known-CVE** eşleme (yerel/çevrimdışı CVE veri kaynağı), **default credentials**
-denemesi (güvenli liste), **debug mode** tespiti. Vulnerable/Outdated Components (OWASP A06).
-
-### B8 — Server-side ileri  ·  *(Sorumlu: Görkem · ~5 saat)*
-**Server-side Prototype Pollution** (kirlet→davranış değişimi gözle), **Web Cache Poisoning/Deception**
-(unkeyed header probe, çok-istek differential).
+- **Değişmezler korunur:** LLM ağa dokunmaz · CONFIRMED'i yalnız kod verir (deterministik kanıt) ·
+  kontroller geçmeden verdict yok · redaction zorunlu · scope kapısı her istekte. Yeni "canlı"
+  yazma adımları `destructive_tests` + scope kapısı arkasında.
+- **OOP + DI + Open/Closed:** yeni motor/entegrasyon constructor'dan enjekte edilir; mevcut
+  sınıflar değiştirilmeden genişletilir.
+- **Network'süz testler** (`httpx.MockTransport`/`respx`) her yol için; `pytest -q` yeşil olmadan
+  merge yok. Uygun görevlerde **canlı kalibrasyon** (Juice Shop / VAmPI / crAPI).
 
 ---
 
-## Toplam yük (eşit — 32/32)
+## Dalga 1 — Güven derinleştirme *(en yüksek getiri)*
 
-| | Tier A | Tier B | Toplam |
-|---|---|---|---|
-| **Serhat** | A1(4) + A4(4) + A5(3) = 11 | B1(7) + B3(5) + B4(5) + B7(4) = 21 | **32 saat** |
-| **Görkem** | A2(5) + A3(4) + A6(4) = 13 | B2(4) + B5(4) + B6(6) + B8(5) = 19 | **32 saat** |
+### R-A1 — Canary planting · *(Sorumlu: Serhat · ~7s)*
+Tarama öncesi kurban hesabına **benzersiz işaret verisi** ek (B1 write kapısını kullanır); saldırgan
+cevabında belirirse tartışmasız leaked-marker. **Kabul:** Juice Shop'ta canary'li IDOR'da FP=0,
+marker canary değeriyle eşleşiyor. *(Kaynak: MAPTA, AuthProbe)*
 
-**Önerilen sıra:** önce bağımlılıklar paralelde (Serhat B1 · Görkem B6, B2) → sonra onlara bağlı
-dedektörler → Tier A bağımsız olduğundan boşluklarda paralel ilerler.
+### R-D1 — Per-role coverage + profil-etiketli bulgu · *(Sorumlu: Serhat · ~3s)*
+Raporda "hangi aktör hangi endpoint'e ulaştı" tablosu; her bulgu keşfeden aktörle etiketli
+("found as user_A"). **Kabul:** per-rol kapsam tablosu + profil etiketi raporda. *(Kaynak: Escape, StackHawk)*
+
+### R-A3 — Çok-hedefli benchmark · *(Sorumlu: Görkem · ~8s)*
+VAmPI + crAPI + Juice Shop; AuthProbe'un "vulnerable↔hardened ikiz, 0-FP" metodolojisi; advisory
+metni gizlenir. **Kabul:** ≥3 hedef, ≥30 etiketli vaka, precision/recall/FP tablosu README'de.
+*(Kaynak: AuthProbe, appsecsanta)*
+
+### R-B1 — 2×2 yetki matrisi + çift-yönlü test · *(Sorumlu: Görkem · ~4s)*
+(own/peer obje) × (own/higher rol) matrisi; A→B kadar B→A da test (asimetrik izolasyon).
+**Kabul:** her iki yön test ediliyor, matris raporda, asimetrik sızıntı yakalanıyor. *(Kaynak: StingrAI)*
+
+---
+
+## Dalga 2 — Benimsenme + kanıt
+
+### R-C1 — Baseline + diff modu · *(Sorumlu: Serhat · ~5s)*
+Bilinen FP'ler baseline'da bastırılır, yalnız **yeni bulgu** raporlanır; "no silent drops"
+(bastırılan sebebiyle raporda kalır). **Kabul:** `--baseline` ile yalnız yeni bulgular gate'ler.
+*(Kaynak: Snyk, ZAP, p1-triage)*
+
+### R-D2 — Dedup (`CWE+endpoint+param`) + agreement bump · *(Sorumlu: Serhat · ~3s)*
+Rule-id değil kök-nedene göre grupla; `sources[]` izini koru; çok sinyal aynı bulguyu derse
+confidence↑. SARIF fingerprint ile uyumlu. **Kabul:** aynı kök-neden tek grup. *(Kaynak: p1-triage)*
+
+### R-A2 — Replay edilebilir kanıt paketi · *(Sorumlu: Görkem · ~5s)*
+Her CONFIRMED bulguya tam istek/yanıt fixture'ı + çevrimdışı yeniden-ispat scripti. **Kabul:**
+`runs/<id>/proof/<fid>.json` + `replay.py` bulguyu ağsız yeniden ispatlıyor. *(Kaynak: XBOW, Shannon, MAPTA)*
+
+### R-C2 — LLM FP-triyajı (`likely_fp`) · *(Sorumlu: Görkem · ~4s)*
+Yerel Ollama; verdict+confidence+reason döner; **asla silmez**, `likely_fp` işaretler; hata → `unreviewed`.
+**Kabul:** LLM kapalıyken davranış aynı; açıkken etiket eklenir, verdict değişmez (§5). *(Kaynak: p1-triage)*
+
+---
+
+## Dalga 3 — Konumlandırma + olgunluk
+
+### R-C3 — MCP tool-server · *(Sorumlu: Serhat · ~6s)*
+`Replayer` + oracle'lar tipli **MCP araçları** olarak açılır → diğer ajanlar (Claude Code) Sentinel'i
+"deterministik hâkim" olarak çağırır. **Kabul:** `sentinel-mcp` authorize→replay→oracle'ı tipli araç
+olarak sunuyor. *(Kaynak: appsecsanta, strix)*
+
+### R-D3 — Olgunluk paketi · *(Sorumlu: Serhat · ~6s)*
+Kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı
+erken durdurma (~40 çağrı / $0.30 / 300s). **Kabul:** `pip install` → `sentinel scan …`; modlar
+bütçeyi ölçekliyor. *(Kaynak: StackHawk, strix, MAPTA, appsecsanta)*
+
+### R-B2 — ID varyasyonu + iç-içe/dolaylı referans · *(Sorumlu: Görkem · ~5s)*
+int & UUID; sadece URL'de değil gövde/ikinci-el lookup'taki obje id'leri. **Kabul:** gövdedeki obje
+id'sinde IDOR CONFIRMED testi geçiyor. *(Kaynak: StingrAI)*
+
+### R-B3 — Scalar inference / feedback-driven keşif · *(Sorumlu: Görkem · ~5s)*
+Yanıtlardan veri ilişkisini çıkarıp `own_object_ids`'i otomatik bootstrap. **Kabul:** id'ler elle
+verilmeden bulunabiliyor (Juice Shop). *(Kaynak: Escape)*
+
+---
+
+## Toplam yük (dengeli — 30/31)
+
+| | Dalga 1 | Dalga 2 | Dalga 3 | Toplam |
+|---|---|---|---|---|
+| **Serhat** | R-A1(7) + R-D1(3) = 10 | R-C1(5) + R-D2(3) = 8 | R-C3(6) + R-D3(6) = 12 | **30 saat** |
+| **Görkem** | R-A3(8) + R-B1(4) = 12 | R-A2(5) + R-C2(4) = 9 | R-B2(5) + R-B3(5) = 10 | **31 saat** |
+
+**Önerilen sıra:** Dalga 1 önce (canary + benchmark + matris güven iddiasını rakiplerin ötesine
+taşır) → Dalga 2 (CI benimsenmesi) → Dalga 3 (konumlandırma + olgunluk). Tier C, Dalga 1–2
+oturmadan başlamaz.
