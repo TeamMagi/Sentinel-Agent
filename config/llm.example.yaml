@@ -5,7 +5,7 @@
 # CLI flag'i bu dosyayı override eder: --llm ollama verilirse provider alanı yok sayılır.
 llm:
   provider: ollama                 # none | ollama | gemini | anthropic
-  model: qwen2.5:14b-instruct      # 24GB GPU: 14b hız / coder-32b kalite
-  host: http://localhost:11434     # yalnızca ollama; gemini/anthropic için yok sayılır
+  model: qwen2.5:14b-instruct      # `ollama list`'teki TAM tag; Qwen3 için ör. qwen3:30b (--llm-model ile de geçilebilir)
+  host: http://localhost:11434     # yalnızca ollama; Docker İÇİNDE koşarsan: http://host.docker.internal:11434
   temperature: 0                   # 0 = tekrar-üretilebilir öneri (önerilen)
-  max_tokens: 2048
+  max_tokens: 2048                 # düşünen model reasoning'i think:false ile kapatılır → bütçe JSON'a kalır
