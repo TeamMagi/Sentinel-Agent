@@ -76,6 +76,42 @@ async def test_propose_hypotheses_parses_typed_result():
 
 
 @pytest.mark.asyncio
+async def test_propose_sends_json_schema_as_format():
+    # propose_hypotheses, Ollama'ya format olarak JSON ŞEMA (sözlük) geçirir (structured outputs).
+    cap: dict = {}
+    client = OllamaLLMClient(transport=_transport(cap, '{"hypotheses":[]}'))
+    await client.propose_hypotheses("GET /api/x/{id}")
+    fmt = cap["payload"]["format"]
+    assert isinstance(fmt, dict)                       # "json" string'i değil, tam şema
+    assert "hypotheses" in fmt["properties"]
+
+
+@pytest.mark.asyncio
+async def test_wrapper_object_is_parsed():
+    # Local modelin tipik biçimi: {"hypotheses":[...]} — toleranslı parse bunu çözer.
+    content = '{"hypotheses":[{"type":"idor","path_template":"/api/x/{id}","rationale":"r"}]}'
+    client = OllamaLLMClient(transport=_transport({}, content))
+    hyps = await client.propose_hypotheses("GET /api/x/{id}")
+    assert len(hyps) == 1 and hyps[0].type == "idor" and hyps[0].source == "llm"
+
+
+@pytest.mark.asyncio
+async def test_single_object_is_parsed():
+    # Dizi yerine tek nesne dönerse de kabul edilir (qwen3.8 think=True bunu yapıyordu).
+    content = '{"type":"bfla","path_template":"/api/admin","method":"GET","rationale":"r"}'
+    client = OllamaLLMClient(transport=_transport({}, content))
+    hyps = await client.propose_hypotheses("GET /api/admin")
+    assert len(hyps) == 1 and hyps[0].type == "bfla"
+
+
+@pytest.mark.asyncio
+async def test_error_object_yields_no_hypotheses():
+    # format:"json"'ın bozuk çıktısı ({"error":...}) şemaya uymaz → sessizce [] döner (crash yok).
+    client = OllamaLLMClient(transport=_transport({}, '{"error":"Invalid JSON structure."}'))
+    assert await client.propose_hypotheses("GET /api/x/{id}") == []
+
+
+@pytest.mark.asyncio
 async def test_malformed_json_is_dropped_without_crash():
     # Model bozuk/eksik çıktı verse bile sessizce elenir (crash yok) — kabul kriteri.
     client = OllamaLLMClient(transport=_transport({}, "üzgünüm, JSON veremedim"))
