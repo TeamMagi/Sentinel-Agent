@@ -554,4 +554,7 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 
 ## 16. Sonraki genişletmeler (v2+)
 
-Aynı iskelete yeni test tipi eklemek: yazma/silme authz (PUT/DELETE + CSRF), BOPLA mass-assignment, injection (SQLi/XSS payload kütüphaneleri + reflection oracle), SSRF, business-logic invariant'ları (kupon tek-kullanım, concurrency/race), OpenAPI-dışı GraphQL recon, SARIF export ile CI entegrasyonu.
+- [x] **BOPLA / excessive data exposure** (`oracle/bopla.BoplaOracle` + `SensitiveFieldScanner`): cevaptaki hassas alanları (kimlik bilgisi/kart/sır/yetki bayrağı) tarar; kanıt = dolu alanın varlığı, evidence'ta yalnızca alan ADI (değer değil). planner/dispatch/expander'a bağlı.
+- [x] **Injection — reflected XSS + error-based SQLi** (`oracle/injection.InjectionOracle`): benzersiz marker/tek-tırnak enjekte edip yansıma (HTML'de escape'siz) veya SQL hata imzası (differential: benign temiz, tırnak hata) oracle'ı. path & query konumu; zararsız payload, GET (read-only). planner + dispatch bağlı.
+- [x] **Local LLM (Ollama)** — `llm/client.OllamaLLMClient`: anahtarsız yerel model (env `OLLAMA_HOST`); CLI `--llm ollama`. Çoklu sağlayıcı: Anthropic + Gemini + Ollama.
+- [ ] Yazma/silme authz (PUT/DELETE + CSRF), mass-assignment, boolean/time-based SQLi, SSRF, business-logic (kupon tek-kullanım, concurrency/race), GraphQL recon, SARIF export + CI.
