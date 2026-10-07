@@ -87,6 +87,7 @@ async def _run(args) -> int:
             if not args.no_bootstrap:
                 await scanner._bootstrap_ids(sessions, endpoints)
             by_name = {s.actor.name: s for s in sessions}
+            by_name["anonymous"] = scanner.anon   # unauthorized_access için kimlik doğrulamasız oturum
             if args.scouts > 1:
                 agent = ParallelOrchestrator(
                     scanner.executor, endpoints, llm=llm, planner=scanner.planner,
@@ -102,7 +103,11 @@ async def _run(args) -> int:
         else:
             findings = await scanner.run_recon_scan(
                 sessions, endpoints, bootstrap=not args.no_bootstrap, enrich=args.enrich,
-                enumerate_more=args.enumerate)
+                enumerate_more=args.enumerate,
+                exposure_scan=not args.no_exposure_scan, info_leak_scan=not args.no_info_leak_scan,
+                rate_limit_scan=not args.no_rate_limit_scan, cve_scan=not args.no_cve_scan,
+                login_url=args.login_url, register_url=args.register_url,
+                logout_url=args.logout_url)
     finally:
         await scanner.aclose()
 
@@ -132,6 +137,22 @@ def main(argv=None) -> int:
     p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
     p.add_argument("--enumerate", action="store_true",
                    help="wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme)")
+    p.add_argument("--no-exposure-scan", action="store_true",
+                   help="A4 bilinen path/imza taramasını (.env/.git/backup/... + eski API sürümü) atla")
+    p.add_argument("--no-info-leak-scan", action="store_true",
+                   help="A5 bilgi sızıntısı taramasını (fingerprint + hata tetikleme) atla")
+    p.add_argument("--no-rate-limit-scan", action="store_true",
+                   help="B4 rate-limit/burst taramasını atla")
+    p.add_argument("--no-cve-scan", action="store_true",
+                   help="B7 sürüm→CVE eşleme + default-credentials taramasını atla")
+    p.add_argument("--login-url",
+                   help="B4/B7: brute-force/credential-stuffing + default-credentials taraması "
+                        "için login endpoint'i")
+    p.add_argument("--register-url", help="B4: zayıf şifre politikası taraması için kayıt endpoint'i")
+    p.add_argument("--logout-url",
+                   help="B3: session lifecycle taraması (logout invalidation + JWT exp claim) "
+                        "için logout endpoint'i — verilince tetiklenir, oturumu SONLANDIRIR "
+                        "(diğer testlerden sonra çalışır)")
     p.add_argument("--llm", choices=["none", "gemini", "anthropic", "ollama"], default=None,
                    help="hipotez/enrich LLM'i; --llm-config'i override eder "
                         "(env: GEMINI_API_KEY / ANTHROPIC_API_KEY / OLLAMA_HOST)")
