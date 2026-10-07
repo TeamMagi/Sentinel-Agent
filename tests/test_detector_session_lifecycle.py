@@ -122,3 +122,45 @@ async def test_fixation_no_finding_without_pre_login_cookie():
         session, f"{BASE}/login", {"email": "a@test.local", "password": "x"})
     assert findings == []
     await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_fixation_allows_login_post_even_when_destructive_tests_off():
+    # scope yalnızca GET/HEAD'e izin veriyor VE destructive_tests=False — login POST yine de
+    # purpose="auth" ile geçmeli (Faz 3 öncesi session.client.post kapıyı hiç görmüyordu).
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(200, json={"status": "ok"})
+
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"],
+                  allowed_methods=["GET", "HEAD"], destructive_tests=False)
+    store = SessionStore(transport=httpx.MockTransport(handler))
+    detector = SessionLifecycleDetector(Replayer(PolicyEngine(scope)), BASE)
+    session = store.create(Actor(name="user_A"))
+    session.client.cookies.set("session_id", "abc123")
+    findings = await detector.check_session_fixation(
+        session, f"{BASE}/login", {"email": "a@test.local", "password": "x"})
+    assert len(findings) == 1 and findings[0].verdict == "CONFIRMED"
+    assert calls == [f"{BASE}/login"]
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_fixation_denied_by_scope_never_reaches_transport():
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(200, json={"status": "ok"})
+
+    store, detector = _setup(handler)
+    session = store.create(Actor(name="user_A"))
+    session.client.cookies.set("session_id", "abc123")
+    # login_url scope dışı bir host'u gösteriyor — istek hiç gönderilmemeli.
+    findings = await detector.check_session_fixation(
+        session, "http://evil.example/login", {"email": "a@test.local", "password": "x"})
+    assert findings == []
+    assert calls == []
+    await store.aclose_all()

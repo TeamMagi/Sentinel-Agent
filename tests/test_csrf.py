@@ -91,6 +91,32 @@ async def test_csrf_body_location_merges_json_field():
 
 
 @pytest.mark.asyncio
+async def test_csrf_fetch_denied_by_scope_never_reaches_transport():
+    calls = []
+
+    def tracking_handler(request):
+        calls.append(str(request.url))
+        if request.url.path == "/api/orders/1":
+            return httpx.Response(200, json={"status": "ok-no-csrf-needed"})
+        return httpx.Response(200, json={"csrfToken": "should-not-be-used"})
+
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"],
+                  allowed_methods=["PUT"], destructive_tests=True)
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(tracking_handler))
+    # fetch_url scope dışı bir host'u gösteriyor (ör. keşiften/config'ten yanlış gelmiş) —
+    # istek HİÇ gönderilmemeli (hem scope kaçışı hem cookie sızıntısı riski, CLAUDE.md §5).
+    cfg = CSRFConfig(fetch_url="http://evil.example/csrf-token", extract="json:csrfToken")
+    actor = Actor(name="user_A", auth=AuthState(csrf=cfg))
+    session = store.create(actor)
+    replayer = Replayer(PolicyEngine(scope))
+    req = CapturedRequest(method="PUT", url=f"{BASE}/api/orders/1")
+    resp = await replayer.replay(req, session)
+    assert resp.status == 200
+    assert calls == [f"{BASE}/api/orders/1"]   # csrf-token isteği hiç gönderilmedi
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
 async def test_csrf_fetch_failure_is_silent():
     def failing_handler(request):
         if request.url.path == "/csrf-token":
