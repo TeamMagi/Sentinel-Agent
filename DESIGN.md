@@ -3,6 +3,8 @@
 > Sürüm: taslak v3 · Odak: authenticated access control (IDOR/BOLA + BFLA) · Hedef ortam: localhost/staging
 >
 > **v3 eklemeleri:** eksik veri modelleri (Endpoint/Hypothesis/Mutation/CSRFConfig/Scope) · execution model (async/rate/budget/retry) · çalışma modları & CLI (passive/active/dry-run) · run artifacts + redaction politikası · `id` konumu soyutlaması.
+>
+> **v4:** Stage 0 **OOP + modüler** olarak uygulandı (bkz. CLAUDE.md). Aşağıdaki §10 pseudocode'ları kavramsaldır; gerçek uygulama sınıf tabanlıdır — eşleme §10 başındaki nota bakınız.
 
 ---
 
@@ -298,6 +300,9 @@ class ScanState(BaseModel):                # state machine'in taşıdığı tek 
 
 ## 10. Modül sözleşmeleri
 
+> **Uygulama notu (OOP, v4):** Aşağıdaki pseudocode'lar kavramsaldır. Gerçek uygulama sınıf tabanlı ve dependency-injection'lıdır:
+> `PolicyEngine` (10.5) · `Replayer` (10.3) · `ResponseNormalizer` (10.4) · `SessionStore`/`Session` (10.2) · `BudgetTracker`/`RateLimiter`/`RetryPolicy` (10.11) · `Oracle`(ABC)→`IdorOracle` (10.6) · `MarkerExtractor` (10.6) · `AuthProvider`(ABC)→`Token`/`StorageState`/`Static` (10.1) · `EvidenceStore` (10.13) · `Reporter`(ABC)→`Markdown`/`Json` (10.10) · `Scanner` (orchestrator, `src/pentestai/scanner.py`).
+
 ### 10.1 auth/ — AuthProvider (pluggable)
 ```python
 class AuthProvider(Protocol):
@@ -367,7 +372,9 @@ def authorize(req, scope) -> Allow | Deny:
 async def test_idor(endpoint, A: Actor, B: Actor, scope) -> Finding:
     # KONTROLLER
     pos = (await replay(endpoint.with_id(B.own["order"]), B, scope)).status == 200
-    neg = (await replay(endpoint.with_id(BOGUS), A, scope)).status in (403,404)
+    # negative: bogus id ya 403/404 ya da baseline'dan FARKLI dönmeli (kalibrasyon öğrenimi:
+    # Juice Shop olmayan basket için 200+null döndü — sadece status'e bakmak yanıltıcı)
+    neg = bogus.status in (403,404) or bogus.body_normalized != base1.body_normalized
     base1 = await replay(endpoint.with_id(A.own["order"]), A, scope)
     base2 = await replay(endpoint.with_id(A.own["order"]), A, scope)
     stable = base1.body_normalized == base2.body_normalized
@@ -491,17 +498,19 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 ## 13. Milestone checklist
 
 **Stage 0 (LLM yok):**
-- [ ] 0.1 Scaffold: pyproject, venv (WSL2, OneDrive dışı), config örnekleri, `.secrets/` ignore.
-- [ ] 0.2 Models: Actor, AuthState, CapturedRequest, NormalizedResponse, Finding, Evidence, Scope.
-- [ ] 0.3 Auth: `token_provider` + `storagestate` import.
-- [ ] 0.4 `session_store` + **`test_replay` cross-contamination testi** (iki aktör, sızıntı yok).
-- [ ] 0.5 `policy/authorize` + `test_authorize` (allow/deny + IP pinning + budget).
-- [ ] 0.6 `net/replay` (choke point) + `net/normalize`.
-- [ ] 0.7 `oracle/markers` + `oracle/idor` + `test_oracle_idor` (respx ile sahte response'lar, her verdict yolu).
-- [ ] 0.8 `evidence/store` + `report/render_md` + `render_json`.
-- [ ] 0.9 `net/limits`: `BudgetTracker` + host-başına token-bucket + retry/backoff (§10.11).
-- [ ] 0.10 `scripts/run_scan`: config → oracle → rapor; CLI `--mode passive|active --dry-run`; `runs/<run_id>/` artifact layout + redaction (§10.12–10.13).
-- [ ] 0.11 **Kalibrasyon:** Juice Shop bilinen IDOR → CONFIRMED, false-positive 0.
+> **Durum:** ✅ **Stage 0 tamam.** 0.1–0.11 · 19/19 test yeşil · OOP + modüler (bkz. CLAUDE.md).
+> Kalibrasyon: Juice Shop `GET /rest/basket/{id}` BOLA'sı **CONFIRMED** bulundu (leaked-marker: sepet ürünü), false-positive 0.
+- [x] 0.1 Scaffold: pyproject, venv (WSL2, OneDrive dışı), config örnekleri, `.secrets/` ignore.
+- [x] 0.2 Models: Actor, AuthState, CapturedRequest, NormalizedResponse, Finding, Evidence, Scope.
+- [x] 0.3 Auth: `token_provider` + `storagestate` import.
+- [x] 0.4 `session_store` + **`test_replay` cross-contamination testi** (iki aktör, sızıntı yok).
+- [x] 0.5 `policy/authorize` + `test_authorize` (allow/deny + IP pinning + budget).
+- [x] 0.6 `net/replay` (choke point) + `net/normalize`.
+- [x] 0.7 `oracle/markers` + `oracle/idor` + `test_oracle_idor` (respx ile sahte response'lar, her verdict yolu).
+- [x] 0.8 `evidence/store` + `report/render_md` + `render_json`.
+- [x] 0.9 `net/limits`: `BudgetTracker` + host-başına token-bucket + retry/backoff (§10.11).
+- [x] 0.10 `scripts/run_scan`: config → oracle → rapor; CLI `--mode passive|active --dry-run`; `runs/<run_id>/` artifact layout + redaction (§10.12–10.13).
+- [x] 0.11 **Kalibrasyon:** Juice Shop `GET /rest/basket/{id}` BOLA → CONFIRMED, false-positive 0. ✅
 
 **Stage 1 (LLM):**
 - [ ] 1.1 `recon/openapi` + `recon/har` + per-actor `crawl` (own-object bootstrap).
