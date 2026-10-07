@@ -86,6 +86,17 @@ def test_name_field_is_redacted_in_escaped_body_text():
     assert "<REDACTED>" in out
 
 
+def test_name_value_with_escaped_quotes_stays_valid_json():
+    # regresyon: içinde kaçışlı tırnak geçen değer (ör. ürün adı) redaction sonrası
+    # JSON'u BOZMAMALI — eskiden ilk \" karakterinde kesilip geçersiz JSON üretiyordu.
+    payload = json.dumps({"id": 41, "name": 'OWASP Juice Shop "Permafrost" 2020 Edition'})
+    out = redact(payload)
+    parsed = json.loads(out)              # bozuk olsaydı burada patlardı
+    assert parsed["name"] == "<REDACTED>"
+    assert parsed["id"] == 41
+    assert "Permafrost" not in out         # değer tamamen maskelendi (kalıntı yok)
+
+
 # --- aşırı-redaction'a karşı koruma ---
 
 def test_small_numbers_and_plain_text_are_not_touched():

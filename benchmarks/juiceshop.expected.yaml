@@ -1,0 +1,64 @@
+# Sentinel-Agent — Kalibrasyon vaka seti (OWASP Juice Shop v20.2.0, izinli test hedefi)
+#
+# Her vaka BAĞIMSIZ doğrulanmış bir YER GERÇEĞİDİR (ground truth): etiket, aracın çıktısından
+# DEĞİL, doğrudan HTTP ile kanıtlanarak konmuştur (döngüsellik yok). Benchmark bunu bir taramanın
+# findings.json'ıyla karşılaştırır → precision / recall / FP-rate (bkz. scripts/benchmark.py).
+#
+# expect:
+#   CONFIRMED      → (tür + endpoint) GERÇEKTEN zafiyetli; araç CONFIRM etmeli (etmezse FN).
+#   not_vulnerable → burada bu tür zafiyet YOK; araç CONFIRM ETMEMELİ (ederse FP).
+#
+# Doğrulama kanıtı (2026-09-15, iki kayıtlı hesap A/B, B'nin sepeti dolu):
+#   idor basket      : A -> GET /rest/basket/<B.bid> = 200, B'nin ürünü A'nın cevabında görüldü → BOLA.
+#   sqli search      : GET /rest/products/search?q=test' = 500 "SQLITE_ERROR ... syntax error" → SQLi.
+#   jwt basket       : alg=none imzasız forged token -> GET /rest/basket = 200, whoami kullanıcıyı verdi;
+#                      token yokken 401 → imzasız JWT kabul ediliyor (Critical).
+#   info_leak search : q=test' cevabı ham SQLITE hata metnini ifşa ediyor → hata/bilgi sızıntısı.
+#   unauth (NEGATİF) : /rest/products/search ve /api/products anonim GET = 200 → public-by-design;
+#                      "yetkisiz erişim zafiyeti" DEĞİL. Araç bunları CONFIRM ederse FALSE-POSITIVE'dir.
+#   idor login (NEG) : /rest/user/login obje endpoint'i değil → IDOR olamaz.
+
+cases:
+  # ---------- POZİTİF: gerçek zafiyetler (araç CONFIRM etmeli) ----------
+  - type: idor
+    endpoint: "/rest/basket/{id}"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — başka kullanıcının sepetini görüntüleme (dolu sepette marker sızar)."
+
+  - type: sqli
+    endpoint: "/rest/products/search"
+    method: GET
+    expect: CONFIRMED
+    note: "Error-based SQLi — q parametresinde tek tırnak SQLITE_ERROR tetikler."
+
+  - type: jwt
+    endpoint: "/rest/basket/{id}"
+    method: GET
+    expect: CONFIRMED
+    note: "alg=none — imzasız forged JWT kabul ediliyor."
+
+  - type: info_leak
+    endpoint: "/rest/products/search"
+    method: GET
+    expect: CONFIRMED
+    note: "Ham SQL hata mesajı / stack trace ifşası (verbose error)."
+
+  # ---------- NEGATİF: zafiyet DEĞİL (araç CONFIRM ederse FP) ----------
+  - type: unauthorized_access
+    endpoint: "/rest/products/search"
+    method: GET
+    expect: not_vulnerable
+    note: "Ürün araması tasarımca herkese açık; anonim erişim zafiyet değildir (FP kapanı)."
+
+  - type: unauthorized_access
+    endpoint: "/api/products"
+    method: GET
+    expect: not_vulnerable
+    note: "Ürün kataloğu tasarımca public; anonim erişim zafiyet değildir (FP kapanı)."
+
+  - type: idor
+    endpoint: "/rest/user/login"
+    method: GET
+    expect: not_vulnerable
+    note: "Login endpoint'i obje endpoint'i değil; IDOR yanlış-pozitifi olmamalı."

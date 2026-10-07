@@ -18,6 +18,9 @@ import sys
 # Kurulum yapılmadan da çalışsın diye src'yi path'e ekle.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
+import shutil  # noqa: E402
+
+from pentestai.classify import SEVERITY_ORDER  # noqa: E402
 from pentestai.config import (  # noqa: E402
     load_actors, load_endpoints, load_llm_config, load_scope_config,
 )
@@ -33,6 +36,23 @@ from pentestai.scanner import Scanner  # noqa: E402
 def _drop_none(**kw) -> dict:
     """None değerleri eler → client constructor varsayılanları devreye girsin."""
     return {k: v for k, v in kw.items() if v is not None}
+
+
+def _fail_exit(findings, fail_on: str) -> int:
+    """CI kapısı: eşik ≥ severity'de CONFIRMED bulgu varsa non-zero (2) döner.
+
+    `--fail-on none` (varsayılan) → her zaman 0 (mevcut davranış korunur).
+    """
+    if not fail_on or fail_on == "none":
+        return 0
+    threshold = fail_on.capitalize()   # "high" → "High"
+    if threshold not in SEVERITY_ORDER:
+        return 0
+    ti = SEVERITY_ORDER.index(threshold)
+    for f in findings:
+        if f.verdict == "CONFIRMED" and f.severity and SEVERITY_ORDER.index(f.severity) >= ti:
+            return 2
+    return 0
 
 
 def _build_llm(args) -> LLMClient | None:
@@ -113,6 +133,8 @@ async def _run(args) -> int:
 
     run_id, root = scanner.save(findings, args.mode,
                                 trace=agent.trace if agent is not None else None)
+    if args.sarif:   # CI için bilinen bir yola SARIF kopyası (koşum dizinine de yazıldı)
+        shutil.copyfile(root / "report.sarif", args.sarif)
     confirmed = sum(1 for f in findings if f.verdict == "CONFIRMED")
     if pipeline is not None:
         print(f"[loop] {len(pipeline.transitions)} durum geçişi · "
@@ -120,7 +142,7 @@ async def _run(args) -> int:
     if agent is not None:
         print(f"[agent] {len(agent.trace.steps)} aksiyon · {agent.trace.wall_sec}s")
     print(f"[done] {len(findings)} bulgu · {confirmed} CONFIRMED · {root}")
-    return 0
+    return _fail_exit(findings, args.fail_on)
 
 
 def main(argv=None) -> int:
@@ -133,6 +155,12 @@ def main(argv=None) -> int:
     p.add_argument("--mode", choices=["passive", "active"], default="active")
     p.add_argument("--stage", type=int, default=1)
     p.add_argument("--out", default="runs/")
+    p.add_argument("--sarif", help="SARIF çıktısını ayrıca bu yola kopyala (koşum dizinine "
+                                   "report.sarif olarak zaten yazılır; CI upload için pratik)")
+    p.add_argument("--fail-on", dest="fail_on",
+                   choices=["none", "info", "low", "medium", "high", "critical"], default="none",
+                   help="CI kapısı: bu severity ve üstünde CONFIRMED bulgu varsa çıkış kodu 2 "
+                        "(varsayılan none → her zaman 0)")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
     p.add_argument("--enumerate", action="store_true",
