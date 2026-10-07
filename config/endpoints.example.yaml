@@ -1,0 +1,14 @@
+# Stage 0: recon yok — test edilecek endpoint'leri elle ver.
+# resource_key, actor.own_object_ids içindeki anahtarla eşleşmeli (baseline/positive control).
+endpoints:
+  - method: GET
+    path_template: "/api/orders/{id}"
+    id_param: id
+    id_location: path
+    resource_key: order
+
+  - method: GET
+    path_template: "/api/baskets/{id}"
+    id_param: id
+    id_location: path
+    resource_key: basket
