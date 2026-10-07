@@ -1,0 +1,41 @@
+# ---- Secrets & runtime output (ASLA commit etme) ----
+.secrets/
+*.storagestate.json
+.env
+.env.*
+!.env.example
+runs/
+*.sqlite
+*.sqlite3
+
+# ---- Real config (yalnızca *.example.yaml commit'lenir) ----
+config/*.yaml
+!config/*.example.yaml
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- Playwright ----
+/test-results/
+/playwright-report/
+/.playwright/
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

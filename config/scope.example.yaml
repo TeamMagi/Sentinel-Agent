@@ -1,0 +1,21 @@
+# Kopyala: cp config/scope.example.yaml config/scope.yaml  (gerçek *.yaml git-ignore'lu)
+target:
+  base_url: "http://localhost:3000"   # docker içinden çalışırken: http://juice-shop:3000
+
+scope:
+  allowed_hosts: ["localhost", "127.0.0.1", "juice-shop"]
+  allowed_ports: [3000]
+  allowed_path_prefixes: ["/api/", "/rest/", "/"]
+  denied_path_patterns: ["*/reset*", "*/admin/db*", "*/export*"]
+  allowed_methods: ["GET", "HEAD"]    # yıkıcı method default kapalı (v0 read-only)
+  destructive_tests: false
+  external_network: false
+
+budget:
+  max_total_requests: 2000
+  max_rps_per_host: 5
+  max_wall_clock_sec: 900
+  max_payload_bytes: 1048576
+
+privacy:
+  no_secrets_in_query: true
