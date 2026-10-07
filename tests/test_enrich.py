@@ -6,9 +6,22 @@ import pytest
 
 from pentestai.enrich import FindingEnricher
 from pentestai.llm import MockLLMClient
+from pentestai.llm.client import LLMClient
 from pentestai.models import Evidence, Finding
 
 ENRICHMENT = '{"severity":"High","impact":"IMPACT-METNI","remediation":"FIX-METNI","triage_note":"NEDEN"}'
+
+
+class _CaptureLLM(LLMClient):
+    """complete'e geçilen fmt'i yakalayan minimal client (structured-outputs doğrulaması)."""
+
+    def __init__(self, completion: str):
+        self.completion = completion
+        self.fmt = None
+
+    async def complete(self, system: str, user: str, *, fmt=None) -> str:
+        self.fmt = fmt
+        return self.completion
 
 
 def _finding(verdict, markers=None):
@@ -41,6 +54,16 @@ async def test_inconclusive_gets_triage_note():
     enricher = FindingEnricher(MockLLMClient(completion=ENRICHMENT))
     f = await enricher.enrich(_finding("INCONCLUSIVE"))
     assert f.triage_note == "NEDEN" and f.verdict == "INCONCLUSIVE"
+
+
+@pytest.mark.asyncio
+async def test_enrich_passes_json_schema_as_format():
+    # enrich, Ollama'ya format olarak enrichment JSON ŞEMASINI geçirir (structured-outputs).
+    llm = _CaptureLLM(ENRICHMENT)
+    await FindingEnricher(llm).enrich(_finding("CONFIRMED", markers=["x@y.z"]))
+    assert isinstance(llm.fmt, dict)
+    assert "severity" in llm.fmt["properties"]
+    assert "Critical" in llm.fmt["properties"]["severity"]["enum"]
 
 
 def test_summary_is_redacted():
