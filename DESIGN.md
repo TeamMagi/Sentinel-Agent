@@ -554,5 +554,7 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 
 ## 16. Sonraki genişletmeler (v2+)
 
-- [x] **BOPLA / excessive data exposure** (`oracle/bopla.BoplaOracle` + `SensitiveFieldScanner`): cevaptaki hassas alanları (kimlik bilgisi/kart/sır/yetki bayrağı) tarar; kanıt = dolu alanın varlığı, evidence'ta yalnızca alan ADI (değer değil). planner/dispatch/expander'a bağlı. 43/43 test yeşil.
-- [ ] Yazma/silme authz (PUT/DELETE + CSRF), mass-assignment, injection (SQLi/XSS + reflection oracle), SSRF, business-logic invariant'ları (kupon tek-kullanım, concurrency/race), GraphQL recon, SARIF export + CI.
+- [x] **BOPLA / excessive data exposure** (`oracle/bopla.BoplaOracle` + `SensitiveFieldScanner`): cevaptaki hassas alanları (kimlik bilgisi/kart/sır/yetki bayrağı) tarar; kanıt = dolu alanın varlığı, evidence'ta yalnızca alan ADI (değer değil). planner/dispatch/expander'a bağlı.
+- [x] **Injection — reflected XSS + error-based SQLi** (`oracle/injection.InjectionOracle`): benzersiz marker/tek-tırnak enjekte edip yansıma (HTML'de escape'siz) veya SQL hata imzası (differential: benign temiz, tırnak hata) oracle'ı. path & query konumu; zararsız payload, GET (read-only). planner + dispatch bağlı.
+- [x] **Local LLM (Ollama)** — `llm/client.OllamaLLMClient`: anahtarsız yerel model (env `OLLAMA_HOST`); CLI `--llm ollama`. Çoklu sağlayıcı: Anthropic + Gemini + Ollama.
+- [ ] Yazma/silme authz (PUT/DELETE + CSRF), mass-assignment, boolean/time-based SQLi, SSRF, business-logic (kupon tek-kullanım, concurrency/race), GraphQL recon, SARIF export + CI.
