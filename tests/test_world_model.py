@@ -70,6 +70,16 @@ def test_situation_report_is_redacted_and_bounded():
     assert len(report) <= 500
 
 
+def test_situation_report_lists_recent_tried_actions():
+    # LLM aynı aksiyonu tekrar önermesin diye durum raporunda "son denenen aksiyonlar" görünür.
+    wm = WorldModel(target="t")
+    wm.record(RunOracle(oracle="idor", endpoint=EP, victim_name="user_A", attacker_name="user_B"),
+              Observation(action_type="run_oracle"))
+    report = wm.situation_report(max_chars=2000)
+    assert "son denenen aksiyonlar" in report.lower()
+    assert "run_oracle" in report and "/api/orders/{id}" in report
+
+
 def test_situation_report_truncates():
     wm = WorldModel(target="t")
     for i in range(200):
