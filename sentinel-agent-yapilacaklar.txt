@@ -1,0 +1,190 @@
+SENTINEL-AGENT — YAPILACAKLAR LISTESI
+TLN Cybersecurity Challenge 2026 (19-20 Eylul)
+=========================================================
+
+ONCELIK NOTU:
+  Madde 1-9  -> pazarlik payi yok, mutlaka yapilacak
+  Madde 10-15 -> en cok puan getirecek kisim (UX bir puanlama kriteri)
+  Madde 16-30 -> konumlandirma, tutarlilik ve teslim cilasi
+
+
+-----------------------------------------------------
+A) DISARIYA CIKMADAN ONCE TEMIZLENECEKLER
+-----------------------------------------------------
+
+[ ] 1. Benchmark tablosunu README'den cikar.
+       "canli kosum, 2026-09-16", 3 hedef / 31 vaka, precision %100,
+       FP-rate %0, TP/FN/FP/TN dagilimi -- hepsi.
+       Metodoloji anlatimi kalsin (vulnerable<->hardened ikiz mantigi,
+       etiketlerin gercek HTTP davranisindan konmasi, FP kapani olarak
+       negatif vakalar), rakam gitsin.
+       Gercek kosum cikinca geri konur; o zaman en guclu koz olur.
+
+[ ] 2. Badge'lerden test sayisini sil.
+       "tests-541 passing" ile proje yapisindaki "(276 test)" birbiriyle
+       de celisiyor.
+
+[ ] 3. Tarihli / surumlu iddialari gozden gecir.
+       "OWASP Juice Shop (v20.2.0)", "VAmPI (vulnerable=1)",
+       "crAPI (main)" gibi surum etiketleri ve
+       "VAmPI email-guncelleme yalnizca kendi hesabini degistirir",
+       "crAPI mechanic_report POST = 405" gibi gozlem cumleleri de
+       olcum iddiasi. Gercekten kosulana kadar dursun.
+
+[ ] 4. make demo cikti ornegini kaldir.
+       "[done] 6 bulgu · 1 CONFIRMED · runs/run-.../" satiri bir demo
+       ciktisi gibi yazilmis. Gercek cikti alinana kadar cikarilmali.
+
+[ ] 5. Ekran goruntulerini kontrol et.
+       docs/web-ui-bulgu.png ve docs/web-ui-tarama.png referanslari var.
+       Gercek dosya yoksa README'de kirik resim gorunur -- ya uretilecek
+       ya referans cikacak.
+
+
+-----------------------------------------------------
+B) DIL
+-----------------------------------------------------
+
+[ ] 6. README INGILIZCE olacak.
+       Juri Amazon, U.S. Bank, Corteva, Blue Cross Blue Shield tarafindan;
+       hicbiri Turkce okumayacak.
+
+[ ] 7. Demo videosu Ingilizce (ya da Ingilizce altyazili). 5 dakika siniri var.
+
+[ ] 8. Devpost submission metni Ingilizce:
+       proje adi, aciklama, kullanilan teknolojiler.
+
+[ ] 9. Takim ici Turkce kalabilir: commit mesajlari, CLAUDE.md, DESIGN.md.
+       Bunlar juriye gitmiyor.
+
+
+-----------------------------------------------------
+C) KURULUM VE KULLANICI DENEYIMI
+    (Puanlama kriteri: "How intuitive, accessible, and
+     practical is the solution for its intended users?"
+     -- su an en zayif ekseniniz)
+-----------------------------------------------------
+
+[ ] 10. README'nin ilk ekrani `make demo` + panel ekran goruntusu olsun.
+        Su an okuyan once Docker, WSL2 ve uc YAML dosyasi goruyor.
+
+[ ] 11. "Neden WSL2 + Docker" bolumunu README'den cikar,
+        docs/gelistirme-ortami.md'ye tasi. OneDrive tuzagi notu da oraya.
+        Dogru bilgi ama okuyana "bu arac zor" diyor.
+
+[ ] 12. `cp config/*.example.yaml` adimlarini demo yolundan kaldir.
+        `make demo` kendi config'ini uretmeli; kullanici hicbir dosya
+        kopyalamamali.
+
+[ ] 13. Web panelini on kapi yap, CLI'i ikinci bolume al. Su an tersi.
+
+[ ] 14. Panelin scope dosyasi yoksa 503 donmesi demo akisini kiriyor.
+        Ilk acilista ornek scope'u kendisi olusturmali.
+
+[ ] 15. Jurinin hicbir sey kurmadan gorebilecegi bir sey birak.
+        Barindirilmis panel olmasa bile tek dosyalik report.html'i
+        repoya koymak yeter -- juri indirip acar, kaniti gorur.
+
+
+-----------------------------------------------------
+D) KONUMLANDIRMA
+-----------------------------------------------------
+
+[ ] 16. Ozgunluk iddiasini daralt.
+        Differential authorization testing yeni degil: Burp Autorize,
+        AuthMatrix, ve README'de kendiniz referans verdiginiz AuthProbe.
+        Yeni olan uc seyi one al:
+          - deterministik leaked-marker ile verdict
+          - kurcalamaya-dayanikli imzali kanit paketi
+          - MCP uzerinden baska ajanlara kanit motoru olmak
+
+[ ] 17. Dedektor tablolarini README'nin dibine indir.
+        12 oracle + 20 dedektor listesi "bu ZAP klonu mu" sorusunu
+        davet ediyor ve gercek farki gomuyor.
+
+[ ] 18. Etki hikayesini son kullaniciya bagla.
+        Jurinin tema ornekleri tuketici tarafinda (phishing, siber
+        zorbalik, gizlilik); sizinki gelistirici araci. IDOR'un siradan
+        insanlarin siparis / saglik / mesaj verisinin sizma yolu oldugunu
+        somut bir ihlal orneğiyle bir paragrafta anlat.
+
+[ ] 19. Kapsam sprawl'ini kes.
+        Agent-security oracle'lari, template ekosistemi, surum butunlugu
+        dogrulama, holdout -> vizyon dosyasinda kalsin, README'de
+        "yol haritasi" basligi altinda tek satir olsun.
+
+
+-----------------------------------------------------
+E) IC TUTARLILIK
+-----------------------------------------------------
+
+[ ] 20. UntrustedToActionOracle iki tabloda celisiyor:
+        birinde uygulanmis, digerinde "(yol haritasinda)". Biri gidecek.
+
+[ ] 21. Model isimlerini dogrula: qwen3.8:27b, gemini-3.6-flash.
+        Var olmayan model adi, model tarafini bilen bir juride kotu duruyor.
+
+[ ] 22. Kod-disi referanslari kontrol et:
+        DESIGN.md §5, docs/rakip-analizi-agent-security-2026-09.md,
+        docs/sozluk.md, SECURITY.md, LICENSE §5.
+        Olmayan dosyaya link vermeyin.
+
+[ ] 23. "Stage 0 / 1 / 2" tablosunu gerceklesenle esle.
+        Yarisma sonunda Stage 0 bitmisse tabloda oyle gorunsun.
+
+
+-----------------------------------------------------
+F) SUNUM VE TESLIM
+-----------------------------------------------------
+
+[ ] 24. Demo videosu uc kare ustune kurulsun:
+          1) Zafiyetli hedefte CONFIRMED -- kanit + repro-curl ekranda
+          2) Saglamlastirilmis ikizde REJECTED -- yanlis alarm yok
+          3) `--llm none` ile ayni sonuc -- tezin ispati
+        Ikinci kare birincisinden degerli: "buldum" diyen her demo var,
+        "bulmadigim yerde de bulmadim" diyen demo yok.
+
+[ ] 25. Videoda jurinin istedigi bes baslik sirayla gecsin:
+        problem / cozum / nasil calisiyor / teknoloji / kimin isine yarar.
+
+[ ] 26. AI kullanim beyani zorunlu -- hangi araclar, nasil kullanildi.
+        Sart "katilimci gonderdigi isi aciklayabilmeli" diyor; juri kod
+        sorabilir.
+
+[ ] 27. Juriye link birak: GitHub reposu yeter, canli barindirma zorunlu degil.
+
+[ ] 28. Odul hedefi: Grand Prize / Best Cybersecurity Solution.
+        "Best Beginner Project" sizin kategoriniz degil, oraya oynamayin.
+
+[ ] 29. Commit gecmisi Cuma 10:00 EDT sonrasinda baslasin.
+        Vizyon dosyasi ayri dursun, kod yarisma penceresinde yazilsin.
+
+[ ] 30. Etik / kapsam uyarisi README'de kalsin.
+        Pentest araci icin juri bunu arar; sizde iyi yazilmis.
+
+
+=========================================================
+EK NOT -- TEKNIK ONCELIK SIRASI (48 saat icin)
+
+  1. Dikey dilim: iki aktor oturumu -> scope/policy kapisi ->
+     tek replay noktasi -> IdorOracle -> leaked-marker verdict ->
+     evidence + tek rapor.
+     Juice Shop'ta tek bir gercek CONFIRMED cikarsa proje ayakta.
+
+  2. Hardened ikiz: ayni oracle'in yetkilendirmesi duzgun bir
+     endpoint'te REJECTED demesi. Ilk gunun isi olsun.
+
+  3. LLM'siz hipotez uretimi (kapsam genisletme):
+       - path sablonundan cikarim ({id}, {uid} segmentleri)
+       - OpenAPI/HAR'dan tip bilgisi (integer/uuid parametreler)
+       - bootstrap crawl'dan ogrenilen id havuzu
+       - yanit semasindan otomatik leaked-marker adayi
+
+  4. Kucuk ama GERCEK benchmark: Juice Shop ustunde 5-6 etiketli vaka,
+     yarisi pozitif yarisi negatif. Kucuk ve gercek, buyuk ve bostan iyi.
+
+  UYARI: Verdict tarafina fallback koymayin. Oracle emin olamadiginda
+  INCONCLUSIVE demesi bir eksiklik degil, projenin en guclu tarafi.
+  "Emin olamadim, o zaman LIKELY diyeyim" gibi bir gevseme precision'i
+  kaybettirir ve tum tezi cokertir.
+=========================================================
