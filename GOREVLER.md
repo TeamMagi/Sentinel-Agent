@@ -92,7 +92,7 @@ Yerel Ollama; verdict+confidence+reason döner; **asla silmez**, `likely_fp` iş
 "deterministik hâkim" olarak çağırır. **Kabul:** `sentinel-mcp` authorize→replay→oracle'ı tipli araç
 olarak sunuyor. *(Kaynak: appsecsanta, strix)*
 
-### R-D3 — Olgunluk paketi · *(Sorumlu: Serhat · ~6s)*
+### R-D3 — Olgunluk paketi · *(Sorumlu: Serhat · ~6s)* ✅ tamamlandı
 Kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı
 erken durdurma (~40 çağrı / $0.30 / 300s). **Kabul:** `pip install` → `sentinel scan …`; modlar
 bütçeyi ölçekliyor. *(Kaynak: StackHawk, strix, MAPTA, appsecsanta)*
