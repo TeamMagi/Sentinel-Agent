@@ -468,6 +468,11 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
 ```
 `--dry-run`: her planlanan isteği `authorize()`'dan geçirir ama **göndermez** — scope doğrulaması + test planı önizlemesi (kalibrasyon/güven için ideal).
 
+**MCP tool-server (R-C3, ROADMAP.md Eksen C):** `src/pentestai/mcpserver.py` + `sentinel-mcp` konsol scripti (opsiyonel bağımlılık: `pip install sentinel-agent[mcp]`). `ActionExecutor`'ı SARMALAR (Open/Closed — yeni dispatch mantığı yok); tipli araçlar: `list_actors`, `list_endpoints`, `probe`, `run_oracle` (authorize→replay→oracle — `verdict`'i HER ZAMAN deterministik `Oracle` verir), `reverify`. Sonuçlar `EvidenceStore._findings_json` ile AYNI desenle redaction'lıdır (`SentinelMcpTools._redact_json`). Diğer ajanlar (Claude Code gibi) Sentinel'i "deterministik hâkim" olarak çağırabilir — MCP istemcisi asla ağa dokunmaz (§5 kural 1 burada da geçerli):
+```bash
+sentinel-mcp --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
+```
+
 ### 10.13 Run artifacts, logging & redaction
 - Her tarama bir `run_id` alır; çıktılar `runs/<run_id>/` altında:
   `report.md` · `findings.json` · `evidence.sqlite` (veya `evidence/*.json`) · `blocked.log` · `run.log` · `config.snapshot.yaml`
