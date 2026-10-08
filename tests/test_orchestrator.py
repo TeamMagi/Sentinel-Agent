@@ -3,6 +3,8 @@
 Sahte uygulama: koleksiyon (/api/orders), IDOR (/api/orders/{id}), BFLA (/api/admin/users).
 Tek akışta crawl id keşfi + hipotez üretimi + iki oracle dispatch'i doğrulanır.
 """
+import json
+
 import httpx
 import pytest
 
@@ -57,5 +59,60 @@ async def test_full_recon_scan_finds_idor_and_bfla():
     assert idor_confirmed, "IDOR CONFIRMED bekleniyordu"
     assert bfla_confirmed, "BFLA CONFIRMED bekleniyordu"
     assert any("alice@test.local" in f.evidence.leaked_markers for f in idor_confirmed)
+
+    await store.aclose_all()
+
+
+# --- R-A1: canary planting Scanner'a uçtan uca kablolu mı? ---
+# GET+PUT aynı resource_key'i ("orders") paylaşıyor → run_hypotheses, state_change_authz
+# hipotezinden PUT endpoint'ini bulup victim'e canary yazmalı, sonra idor.run'a geçirmeli.
+CANARY_ORDERS: dict = {
+    "A1": {"id": "A1", "owner": "user_A"},
+    "B1": {"id": "B1", "owner": "user_B"},
+}
+CANARY_ENDPOINTS = [
+    Endpoint(method="GET", path_template="/api/orders/{id}", id_param="id"),
+    Endpoint(method="PUT", path_template="/api/orders/{id}", id_param="id"),
+]
+
+
+def canary_app_handler(request):
+    tok = request.headers.get("authorization", "").replace("Bearer ", "")
+    path = request.url.path
+    if path == "/api/orders":
+        own = TOKEN_OWNER.get(tok)
+        return httpx.Response(200, json=[CANARY_ORDERS[own]] if own else [])
+    if path.startswith("/api/orders/"):
+        oid = path.rsplit("/", 1)[-1]
+        obj = CANARY_ORDERS.get(oid)
+        if obj is None:
+            return httpx.Response(404, json={})
+        if request.method == "PUT":
+            obj.update(json.loads(request.content or b"{}"))   # canary kalıcı yazılır
+            return httpx.Response(200, json=obj)
+        return httpx.Response(200, json=obj)                    # GET: sahiplik kontrolü YOK → IDOR
+    return httpx.Response(404, json={})
+
+
+@pytest.mark.asyncio
+async def test_idor_confirmed_via_planted_canary_through_scanner():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"],
+                  allowed_methods=["GET", "HEAD", "PUT"], destructive_tests=True)
+    scanner = Scanner(BASE, scope, BudgetConfig(max_rps_per_host=1000))
+
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(canary_app_handler))
+    A = store.create(Actor(name="user_A", role="user", auth=AuthState(headers={"Authorization": "Bearer A"})))
+    B = store.create(Actor(name="user_B", role="user", auth=AuthState(headers={"Authorization": "Bearer B"})))
+    A.actor.own_object_ids["orders"] = "A1"
+    B.actor.own_object_ids["orders"] = "B1"
+
+    findings = await scanner.run_hypotheses(
+        [A, B], await scanner.planner.generate(CANARY_ENDPOINTS))
+
+    idor_confirmed = [f for f in findings if f.type == "idor" and f.verdict == "CONFIRMED"]
+    assert idor_confirmed, "canary ile CONFIRMED IDOR bekleniyordu"
+    assert any(f.evidence.canary_planted for f in idor_confirmed), \
+        "run_hypotheses canary'yi planlayıp IdorOracle'a geçirmeliydi"
+    assert any(f.evidence.canary_planted in f.evidence.leaked_markers for f in idor_confirmed)
 
     await store.aclose_all()

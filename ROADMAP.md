@@ -84,7 +84,7 @@ Durum: ✅ var · 🟡 kısmi · ⬜ yeni. Efor kabaca adam-saat.
 
 | ID | Görev | Kaynak | Durum | Efor | Bağımlılık | Kabul kriteri |
 |---|---|---|---|---|---|---|
-| **R-A1** | **Canary planting** — tarama öncesi kurban hesabına benzersiz işaret verisi ek; saldırgan cevabında belirirse tartışmasız leaked-marker | MAPTA, AuthProbe | ⬜ | ~7s | B1 write kapısı | Juice Shop'ta canary'li IDOR: FP=0, marker canary değeriyle eşleşiyor |
+| **R-A1** | **Canary planting** — tarama öncesi kurban hesabına benzersiz işaret verisi ek; saldırgan cevabında belirirse tartışmasız leaked-marker | MAPTA, AuthProbe | ✅ | ~7s | B1 write kapısı | `CanaryPlanter` (`oracle/canary.py`) + `IdorOracle.run(canary=...)` + Scanner'da `state_change_authz` hipotezinden eşleşen PUT/PATCH ile otomatik planting. Yazma yolu/hedef yoksa sessizce None (davranış değişmez) |
 | **R-A2** | **Replay edilebilir kanıt paketi** — her CONFIRMED bulguya tam istek/yanıt fixture'ı + çevrimdışı yeniden-ispat scripti | XBOW, Shannon, MAPTA | 🟡 | ~5s | — | `runs/<id>/proof/<fid>.json` + `replay.py` bulguyu ağsız yeniden ispatlıyor |
 | **R-A3** | **Çok-hedefli benchmark** — VAmPI + crAPI + Juice Shop; AuthProbe'un "vulnerable↔hardened ikiz, 0-FP" metodolojisi; advisory metnini gizle | AuthProbe, appsecsanta | 🟡 | ~8s | Q3 harness | ≥3 hedef, ≥30 etiketli vaka, koşulan precision/recall/FP tablosu README'de |
 
