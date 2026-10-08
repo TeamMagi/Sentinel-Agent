@@ -235,6 +235,17 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 > 💡 İlk denemede `--dry-run` ekle: hiçbir istek göndermeden, policy'nin hangi isteklere
 > ALLOW/DENY verdiğini önizlersin.
 
+**Kurulabilir CLI (Docker'sız, R-D3):** `pip install .` sonrası aynı tarama `sentinel scan ...`
+komutuyla da çalışır (`--scope/--actors/--endpoints` aynı bayraklar); `--scan-mode
+quick|standard|deep` bütçeyi ve tarama genişliğini ölçekler (`quick` ≈ 40 istek/300s, hızlı
+IDOR/BFLA-only geçiş; `deep` geniş bütçe + wordlist/GraphQL enümerasyonu):
+
+```bash
+pip install .
+sentinel scan --scope config/scope.yaml --actors config/actors.yaml \
+    --endpoints config/endpoints.yaml --scan-mode quick --out runs/
+```
+
 ### CLI referansı (`run_scan.py`)
 
 | Flag | Açıklama |
@@ -242,6 +253,7 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 | `--scope / --actors / --endpoints` | config YAML dosyaları (zorunlu: scope + actors; endpoint kaynağı) |
 | `--openapi <spec>` / `--har <file>` | endpoint'leri OpenAPI spec'inden veya tarayıcı HAR export'undan keşfet |
 | `--mode passive\|active` | `passive`: yalnızca listele · `active`: gerçek differential test |
+| `--scan-mode quick\|standard\|deep` | bütçeyi + tarama genişliğini ölçekler (`quick`≈40 istek/300s; `deep`=geniş bütçe+enümerasyon); verilmezse scope.yaml'daki budget aynen kalır |
 | `--dry-run` | istekleri authorize'dan geçir ama **gönderme** (plan önizlemesi) |
 | `--enumerate` | wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme) |
 | `--login-url / --register-url / --logout-url` | brute-force/default-creds · zayıf şifre · session-lifecycle taramalarını tetikler |
@@ -253,9 +265,26 @@ docker compose run --rm sentinel python -m scripts.run_scan \
 | `--llm-model <ad>` | model adı (ör. `qwen3.8:27b`, `qwen2.5:14b-instruct`, `gemini-3.6-flash`) |
 | `--enrich` | bulgulara LLM ile severity/impact/remediation ekle (`--llm` gerekir) |
 | `--no-bootstrap` | per-actor own-id crawl'ını atla (id'leri config'te verdiysen) |
+| `--fail-on none\|low\|medium\|high\|critical` | CI kapısı: bu eşik ve üstünde CONFIRMED bulgu varsa çıkış kodu 2 |
+| `--baseline <önceki-findings.json>` | bilinen (aynı kök-neden+verdict) bulguları `--fail-on`'dan muaf tut — raporda sebebiyle kalır, silinmez |
 
 > 🤖 **LLM zorunlu değil.** Varsayılan `--llm none`; deterministik kural-tabanlı hipotezlerle araç
 > tam çalışır ve kanıtlı `CONFIRMED` üretir. LLM yalnızca **kapsamı ve açıklama kalitesini** artırır.
+
+### 🔌 MCP tool-server (diğer ajanlar için "deterministik hâkim")
+
+Sentinel'in `authorize→replay→oracle` çekirdeği, [Model Context Protocol](https://modelcontextprotocol.io)
+üzerinden tipli araçlar olarak açılabilir — Claude Code gibi başka bir ajan, kendi verdict'ini
+üretmek yerine Sentinel'i çağırıp deterministik kanıt alır.
+
+```bash
+pip install -e ".[mcp]"     # opsiyonel bağımlılık — mcp SDK
+sentinel-mcp --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
+```
+
+Araçlar: `list_actors`, `list_endpoints`, `probe` (keşif, verdict yok), `run_oracle`
+(authorize→replay→oracle — `verdict`'i her zaman deterministik Oracle verir), `reverify`
+(flakiness eleme). Tüm sonuçlar redaction'lıdır; MCP istemcisi asla ağa dokunmaz.
 
 ### 🧠 Local LLM (Ollama) — buluta veri çıkmadan
 

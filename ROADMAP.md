@@ -84,7 +84,7 @@ Durum: ✅ var · 🟡 kısmi · ⬜ yeni. Efor kabaca adam-saat.
 
 | ID | Görev | Kaynak | Durum | Efor | Bağımlılık | Kabul kriteri |
 |---|---|---|---|---|---|---|
-| **R-A1** | **Canary planting** — tarama öncesi kurban hesabına benzersiz işaret verisi ek; saldırgan cevabında belirirse tartışmasız leaked-marker | MAPTA, AuthProbe | ⬜ | ~7s | B1 write kapısı | Juice Shop'ta canary'li IDOR: FP=0, marker canary değeriyle eşleşiyor |
+| **R-A1** | **Canary planting** — tarama öncesi kurban hesabına benzersiz işaret verisi ek; saldırgan cevabında belirirse tartışmasız leaked-marker | MAPTA, AuthProbe | ✅ | ~7s | B1 write kapısı | `CanaryPlanter` (`oracle/canary.py`) + `IdorOracle.run(canary=...)` + Scanner'da `state_change_authz` hipotezinden eşleşen PUT/PATCH ile otomatik planting. Yazma yolu/hedef yoksa sessizce None (davranış değişmez) |
 | **R-A2** | **Replay edilebilir kanıt paketi** — her CONFIRMED bulguya tam istek/yanıt fixture'ı + çevrimdışı yeniden-ispat scripti | XBOW, Shannon, MAPTA | 🟡 | ~5s | — | `runs/<id>/proof/<fid>.json` + `replay.py` bulguyu ağsız yeniden ispatlıyor |
 | **R-A3** | **Çok-hedefli benchmark** — VAmPI + crAPI + Juice Shop; AuthProbe'un "vulnerable↔hardened ikiz, 0-FP" metodolojisi; advisory metnini gizle | AuthProbe, appsecsanta | 🟡 | ~8s | Q3 harness | ≥3 hedef, ≥30 etiketli vaka, koşulan precision/recall/FP tablosu README'de |
 
@@ -100,17 +100,17 @@ Durum: ✅ var · 🟡 kısmi · ⬜ yeni. Efor kabaca adam-saat.
 
 | ID | Görev | Kaynak | Durum | Efor | Bağımlılık | Kabul kriteri |
 |---|---|---|---|---|---|---|
-| **R-C1** | **Baseline + diff modu** — bilinen FP'leri baseline'da bastır, yalnız yeni bulguyu raporla, "no silent drops" (bastırılan sebeple raporda kalır) | Snyk, ZAP, p1-triage | ⬜ | ~5s | — | `--baseline` verilince yalnız yeni bulgular gate'ler; bastırılanlar sebeple listede |
+| **R-C1** | **Baseline + diff modu** — bilinen FP'leri baseline'da bastır, yalnız yeni bulguyu raporla, "no silent drops" (bastırılan sebeple raporda kalır) | Snyk, ZAP, p1-triage | ✅ | ~5s | — | `Baseline` (`report/baseline.py`) + CLI `--baseline <önceki-findings.json>` — `baseline_status` etiketi, CI kapısı yalnız "new" CONFIRMED'i sayar, "known" bulgular Markdown'da sebebiyle kalır (silinmez); verdict kötüleşirse (regresyon) asla bastırılmaz |
 | **R-C2** | **LLM FP-triyajı `likely_fp`** — yerel Ollama, verdict+confidence+reason, **asla silmez**, fallback `unreviewed` | p1-triage | ⬜ | ~4s | LLM opsiyonel | LLM kapalıyken davranış değişmez; açıkken bulgu `likely_fp` etiketi alır, verdict değişmez |
-| **R-C3** | **MCP tool-server** — Replayer + oracle'ları tipli MCP araçları olarak aç → diğer ajanlar (Claude Code) Sentinel'i "hâkim" olarak çağırır | appsecsanta, strix | ⬜ | ~6s | — | `sentinel-mcp` sunucusu authorize→replay→oracle'ı tipli araç olarak sunuyor |
+| **R-C3** | **MCP tool-server** — Replayer + oracle'ları tipli MCP araçları olarak aç → diğer ajanlar (Claude Code) Sentinel'i "hâkim" olarak çağırır | appsecsanta, strix | ✅ | ~6s | — | `sentinel-mcp` (`pentestai/mcpserver.py`, `pip install sentinel-agent[mcp]`) — `ActionExecutor`'ı sarmalayan `list_actors`/`list_endpoints`/`probe`/`run_oracle`/`reverify` araçları; authorize→replay→oracle, verdict yalnızca Oracle'dan, sonuçlar redaction'lı |
 
 ### Eksen D — Rapor / olgunluk
 
 | ID | Görev | Kaynak | Durum | Efor | Bağımlılık | Kabul kriteri |
 |---|---|---|---|---|---|---|
-| **R-D1** | **Per-role coverage + profil-etiketli bulgu** — "hangi aktör hangi endpoint'e ulaştı", "found as user_A" | Escape, StackHawk | ⬜ | ~3s | — | Raporda per-rol kapsam tablosu; her bulgu keşfeden aktörle etiketli |
-| **R-D2** | **Dedup: `CWE+endpoint+param`; `sources[]` izi + agreement bump** (çok sinyal → confidence↑) | p1-triage | 🟡 (Q4) | ~3s | — | Aynı kök-neden tek grup; SARIF fingerprint ile uyumlu |
-| **R-D3** | **Olgunluk paketi** — kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı erken durdurma (~40 çağrı/$0.30/300s) | StackHawk, strix, MAPTA, appsecsanta | 🟡 | ~6s | — | `pip install` → `sentinel scan …`; modlar bütçeyi ölçekliyor; erken durdurma çalışıyor |
+| **R-D1** | **Per-role coverage + profil-etiketli bulgu** — "hangi aktör hangi endpoint'e ulaştı", "found as user_A" | Escape, StackHawk | ✅ | ~3s | — | `Finding.found_as`/`victim_as` (`Scanner._tag`, oracle'lara dokunmadan) + `CoverageReporter` (`report/coverage.py`) → Markdown "Per-Role Coverage" tablosu + HTML "Kapsam" sekmesi (`sessions` verilince) |
+| **R-D2** | **Dedup: `CWE+endpoint+param`; `sources[]` izi + agreement bump** (çok sinyal → confidence↑) | p1-triage | ✅ | ~3s | — | `FindingDeduplicator` (`report/dedup.py`) — kök-neden tek grup, verdict değişmez, agreement>1'de confidence bump (kopya üzerinde); Markdown "Correlated Findings" özeti (ayrıntı listesi kaybolmaz) |
+| **R-D3** | **Olgunluk paketi** — kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı erken durdurma (~40 çağrı/$0.30/300s) | StackHawk, strix, MAPTA, appsecsanta | ✅ | ~6s | — | `pip install .` → `sentinel scan …` (+ `sentinel-mcp`) çalışıyor (canlı doğrulandı); `--scan-mode quick\|standard\|deep` bütçe+genişliği ölçekliyor (quick=40 istek/300s); `BudgetTracker` kill-switch erken durduruyor (`test_limits.py` + `test_cli.py`); `Finding.cvss` (classify tek kaynak) + `Finding.epss` (opsiyonel, canlı çekilmez — hook hazır) |
 
 ---
 

@@ -3,8 +3,8 @@
 Değişmez: severity kararını KOD verir (verdict gibi); LLM önerisi severity_suggested'da kalır.
 """
 from pentestai.classify import (
-    SEVERITY_ORDER, TYPE_META, assign, assign_all, meta_for, missing_types,
-    severity_for_verdict, severity_of,
+    CVSS_BASE_SCORE, SEVERITY_ORDER, TYPE_META, assign, assign_all, cvss_for, meta_for,
+    missing_types, severity_for_verdict, severity_of,
 )
 from pentestai.models import Evidence, Finding
 
@@ -93,3 +93,21 @@ def test_assign_all_covers_list():
     assign_all(fs)
     assert fs[0].owasp == "API5:2023"
     assert fs[1].cwe == "CWE-347"
+
+
+def test_cvss_for_covers_every_severity_tier():
+    assert set(CVSS_BASE_SCORE) == set(SEVERITY_ORDER)
+    scores = [CVSS_BASE_SCORE[s] for s in SEVERITY_ORDER]
+    assert scores == sorted(scores)   # düşük→yüksek severity ile monotonik artıyor
+    assert cvss_for("bilinmeyen-severity") == 0.0
+
+
+def test_assign_writes_cvss_consistent_with_severity():
+    f = _finding("idor", "CONFIRMED")
+    assign(f)
+    assert f.severity == "High"
+    assert f.cvss == CVSS_BASE_SCORE["High"]
+    # verdict severity'yi değiştirirse (escalate/downgrade) cvss da TUTARLI kalmalı — aynı kaynak.
+    f2 = _finding("idor", "INCONCLUSIVE")
+    assign(f2)
+    assert f2.severity == "Medium" and f2.cvss == CVSS_BASE_SCORE["Medium"]

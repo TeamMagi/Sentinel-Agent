@@ -52,3 +52,25 @@ def test_cve_database_lookup_and_extension():
     assert db.lookup("nginx", "1.18.0")
     assert not db.lookup("nginx", "1.25.3")
     assert db.lookup("widget", "1.0.0")
+
+
+def test_default_db_has_no_fabricated_epss():
+    # R-D3: EPSS canlı çekilmez — doğrulayamadığımız bir sayıyı gerçekmiş gibi göstermemek için
+    # gömülü varsayılan tabloda EPSS YOK (yalnızca kullanıcı kendi tablosuna eklerse taşınır).
+    assert all(e.epss is None for e in CveDatabase().entries)
+
+
+@pytest.mark.asyncio
+async def test_user_supplied_epss_flows_through_to_finding():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"])
+
+    def handler(request):
+        return httpx.Response(200, text="hello", headers={"Server": "widget/1.0.0"})
+
+    store = SessionStore(transport=httpx.MockTransport(handler))
+    session = store.create(Actor(name="user_A"))
+    db = CveDatabase(extra=(CveEntry("widget", "2.0.0", "CVE-9999-0001", "Low", "test", epss=0.42),))
+    detector = VersionCveDetector(Replayer(PolicyEngine(scope)), BASE, db=db)
+    findings = await detector.scan(session)
+    assert findings[0].epss == 0.42
+    await store.aclose_all()

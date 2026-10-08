@@ -44,12 +44,12 @@ eşlemesi ve kabul kriterlerinin uzun hali **[ROADMAP.md](ROADMAP.md)**'de.
 
 ## Dalga 1 — Güven derinleştirme *(en yüksek getiri)*
 
-### R-A1 — Canary planting · *(Sorumlu: Serhat · ~7s)*
+### R-A1 — Canary planting · *(Sorumlu: Serhat · ~7s)* ✅ tamamlandı
 Tarama öncesi kurban hesabına **benzersiz işaret verisi** ek (B1 write kapısını kullanır); saldırgan
 cevabında belirirse tartışmasız leaked-marker. **Kabul:** Juice Shop'ta canary'li IDOR'da FP=0,
 marker canary değeriyle eşleşiyor. *(Kaynak: MAPTA, AuthProbe)*
 
-### R-D1 — Per-role coverage + profil-etiketli bulgu · *(Sorumlu: Serhat · ~3s)*
+### R-D1 — Per-role coverage + profil-etiketli bulgu · *(Sorumlu: Serhat · ~3s)* ✅ tamamlandı
 Raporda "hangi aktör hangi endpoint'e ulaştı" tablosu; her bulgu keşfeden aktörle etiketli
 ("found as user_A"). **Kabul:** per-rol kapsam tablosu + profil etiketi raporda. *(Kaynak: Escape, StackHawk)*
 
@@ -66,12 +66,12 @@ metni gizlenir. **Kabul:** ≥3 hedef, ≥30 etiketli vaka, precision/recall/FP 
 
 ## Dalga 2 — Benimsenme + kanıt
 
-### R-C1 — Baseline + diff modu · *(Sorumlu: Serhat · ~5s)*
+### R-C1 — Baseline + diff modu · *(Sorumlu: Serhat · ~5s)* ✅ tamamlandı
 Bilinen FP'ler baseline'da bastırılır, yalnız **yeni bulgu** raporlanır; "no silent drops"
 (bastırılan sebebiyle raporda kalır). **Kabul:** `--baseline` ile yalnız yeni bulgular gate'ler.
 *(Kaynak: Snyk, ZAP, p1-triage)*
 
-### R-D2 — Dedup (`CWE+endpoint+param`) + agreement bump · *(Sorumlu: Serhat · ~3s)*
+### R-D2 — Dedup (`CWE+endpoint+param`) + agreement bump · *(Sorumlu: Serhat · ~3s)* ✅ tamamlandı
 Rule-id değil kök-nedene göre grupla; `sources[]` izini koru; çok sinyal aynı bulguyu derse
 confidence↑. SARIF fingerprint ile uyumlu. **Kabul:** aynı kök-neden tek grup. *(Kaynak: p1-triage)*
 
@@ -87,12 +87,12 @@ Yerel Ollama; verdict+confidence+reason döner; **asla silmez**, `likely_fp` iş
 
 ## Dalga 3 — Konumlandırma + olgunluk
 
-### R-C3 — MCP tool-server · *(Sorumlu: Serhat · ~6s)*
+### R-C3 — MCP tool-server · *(Sorumlu: Serhat · ~6s)* ✅ tamamlandı
 `Replayer` + oracle'lar tipli **MCP araçları** olarak açılır → diğer ajanlar (Claude Code) Sentinel'i
 "deterministik hâkim" olarak çağırır. **Kabul:** `sentinel-mcp` authorize→replay→oracle'ı tipli araç
 olarak sunuyor. *(Kaynak: appsecsanta, strix)*
 
-### R-D3 — Olgunluk paketi · *(Sorumlu: Serhat · ~6s)*
+### R-D3 — Olgunluk paketi · *(Sorumlu: Serhat · ~6s)* ✅ tamamlandı
 Kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı
 erken durdurma (~40 çağrı / $0.30 / 300s). **Kabul:** `pip install` → `sentinel scan …`; modlar
 bütçeyi ölçekliyor. *(Kaynak: StackHawk, strix, MAPTA, appsecsanta)*

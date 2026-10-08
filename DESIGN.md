@@ -405,6 +405,8 @@ async def test_idor(endpoint, A: Actor, B: Actor, scope) -> Finding:
 
 **bfla.py (Stage 1):** düşük yetkili aktör admin-only endpoint'i çağırır. Kontrol: admin aynı endpoint'te 200 mü (endpoint gerçekten var mı)? Verdict: düşük yetkili 200 + beklenen şekil alıyorsa CONFIRMED, 403 ise REJECTED.
 
+**canary.py (R-A1, ROADMAP.md Eksen A):** `CanaryPlanter` — tarama başlamadan kurbanın objesine, saldırganın önceden bilemeyeceği benzersiz bir değer (`snt-canary-<hex>`) yazar (B1 write kapısından geçer: `destructive_tests` + `allowed_methods` her zaman zorlanır; kapı reddederse ya da yazma başarısızsa sessizce `None` döner — canary'siz, önceki davranış korunur). `IdorOracle.run(..., canary=...)` bu değeri `MarkerExtractor.extract`'e `extra` olarak geçirir: canary tanım olarak saldırganın kendi meşru yanıtında OLAMAYACAĞI için `public_data` filtresini bile aşan tartışmasız bir leaked-marker adayıdır. Verdict mantığı DEĞİŞMEZ — canary yalnızca marker havuzunu güçlendirir, CONFIRMED kararı yine "değer gerçekten saldırganın yanıtında görüldü mü" testinden geçer.
+
 ### 10.7 recon/ (Stage 1)
 - **openapi.py:** Swagger/OpenAPI varsa yut → endpoint + parametre + object-id taşıyan path'ler (dev kısayolu).
 - **har.py:** kullanıcının browser'dan export ettiği HAR → gerçek istekleri `CapturedRequest`'e çevir.
@@ -426,6 +428,9 @@ State machine durumları: `RECON → PLAN → TEST → VERIFY → (RETEST | NEXT
 ### 10.10 evidence/ & report/
 - **store.py:** her verdict için req/resp/kontroller/leaked-marker/curl'ü SQLite (veya JSON) olarak saklar.
 - **report/render_md.py:** aşağıdaki örnek formatı üretir. **render_json.py:** makine-okunur çıktı (ileride SARIF'e köprü).
+- **report/coverage.py (R-D1, ROADMAP.md Eksen D):** `CoverageReporter` — "hangi aktör hangi endpoint'e ulaştı" tablosunu Finding.evidence'ından (baseline/attack response status) + `Finding.victim_as`/`found_as`'tan türetir; yeni izleme altyapısı gerekmez. `Scanner._tag` (`run_hypotheses`/`run_recon_scan` içinde, oracle sınıflarına dokunmadan) her Finding'i test eden/kurban aktörle etiketler → rapor "found as user_A" gösterir + `sessions` verilince Markdown/HTML raporuna per-rol kapsam tablosu eklenir (`sessions` verilmezse eski davranış — geriye dönük uyumlu).
+- **report/baseline.py (R-C1, ROADMAP.md Eksen C):** `Baseline` — önceki bir koşumun `findings.json`'ından (SARIF `fingerprint_of`: type+method+endpoint+parametre) + verdict çiftlerinden bir "bilinen" küme kurar. `apply()` her Finding'e `baseline_status` ("known"/"new") yazar; **hiçbir bulguyu listeden çıkarmaz** (Snyk/ZAP baseline ilkesi — "no silent drops"). CLI: `--baseline <önceki-findings.json>`; `_fail_exit`, `baseline_status=="known"` bulguları CI kapısında (`--fail-on`) saymaz. Kimlik eşleşse bile verdict KÖTÜLEŞTİYSE (ör. REJECTED→CONFIRMED) "new" sayılır — regresyon asla sessizce bastırılmaz.
+- **report/dedup.py (R-D2, ROADMAP.md Eksen D; Q4 stretch):** `FindingDeduplicator` — kök-neden imzası (`CWE+endpoint+parametre`, `type` değil — eş-anlamlı türler ör. idor/bola aynı CWE-639'da birleşsin) üzerinden gruplar. Verdict ASLA değişmez (§5 kural 2); yalnızca birden fazla üye AYNI verdict'te birleşirse (agreement>1) temsilcinin `confidence`'ı bir basamak yükseltilir — bu da orijinal `Finding` üzerinde değil bir KOPYA (`model_copy`) üzerinde yapılır. `sources[]` katkı veren tüm `Finding.id`'leri tutar (iz kaybı yok). MarkdownReporter, agreement>1 olan grupları "Correlated Findings" özet tablosunda gösterir; tüm bulguların ayrıntısı raporda AYNEN kalır ("no silent drops"). SARIF'in kendi `partialFingerprints` (tür+method+endpoint+parametre) dedup'ından bağımsız — bu, tek koşum içi bir sunum katmanı.
 
 **Örnek rapor bölümü:**
 ```markdown
@@ -462,6 +467,13 @@ run_scan --scope config/scope.yaml --actors config/actors.yaml \
          --mode active --stage 0 --out runs/ [--dry-run]
 ```
 `--dry-run`: her planlanan isteği `authorize()`'dan geçirir ama **göndermez** — scope doğrulaması + test planı önizlemesi (kalibrasyon/güven için ideal).
+
+**Kurulabilir CLI + scan modları (R-D3, ROADMAP.md Eksen D):** `pentestai/cli.py` — `pip install .` sonrası `sentinel scan ...` (konsol scripti); `scripts/run_scan.py` artık geriye-dönük-uyumlu ince bir kabuk (mantığın TEK kaynağı `pentestai/cli.py`). `--scan-mode quick|standard|deep`, `BudgetConfig`'i (`max_total_requests`/`max_wall_clock_sec`) ve tarama genişliğini (exposure/info-leak/rate-limit/cve/enumerate) ölçekler; erken durdurma zaten var olan `BudgetTracker` kill-switch'idir (§10.11) — mod yalnızca eşiği seçer. Açık `--no-*-scan`/`--enumerate` bayrakları HER ZAMAN modun varsayılanının üstüne biner. `--scan-mode` verilmezse davranış DEĞİŞMEZ (scope.yaml'daki budget + tüm alt-taramalar aynen). CVSS: `classify.CVSS_BASE_SCORE`/`cvss_for()` — severity'den türeyen tek kaynak (render_sarif.py'nin GitHub `security-severity` alanıyla PAYLAŞILIR, artık ayrı kopya yok); `Finding.cvss` her `assign()`'da yazılır. EPSS: `CveEntry.epss` (opsiyonel) → `Finding.epss` — CANLI ÇEKİLMEZ, yalnızca kullanıcı kendi CVE tablosuna (`extra=`) değer eklerse taşınır (FIRST.org entegrasyonu ayrı bir iştir; gömülü varsayılan tabloda kasıtlı olarak `None`).
+
+**MCP tool-server (R-C3, ROADMAP.md Eksen C):** `src/pentestai/mcpserver.py` + `sentinel-mcp` konsol scripti (opsiyonel bağımlılık: `pip install sentinel-agent[mcp]`). `ActionExecutor`'ı SARMALAR (Open/Closed — yeni dispatch mantığı yok); tipli araçlar: `list_actors`, `list_endpoints`, `probe`, `run_oracle` (authorize→replay→oracle — `verdict`'i HER ZAMAN deterministik `Oracle` verir), `reverify`. Sonuçlar `EvidenceStore._findings_json` ile AYNI desenle redaction'lıdır (`SentinelMcpTools._redact_json`). Diğer ajanlar (Claude Code gibi) Sentinel'i "deterministik hâkim" olarak çağırabilir — MCP istemcisi asla ağa dokunmaz (§5 kural 1 burada da geçerli):
+```bash
+sentinel-mcp --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
+```
 
 ### 10.13 Run artifacts, logging & redaction
 - Her tarama bir `run_id` alır; çıktılar `runs/<run_id>/` altında:
