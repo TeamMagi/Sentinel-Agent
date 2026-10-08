@@ -19,6 +19,7 @@ PRODUCED_TYPES = [
     "ssrf", "rfi", "xxe", "cache_poisoning", "prototype_pollution",
     "info_leak", "exposure", "default_credentials", "vulnerable_component",
     "rate_limit", "session_lifecycle", "graphql_introspection", "graphql_bola",
+    "untrusted_to_action",
 ]
 
 
