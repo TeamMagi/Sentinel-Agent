@@ -10,6 +10,8 @@ runs/
 
 # ---- Real config (yalnızca *.example.yaml commit'lenir) ----
 config/*.yaml
+# alt-klasörler de yok sayılır (ör. config/vampi/, config/crapi/ — hedef kimlik bilgileri):
+config/*/
 !config/*.example.yaml
 
 # ---- Python ----
