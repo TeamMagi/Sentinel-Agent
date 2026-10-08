@@ -71,7 +71,7 @@ Bilinen FP'ler baseline'da bastırılır, yalnız **yeni bulgu** raporlanır; "n
 (bastırılan sebebiyle raporda kalır). **Kabul:** `--baseline` ile yalnız yeni bulgular gate'ler.
 *(Kaynak: Snyk, ZAP, p1-triage)*
 
-### R-D2 — Dedup (`CWE+endpoint+param`) + agreement bump · *(Sorumlu: Serhat · ~3s)*
+### R-D2 — Dedup (`CWE+endpoint+param`) + agreement bump · *(Sorumlu: Serhat · ~3s)* ✅ tamamlandı
 Rule-id değil kök-nedene göre grupla; `sources[]` izini koru; çok sinyal aynı bulguyu derse
 confidence↑. SARIF fingerprint ile uyumlu. **Kabul:** aynı kök-neden tek grup. *(Kaynak: p1-triage)*
 
