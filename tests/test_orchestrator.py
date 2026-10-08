@@ -64,6 +64,9 @@ async def test_full_recon_scan_finds_idor_and_bfla():
     assert all(f.found_as and f.victim_as for f in findings)
     assert all(f.victim_as == "admin" for f in bfla_confirmed)   # bfla: victim=admin, attacker=low
     assert all(f.found_as in ("user_A", "user_B") for f in bfla_confirmed)
+    # R-B1 yetki matrisi (kod-tarama-raporu.md #6): tek-aktör alt-taramalar dahil (ör.
+    # excessive_data_exposure) `victim`/`attacker` de dolu olmalı, yalnızca `*_as` alanları değil.
+    assert all(f.victim and f.attacker for f in findings)
 
     await store.aclose_all()
 
