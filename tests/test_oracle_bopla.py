@@ -62,3 +62,21 @@ def test_scanner_ignores_empty_values():
     hard, soft = SensitiveFieldScanner().scan({"password": "", "apiKey": None, "token": "abc"})
     assert hard == set()          # boş/None değerli hassas alanlar sayılmaz
     assert soft == {"token"}       # dolu token → soft
+
+
+def test_scanner_downgrades_substring_match_with_non_secret_value():
+    # kod-tarama-raporu.md #3: "password" substring'i eşleşen ama DEĞERİ sır olmayan alanlar
+    # (bool bayrak, ISO tarih damgası) hard/CONFIRMED değil, soft/LIKELY sayılmalı.
+    hard, soft = SensitiveFieldScanner().scan({
+        "passwordChangedAt": "2026-09-16T10:00:00Z",
+        "passwordResetEnabled": True,
+        "hasPassword": False,
+    })
+    assert hard == set()
+    assert soft == {"passwordChangedAt", "passwordResetEnabled", "hasPassword"}
+
+
+def test_scanner_keeps_exact_match_hard_regardless_of_value_shape():
+    hard, soft = SensitiveFieldScanner().scan({"password": "hunter2"})
+    assert hard == {"password"}
+    assert soft == set()
