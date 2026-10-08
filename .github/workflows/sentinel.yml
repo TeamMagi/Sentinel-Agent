@@ -18,6 +18,9 @@ on:
 permissions:
   contents: read
   security-events: write   # upload-sarif için gerekli
+  pull-requests: write     # baseline-diff PR yorumu için gerekli (yalnızca aynı-repo PR'larında
+                            # çalışır; fork PR'larında GITHUB_TOKEN salt-okunur olduğundan yorum
+                            # adımı sessizce başarısız olur — SARIF/artefakt yine üretilir)
 
 jobs:
   test:
@@ -121,6 +124,26 @@ jobs:
               resource_key: basket
           YAML
 
+      - name: Baseline önbelleğini geri yükle
+        # R-C1 (report/baseline.py): hedef dalın (PR'da base, push'ta kendi dalı) EN SON
+        # taramasını "bilinen" tabana koyar. `key` kasıtlı asla eşleşmez (run_id benzersiz) —
+        # asıl iş `restore-keys` ön-ek eşleşmesiyle o dala ait EN GÜNCEL cache'i bulmak.
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: runs/baseline/findings.json
+          key: sentinel-baseline-${{ github.base_ref || github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            sentinel-baseline-${{ github.base_ref || github.ref_name }}-
+
+      - name: Baseline var mı kontrol et
+        id: baseline
+        run: |
+          if [ -f runs/baseline/findings.json ]; then
+            echo "args=--baseline runs/baseline/findings.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Tarama (SARIF üret)
         continue-on-error: true
         run: |
@@ -130,7 +153,8 @@ jobs:
             --endpoints config/ci.endpoints.yaml \
             --mode active --out runs/ \
             --sarif sentinel.sarif \
-            --fail-on none
+            --fail-on none \
+            ${{ steps.baseline.outputs.args }}
 
       - name: SARIF'i code-scanning'e yükle
         if: always()
@@ -138,6 +162,59 @@ jobs:
         with:
           sarif_file: sentinel.sarif
           category: sentinel-agent
+
+      - name: PR yorumu için Markdown üret
+        # Yalnızca YENİ (baseline'da olmayan) CONFIRMED/LIKELY bulguları özetler — "no silent
+        # drops" ilkesiyle uyumlu: hiçbir bulgu gizlenmez, yalnızca zaten bilinenler PR gürültüsü
+        # yapmaz (bkz. report/baseline.py docstring).
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          FINDINGS=$(ls runs/run-*/findings.json 2>/dev/null | head -n1 || true)
+          if [ -n "$FINDINGS" ]; then
+            python scripts/pr_comment.py "$FINDINGS" -o pr_comment.md
+          else
+            printf '%s\n%s\n' '<!-- sentinel-agent-pr-comment -->' \
+              'Sentinel-Agent taraması findings.json üretmedi (bkz. iş akışı logları).' \
+              > pr_comment.md
+          fi
+
+      - name: PR'a yorum gönder/güncelle
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('pr_comment.md', 'utf8');
+            const marker = '<!-- sentinel-agent-pr-comment -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body,
+              });
+            }
+
+      - name: Baseline'ı güncelle (yalnızca main/develop push'unda)
+        if: always() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        run: |
+          FINDINGS=$(ls runs/run-*/findings.json 2>/dev/null | head -n1 || true)
+          if [ -n "$FINDINGS" ]; then
+            mkdir -p runs/baseline
+            cp "$FINDINGS" runs/baseline/findings.json
+          fi
+
+      - name: Baseline önbelleğini kaydet
+        if: always() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: runs/baseline/findings.json
+          key: sentinel-baseline-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Koşum çıktısını artefakt olarak sakla
         if: always()
