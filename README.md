@@ -331,28 +331,36 @@ her hedefte hem gerçek zafiyet (pozitif) hem tasarım-gereği güvenli (`not_vu
 vakalar bulunur; böylece FP oranı **varsayıma değil etikete** dayanır. Etiketler araç çıktısından
 değil, doğrudan HTTP ile bağımsız doğrulanarak konur (döngüsellik yok).
 
-**Hedefler (≥3) ve etiketli vaka sayıları** (`benchmarks/*.expected.yaml`):
+**Sonuçlar** (canlı koşum, 2026-09-16 — 3 hedef, 31 etiketli vaka; her etiket doğrudan HTTP ile
+hedefin **gerçek davranışından** bağımsız doğrulandı):
 
-| Hedef | Vaka seti | Vaka |
-|---|---|---|
-| OWASP Juice Shop | `benchmarks/juiceshop.expected.yaml` | 7 |
-| VAmPI | `benchmarks/vampi.expected.yaml` | 12 |
-| crAPI | `benchmarks/crapi.expected.yaml` | 12 |
-| **Toplam** | `benchmarks/suite.yaml` | **31** |
+| Hedef | Vaka | Precision | Recall | FP-rate | TP/FN/FP/TN |
+|---|---|---|---|---|---|
+| OWASP Juice Shop (`v20.2.0`) | 7 | %100 | %100 | **%0** | 4/0/0/3 |
+| VAmPI (`vulnerable=1`) | 12 | %100 | %50 | **%0** | 2/2/0/8 |
+| crAPI (`main`) | 12 | %100 | %40 | **%0** | 2/3/0/7 |
+| **TOPLAM** | **31** | **%100** | **%61.5** | **%0** | **8/5/0/18** |
 
-> Not: VAmPI/crAPI etiketleri, uygulamaların **belgelenmiş** zafiyetlerinden türetilmiştir ve
-> yayımlanacak sayı öncesi **sabit sürümde HTTP ile tek tek doğrulanmalıdır** (Juice Shop seti
-> canlı doğrulanmıştır: precision %100 / recall %100).
+> **FP-rate %0** — 18 negatif "FP kapanı" vakasının (tasarım-gereği public endpoint, method-not-allowed,
+> auth zorunlu, obje-referansı taşımayan endpoint vb.) hiçbirinde yanlış CONFIRMED üretilmedi;
+> **precision %100**. Recall %61.5: kaçırılanlar (FN) çoğunlukla read-only (GET/HEAD) kapsamın
+> ulaşamadığı yazma-metodu (POST register/mass-assignment, PUT) veya id-taşımayan endpoint'lerdir —
+> araç mimarisinin dürüst sınırı, false-positive değil. Etiketler araç çıktısından değil gerçek
+> davranıştan konduğu için VAmPI/crAPI'de birkaç "belgelenmiş" zafiyet bu build'de tutmadığından
+> düzeltilmiştir (ör. VAmPI email-güncelleme yalnızca kendi hesabını değiştirir; crAPI mechanic_report
+> POST = 405) — `benchmarks/*.expected.yaml` başlıklarındaki doğrulama kanıtına bakınız.
 
 **Yeniden üretme** — her hedefi ayrı tarayıp birleşik tabloyu üret:
 
 ```bash
-# her hedef için scope/actors/endpoints hazırla, tara → runs/<hedef>/findings.json
-python -m scripts.run_scan --scope config/vampi.scope.yaml --actors config/vampi.actors.yaml \
-    --openapi vampi-openapi.json --out runs/vampi/
-# ... (juiceshop, crapi benzer) ...
+# hedefleri kaldır: juice-shop (:3000), erev0s/vampi (:5000, vulnerable=1), OWASP/crAPI (:8888)
+# her hedef için scope/actors/endpoints hazırla (config/<hedef>/), tara → runs/<hedef>/findings.json
+python -m scripts.run_scan --scope config/vampi/scope.yaml --actors config/vampi/actors.yaml \
+    --endpoints config/vampi/endpoints.yaml --out runs/vampi_scan/
+cp runs/vampi_scan/run-*/findings.json runs/vampi/findings.json   # suite.yaml bu yolu okur
+# ... (juiceshop, crapi benzer: config/juiceshop|crapi/) ...
 
-# birleşik precision/recall/FP-rate tablosu → benchmarks/benchmark_suite.md
+# birleşik precision/recall/FP-rate tablosu → benchmark_suite.md
 python -m scripts.benchmark --suite benchmarks/suite.yaml
 ```
 

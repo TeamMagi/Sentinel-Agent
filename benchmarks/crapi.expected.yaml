@@ -1,73 +1,71 @@
-# Sentinel-Agent — Kalibrasyon vaka seti (OWASP crAPI — completely ridiculous API, izinli hedef)
+# Sentinel-Agent — Kalibrasyon vaka seti (OWASP crAPI, izinli hedef)
 #
-# Her vaka bir YER GERÇEĞİDİR. Etiketler crAPI'nin BELGELENMİŞ zafiyetlerinden türetilmiştir;
-# **yayımlanacak sayı öncesi sabit sürümde HTTP ile tek tek doğrulanmalıdır** (döngüsellik yok).
-# crAPI'de "hardened ikiz" yoktur; negatif vakalar public/tasarım-gereği endpoint'lerdir.
+# Her vaka BAĞIMSIZ doğrulanmış bir YER GERÇEĞİDİR: etiket araç çıktısından DEĞİL, doğrudan HTTP
+# ile hedefin GERÇEK davranışından konmuştur. Bu set, crAPI'nin GÜNCEL imajında (main, 2026-09-16)
+# iki kayıtlı hesap (sentinel_c1/c2) ile TEK TEK doğrulanmıştır — önceki taslaktaki belgelenmiş ama
+# bu build'de tutmayan etiketler düzeltilmiştir (aşağıda).
+#
+# HTTP doğrulama kanıtı (2026-09-16):
+#   ssrf contact_mechanic : POST {"mechanic_api":"http://localhost:8888/..."} -> yanıt gövdesinde
+#                           "response_from_mechanic_api" ile sunucunun ÇEKTİĞİ içerik döndü = SSRF.
+#   nosqli coupon         : POST {"coupon_code":{"$ne":"x"}} -> 200, geçerli kuponu (TRAC075) döndü
+#                           (operatör enjeksiyonu doğrulamayı atlattı) = NoSQLi.
+#   edx posts/recent      : GET (auth) -> başka kullanıcıların author.email + author.vehicleid alanları
+#                           döndü (robot001@example.com ...) = aşırı veri ifşası.
+#   idor posts/{postId}   : GET (c2 token) c1'in gönderisi -> anon=401 ama c2 c1'in objesine erişip
+#                           c1'in email'ini aldı = authenticated cross-user obje erişimi (BOLA).
+#   jwt dashboard         : alg=none imzasız token ile GET dashboard -> 200 kullanıcı verisi
+#                           (imza doğrulanmıyor) = bozuk JWT auth. anon -> 404.
+#
+# DÜZELTİLEN (önceki taslakta CONFIRMED idi → gerçek davranışla uyuşmadı):
+#   idor vehicle location : araç sahiplenme (VIN+pin, mailhog) bu koşumda kurulamadı → HTTP ile
+#                           bağımsız doğrulanamadığından iddia edilmedi (çıkarıldı).
+#   mass_assignment orders: sipariş için araç+shop akışı kurulamadı → doğrulanamadı (çıkarıldı).
+#   idor receive_report   : GET ?report_id=1 = 400; endpoint vin+mechanic_code+problem_details ister
+#                           (report_id ile obje erişimi DEĞİL) → not_vulnerable (FP kapanı).
+#   bfla mechanic_report  : POST = 405 "Method not allowed" → bu method/endpoint'te çalışan BFLA yok
+#                           → not_vulnerable (FP kapanı).
 #
 # expect: CONFIRMED → gerçekten zafiyetli (etmezse FN) · not_vulnerable → FP kapanı
 
 cases:
-  # ---------- POZİTİF: gerçek zafiyetler ----------
-  - type: idor
-    endpoint: "/identity/api/v2/vehicle/{vehicleId}/location"
-    method: GET
-    expect: CONFIRMED
-    note: "BOLA — başka kullanıcının aracının konumuna erişim."
-
-  - type: idor
-    endpoint: "/workshop/api/mechanic/receive_report"
-    method: GET
-    expect: CONFIRMED
-    note: "BOLA — report_id ile başka kullanıcının servis raporuna erişim."
-
-  - type: idor
-    endpoint: "/community/api/v2/community/posts/{postId}"
-    method: GET
-    expect: CONFIRMED
-    note: "BOLA — post id ile başka kullanıcının gönderisine/PII'sine erişim."
-
-  - type: mass_assignment
-    endpoint: "/workshop/api/shop/orders/{order_id}"
-    method: PUT
-    expect: CONFIRMED
-    note: "Sipariş güncellemede fazla-alan (ör. status/paid) set edilebiliyor."
-
+  # ---------- POZİTİF: HTTP ile doğrulanmış gerçek zafiyetler ----------
   - type: ssrf
     endpoint: "/workshop/api/merchant/contact_mechanic"
     method: POST
     expect: CONFIRMED
-    note: "mechanic_api_url alanı sunucudan çekiliyor → SSRF."
-
-  - type: excessive_data_exposure
-    endpoint: "/community/api/v2/community/posts/recent"
-    method: GET
-    expect: CONFIRMED
-    note: "Gönderi listesinde başka kullanıcıların araç/PII alanları dönüyor (aşırı veri ifşası)."
-
-  - type: jwt
-    endpoint: "/identity/api/v2/user/dashboard"
-    method: GET
-    expect: CONFIRMED
-    note: "JWT zayıf/None-alg doğrulaması → token forge (bozuk auth)."
+    note: "mechanic_api alanı sunucudan çekiliyor; response_from_mechanic_api ile içerik döndü → SSRF."
 
   - type: nosqli
     endpoint: "/community/api/v2/coupon/validate-coupon"
     method: POST
     expect: CONFIRMED
-    note: "Kupon doğrulamada NoSQL operatör enjeksiyonu."
+    note: "coupon_code={\"$ne\":\"x\"} operatör enjeksiyonu geçerli kuponu döndürdü → NoSQL injection."
 
-  - type: bfla
-    endpoint: "/workshop/api/mechanic/mechanic_report"
-    method: POST
+  - type: excessive_data_exposure
+    endpoint: "/community/api/v2/community/posts/recent"
+    method: GET
     expect: CONFIRMED
-    note: "Mekanik-only fonksiyon düşük yetkili kullanıcıyla çağrılabiliyor (fonksiyon-seviyesi)."
+    note: "Gönderi listesinde başka kullanıcıların email/vehicleid alanları dönüyor → aşırı veri ifşası."
 
-  # ---------- NEGATİF: zafiyet YOK ----------
+  - type: idor
+    endpoint: "/community/api/v2/community/posts/{postId}"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — auth zorunlu (anon=401); c2, c1'in gönderi objesine erişip c1'in email PII'sini aldı."
+
+  - type: jwt
+    endpoint: "/identity/api/v2/user/dashboard"
+    method: GET
+    expect: CONFIRMED
+    note: "alg=none imzasız JWT kabul ediliyor (imza doğrulanmıyor) → token forge / bozuk auth."
+
+  # ---------- NEGATİF: zafiyet YOK / bu tür için değil (araç CONFIRM ederse FP) ----------
   - type: unauthorized_access
     endpoint: "/identity/api/auth/login"
     method: POST
     expect: not_vulnerable
-    note: "Login endpoint'i — kimlik doğrulama üretir, korunan kaynak değil."
+    note: "Login — kimlik doğrulama üretir, korunan kaynak değil; anonim erişilebilir olması tasarım."
 
   - type: idor
     endpoint: "/identity/api/auth/signup"
@@ -79,4 +77,28 @@ cases:
     endpoint: "/identity/api/auth/v3/check-otp"
     method: POST
     expect: not_vulnerable
-    note: "OTP doğrulama — anonim erişilebilir olması tasarım gereği (zafiyet: rate-limit, ayrı vaka)."
+    note: "OTP doğrulama — anonim erişilebilir olması tasarım gereği (rate-limit ayrı bir konu)."
+
+  - type: unauthorized_access
+    endpoint: "/identity/api/v2/user/dashboard"
+    method: GET
+    expect: not_vulnerable
+    note: "Dashboard auth ZORUNLU kılıyor (anon=404) → yetkisiz erişim zafiyeti değil (FP kapanı)."
+
+  - type: unauthorized_access
+    endpoint: "/community/api/v2/community/posts/recent"
+    method: GET
+    expect: not_vulnerable
+    note: "Endpoint auth ZORUNLU kılıyor (anon=401); ifşa sorunu edx (ayrı vaka), erişim kapısı sağlam."
+
+  - type: bfla
+    endpoint: "/workshop/api/mechanic/mechanic_report"
+    method: POST
+    expect: not_vulnerable
+    note: "POST = 405 Method Not Allowed → bu method/endpoint'te çalışan fonksiyon-seviyesi bypass yok."
+
+  - type: idor
+    endpoint: "/workshop/api/mechanic/receive_report"
+    method: GET
+    expect: not_vulnerable
+    note: "?report_id ile obje erişimi DEĞİL: endpoint vin+mechanic_code ister (400) — bu türde zafiyet değil."
