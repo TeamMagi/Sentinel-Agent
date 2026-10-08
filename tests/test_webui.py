@@ -573,6 +573,79 @@ def test_narrow_budget_pure_function():
     assert isinstance(bad, str) and "max_total_requests" in bad
 
 
+def test_narrow_budget_rejects_rps_and_wall_clock():
+    server = BudgetConfig(max_total_requests=5000, max_rps_per_host=5.0, max_wall_clock_sec=300)
+    bad_rps = narrow_budget(server, BudgetSpec(max_total_requests=100, max_rps_per_host=50.0,
+                                                max_wall_clock_sec=60))
+    assert isinstance(bad_rps, str) and "max_rps_per_host" in bad_rps
+    bad_wall = narrow_budget(server, BudgetSpec(max_total_requests=100, max_rps_per_host=1.0,
+                                                 max_wall_clock_sec=9999))
+    assert isinstance(bad_wall, str) and "max_wall_clock_sec" in bad_wall
+
+
+def test_narrow_scope_rejects_every_axis():
+    server = _server_scope(
+        allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/api"],
+        allowed_methods=["GET"], destructive_tests=False, external_network=False,
+        max_payload_bytes=1000,
+    )
+
+    def req(**over):
+        base = dict(allowed_hosts=["localhost"], allowed_ports=[3000],
+                    allowed_path_prefixes=["/api"], allowed_methods=["GET"])
+        base.update(over)
+        return narrow_scope(server, ScopeSpec(**base))
+
+    assert "allowed_ports" in req(allowed_ports=[3000, 9999])
+    assert "destructive_tests" in req(destructive_tests=True)
+    assert "external_network" in req(external_network=True)
+    assert "allowed_path_prefixes" in req(allowed_path_prefixes=["/other"])
+    assert "max_payload_bytes" in req(max_payload_bytes=999_999)
+
+
+def test_authspec_to_cfg_header_token_kind():
+    cfg = AuthSpec(type="token", token_kind="header", token_header="X-Api-Key",
+                   token_from="json:token").to_cfg()
+    assert cfg["token_location"] == {"kind": "header", "from": "json:token", "header": "X-Api-Key"}
+
+
+def test_actorspec_stringify_ids_passthrough_for_non_dict():
+    # "before" validator'ı: dict-olmayan girdiyi olduğu gibi bırakır — dict geldiğinde stringify eder,
+    # aksi halde pydantic'in kendi tip doğrulamasına bırakır.
+    assert ActorSpec._stringify_ids("not-a-dict") == "not-a-dict"
+
+
+def test_authspec_redacted_masks_headers_and_cookies():
+    auth = AuthSpec(type="static", headers={"Authorization": "Bearer T"}, cookies={"session": "abc"})
+    red = auth.redacted()
+    assert red.headers == {"Authorization": "<REDACTED>"}
+    assert red.cookies == {"session": "<REDACTED>"}
+    assert auth.headers["Authorization"] == "Bearer T"   # orijinal değişmedi
+
+
+def test_endpointspec_to_endpoint():
+    ep = EndpointSpec(method="post", path_template="/x/{id}", id_param="id",
+                       id_location="body").to_endpoint()
+    assert ep.method == "POST" and ep.path_template == "/x/{id}" and ep.id_location == "body"
+
+
+def test_scopespec_to_scope():
+    scope = ScopeSpec(allowed_hosts=["h"], allowed_ports=[80], allowed_methods=["get"]).to_scope()
+    assert scope.allowed_hosts == ["h"] and scope.allowed_methods == ["GET"]
+
+
+def test_budgetspec_to_budget():
+    budget = BudgetSpec(max_total_requests=10, max_rps_per_host=1.5, max_wall_clock_sec=60).to_budget()
+    assert budget.max_total_requests == 10 and budget.max_rps_per_host == 1.5
+
+
+def test_scanrequest_validate_empty_and_malformed_target():
+    empty = _valid_request(target="")
+    assert "hedef" in (empty.validate_request() or "").lower()
+    malformed = _valid_request(target="not a url")
+    assert "hedef" in (malformed.validate_request() or "").lower()
+
+
 # --------------------------- storageState path kısıtı ---------------------------
 
 def test_storagestate_path_must_stay_inside_secrets_dir(tmp_path):
