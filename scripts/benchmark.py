@@ -37,6 +37,19 @@ def _run_suite(suite_path: str, out: str | None) -> int:
     print(f"[suite] {len(suite.targets)} hedef · findings yüklendi: {have or 'yok (tümü FN/TN)'}")
     print(f"[suite] TOPLAM precision={result.precision:.1%} · recall={result.recall:.1%} · "
           f"FP-rate={result.fp_rate:.1%} · {result.cases} vaka")
+    if result.has_holdout:   # AS-5: gerçek genelleme yalnızca holdout'ta ölçülür
+        c, h = result.calibrated_metrics, result.holdout_metrics
+        gap = result.generalization_gap
+        print(f"[suite] kalibre ({c.targets} hedef): precision={c.precision:.1%} · "
+              f"recall={c.recall:.1%} · FP-rate={c.fp_rate:.1%}")
+        print(f"[suite] HOLDOUT ({h.targets} hedef): precision={h.precision:.1%} · "
+              f"recall={h.recall:.1%} · FP-rate={h.fp_rate:.1%}")
+        print(f"[suite] genelleme farkı (pozitif = holdout'ta daha kötü): "
+              f"precision={gap['precision']:+.4f} · recall={gap['recall']:+.4f} · "
+              f"FP-rate={gap['fp_rate']:+.4f}")
+    else:
+        print("[suite] holdout hedef yok → bu metrikler KALİBRASYON metrikleridir "
+              "(genelleme ölçülmedi; bkz. benchmarks/suite.yaml 'holdout')")
     print(f"[suite] yazıldı: {out_dir / 'benchmark_suite.md'}")
     return 0
 
