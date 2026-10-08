@@ -80,3 +80,30 @@ async def test_idor_confirmed_with_uuid_id():
     await store.aclose_all()
     assert f.verdict == base.CONFIRMED
     assert "alice@test.local" in f.evidence.leaked_markers
+
+
+# --- resource_key: sürümlü path çakışması (RK-6) ---
+
+def test_resource_key_plain_path_unchanged():
+    assert Endpoint(path_template="/rest/basket/{id}").resource_key == "basket"
+    assert Endpoint(path_template="/api/orders/{id}/items/{itemId}").resource_key == "items"
+
+
+def test_resource_key_skips_trailing_version_segment():
+    # Sürüm segmenti kaynak sanılmamalı → gerçek kaynak adına düş.
+    assert Endpoint(path_template="/api/v1/{id}").resource_key == "api"
+    assert Endpoint(path_template="/api/v2/{id}").resource_key == "api"
+    assert Endpoint(path_template="/rest/products/v2/{id}").resource_key == "products"
+    assert Endpoint(path_template="/api/2023-01-01/orders/v3/{id}").resource_key == "orders"
+
+
+def test_versioned_paths_collide_to_same_resource_key():
+    # Aynı kaynağın iki API sürümü AYNI resource_key'e düşer → own_object_ids paylaşılır.
+    v1 = Endpoint(path_template="/service/v1/{id}").resource_key
+    v2 = Endpoint(path_template="/service/v2/{id}").resource_key
+    assert v1 == v2 == "service"
+
+
+def test_resource_key_all_version_segments_keeps_last():
+    # Yalnızca sürüm segmenti varsa bilgi kaybetme (son segmenti koru).
+    assert Endpoint(path_template="/v1/{id}").resource_key == "v1"

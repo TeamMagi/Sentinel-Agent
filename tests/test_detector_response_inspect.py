@@ -7,7 +7,9 @@ import httpx
 import pytest
 
 from pentestai.detector.response_inspect import (
-    CorsDetector, OpenRedirectDetector, SecurityHeadersDetector,
+    CorsDetector,
+    OpenRedirectDetector,
+    SecurityHeadersDetector,
 )
 from pentestai.models import Actor, AuthState, Endpoint, Scope
 from pentestai.net import Replayer, SessionStore

@@ -7,7 +7,7 @@ Network'süz (MockTransport), çok-endpoint'li vulnerable hedef. Doğrulananlar:
 import httpx
 import pytest
 
-from pentestai.models import Actor, AuthState, BudgetConfig, Endpoint, Scope
+from pentestai.models import Actor, AuthState, Endpoint, Scope
 from pentestai.net import BudgetTracker, Replayer, SessionStore
 from pentestai.oracle import BflaOracle, BoplaOracle, IdorOracle, InjectionOracle, StateChangingOracle
 from pentestai.orchestrator.agent import AgenticOrchestrator

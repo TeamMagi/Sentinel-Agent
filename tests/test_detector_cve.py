@@ -54,6 +54,15 @@ def test_cve_database_lookup_and_extension():
     assert db.lookup("widget", "1.0.0")
 
 
+def test_cve_database_short_version_equal_to_fix_is_not_flagged():
+    # kod-tarama-raporu.md #4: zero-pad olmadan (1, 21) < (1, 21, 0) True döner — sunucu tam
+    # düzeltme sürümünü kısa yazarsa (ör. "Server: nginx/1.21", fixed_in="1.21.0") sürüm
+    # düzeltmeye EŞİT olmasına rağmen yanlışlıkla zafiyetli sayılırdı.
+    db = CveDatabase(extra=(CveEntry("widget", "1.21.0", "CVE-9999-0002", "Low", "test"),))
+    assert not db.lookup("widget", "1.21")
+    assert db.lookup("widget", "1.20")
+
+
 def test_default_db_has_no_fabricated_epss():
     # R-D3: EPSS canlı çekilmez — doğrulayamadığımız bir sayıyı gerçekmiş gibi göstermemek için
     # gömülü varsayılan tabloda EPSS YOK (yalnızca kullanıcı kendi tablosuna eklerse taşınır).

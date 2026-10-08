@@ -4,8 +4,8 @@ import pytest
 
 from pentestai.detector.rate_limit import RateLimitDetector
 from pentestai.models import Actor, Endpoint, Scope
-from pentestai.net.burst import BurstHarness
 from pentestai.net import SessionStore
+from pentestai.net.burst import BurstHarness
 from pentestai.policy import PolicyEngine
 
 BASE = "http://localhost:3000"
@@ -30,6 +30,24 @@ async def test_endpoint_confirmed_when_no_throttling():
     findings = await detector.scan_endpoint(session, ep)
     assert len(findings) == 1
     assert findings[0].verdict == "CONFIRMED" and findings[0].type == "rate_limit"
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_endpoint_no_finding_when_second_burst_throttles():
+    # kod-tarama-raporu.md #7: ilk burst throttle GÖRMESE de, negatif kontrol için atılan
+    # İKİNCİ burst'te throttle görülürse "eksiklik" iddiası yanlış çıkar — bulgu üretilmemeli.
+    calls = {"n": 0}
+
+    def throttles_on_second_burst(request):
+        calls["n"] += 1
+        return httpx.Response(429 if calls["n"] > 20 else 200, json={})
+
+    store, detector, session = _setup(throttles_on_second_burst)
+    ep = Endpoint(method="GET", path_template="/api/products", id_param="id")
+    findings = await detector.scan_endpoint(session, ep)
+    assert findings == []
+    assert calls["n"] > 20   # ikinci burst gerçekten atıldı
     await store.aclose_all()
 
 

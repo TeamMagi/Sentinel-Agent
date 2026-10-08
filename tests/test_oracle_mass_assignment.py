@@ -4,7 +4,7 @@ import json
 import httpx
 import pytest
 
-from pentestai.models import Actor, AuthState, Endpoint, Scope
+from pentestai.models import Actor, Endpoint, Scope
 from pentestai.net import Replayer, SessionStore
 from pentestai.oracle import base
 from pentestai.oracle.mass_assignment import MassAssignmentOracle

@@ -3,8 +3,16 @@
 Değişmez: severity kararını KOD verir (verdict gibi); LLM önerisi severity_suggested'da kalır.
 """
 from pentestai.classify import (
-    CVSS_BASE_SCORE, SEVERITY_ORDER, TYPE_META, assign, assign_all, cvss_for, meta_for,
-    missing_types, severity_for_verdict, severity_of,
+    CVSS_BASE_SCORE,
+    SEVERITY_ORDER,
+    TYPE_META,
+    assign,
+    assign_all,
+    cvss_for,
+    meta_for,
+    missing_types,
+    severity_for_verdict,
+    severity_of,
 )
 from pentestai.models import Evidence, Finding
 
@@ -18,7 +26,9 @@ PRODUCED_TYPES = [
     "open_redirect", "cors", "clickjacking", "jwt", "user_enumeration",
     "ssrf", "rfi", "xxe", "cache_poisoning", "prototype_pollution",
     "info_leak", "exposure", "default_credentials", "vulnerable_component",
-    "rate_limit", "session_lifecycle", "graphql_introspection",
+    "rate_limit", "session_lifecycle", "graphql_introspection", "graphql_bola",
+    # Dalga 5 — agent-security predicate'leri (agent/*.py + oracle/untrusted_to_action.py)
+    "untrusted_to_action", "exfiltration", "destructive_write", "confused_deputy",
 ]
 
 
