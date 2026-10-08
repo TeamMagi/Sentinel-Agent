@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "sentinel-agent"
 version = "0.0.1"
 description = "AI-assisted authenticated access-control pentest tool (IDOR/BOLA + BFLA)"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
   "httpx>=0.27,<1.0",
