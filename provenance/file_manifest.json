@@ -1,0 +1,13 @@
+{
+  "manifest_version": "1",
+  "algorithm": "sha256",
+  "description": "Bütünlük-kritik yayın artefaktları. Yer gerçeği etiketleri (benchmarks/) ve dedektör template'leri (templates/) sessizce değişirse precision/recall iddiaları ve tarama davranışı geçersizleşir.",
+  "files": {
+    "benchmarks/crapi.expected.yaml": "c41dafc33fb082dcc5b9624e5c074a63065a08a019732c9e23abc181ac477da0",
+    "benchmarks/juiceshop.expected.yaml": "8611d753d7f4d4241427eb884d44803ccb849de0f326d3f0f7fb3ce924127e4d",
+    "benchmarks/suite.yaml": "9b176dd0b5ddd17ef489859814eeabf440b6774561ed32bd039ef52191677062",
+    "benchmarks/vampi.expected.yaml": "ad4750f30a23326427ffaa48a93688bdc2979eb55a630ee9b0b8b438a8483f7b",
+    "templates/actuator-env-exposure.yaml": "463f50a7254d990d264d71c256d476c53019a21b6d2efc9fabe045bad35f9a3e",
+    "templates/missing-security-headers.yaml": "ab8778b9d5c0ad176e7656d4a5bb8ad1ba7bc39c62fde26bc64ea7debcfc0e40"
+  }
+}
