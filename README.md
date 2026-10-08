@@ -478,3 +478,8 @@ hedefler. Scope/policy engine tüm istekleri allowlist + IP pinning ile denetler
 
 [Apache License 2.0](LICENSE) — topluluk/portföy kullanımı için izinli, patent korumalı bir lisans.
 Katkıda bulunanlar aynı lisans altında katkı sunar (bkz. [LICENSE](LICENSE) §5).
+
+## 🔒 Güvenlik açığı bildirimi
+
+Aracın kendisinde bir güvenlik açığı bulduysanız bkz. [SECURITY.md](SECURITY.md) — herkese
+açık issue açmak yerine GitHub'ın özel bildirim akışını kullanın.
