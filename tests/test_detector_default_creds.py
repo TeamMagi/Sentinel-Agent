@@ -63,5 +63,20 @@ async def test_stops_at_first_success():
     store, detector, session = _setup(handler)
     findings = await detector.scan(session, f"{BASE}/rest/user/login")
     assert len(findings) == 1
-    assert calls["n"] == 1   # ilk çift (admin/admin) tuttu — devam etmedi
+    # ilk çift (admin/admin) tuttu — kalan çiftlere devam etmedi; yalnızca negatif kontrol
+    # için BİR ek istek attı (bilinen-yanlış rastgele kimlik).
+    assert calls["n"] == 2
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_no_finding_when_login_accepts_any_credential():
+    # kod-tarama-raporu.md #5: bozuk bir login endpoint'i HER girişe (yanlış olana da) 200+token
+    # dönüyorsa, admin/admin'in "çalışması" gerçek bir default-cred sinyali değildir.
+    def handler(request):
+        return httpx.Response(200, json={"authentication": {"token": "abc"}})
+
+    store, detector, session = _setup(handler)
+    findings = await detector.scan(session, f"{BASE}/rest/user/login")
+    assert findings == []
     await store.aclose_all()
