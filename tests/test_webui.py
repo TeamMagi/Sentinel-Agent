@@ -7,10 +7,12 @@ uçtan-uca doğrulanır.
 from __future__ import annotations
 
 import json
+import socket
 import threading
 import time
 
 import httpx
+import pytest
 
 from pentestai.models import (
     BudgetConfig,
@@ -198,6 +200,56 @@ def test_manager_snapshot_redacts_request():
     assert "<REDACTED>" in json.dumps(snap.request_redacted, ensure_ascii=False)
 
 
+def test_manager_snapshot_unknown_job_returns_none():
+    mgr = ScanManager(FakeRunner())
+    assert mgr.snapshot("does-not-exist") is None
+
+
+class _SlowRunner(ScanRunner):
+    """`run()` bir Event'e kadar bloke olur — eşzamanlılık sınırını gerçek thread'lerle test eder."""
+
+    def __init__(self):
+        self.release = threading.Event()
+        self.started = threading.Event()
+
+    def run(self, request: ScanRequest, on_progress) -> ScanOutcome:
+        self.started.set()
+        self.release.wait(timeout=5)
+        return ScanOutcome(run_id="run-slow", root="runs/run-slow", findings=[])
+
+
+def test_manager_raises_scan_busy_error_at_real_concurrency_limit():
+    runner = _SlowRunner()
+    mgr = ScanManager(runner, max_running=1)
+    mgr.start(_valid_request())
+    assert runner.started.wait(timeout=5)   # ilk iş gerçekten "running" oldu
+    try:
+        with pytest.raises(ScanBusyError):
+            mgr.start(_valid_request())
+    finally:
+        runner.release.set()
+
+
+def test_manager_update_on_evicted_job_is_a_noop():
+    # _update, iş evict edildikten SONRA (ör. arka planda hâlâ koşan eski bir thread'den)
+    # çağrılırsa sessizce hiçbir şey yapmamalı — KeyError/crash yok.
+    mgr = ScanManager(FakeRunner())
+    mgr._update("hic-var-olmadi", state="running")   # sadece crash etmediğini doğrula
+
+
+def test_manager_evicts_oldest_job_beyond_max_jobs():
+    mgr = ScanManager(FakeRunner(), max_jobs=2)
+    j1 = mgr.start(_valid_request())
+    _wait(mgr, j1)
+    j2 = mgr.start(_valid_request())
+    _wait(mgr, j2)
+    j3 = mgr.start(_valid_request())
+    _wait(mgr, j3)
+    assert mgr.snapshot(j1) is None          # en eski düştü
+    assert mgr.snapshot(j2) is not None
+    assert mgr.snapshot(j3) is not None
+
+
 # --------------------------- WebApp (saf yönlendirme) ---------------------------
 
 def _server_scope(**over) -> Scope:
@@ -286,6 +338,125 @@ def test_app_defaults_never_leak_password(tmp_path):
         assert actor["auth"].get("password", "") == ""
 
 
+def test_app_handle_catches_unexpected_exception_and_hides_detail(tmp_path):
+    # _route içindeki beklenmedik bir istisna 500'e düşmeli, ayrıntısı UI'ya SIZMAMALI (CLAUDE.md §5.5).
+    app = _app(tmp_path)
+
+    def boom(_job_id):
+        raise RuntimeError("iç yığın izi burada olmamalı")
+
+    app.manager.snapshot = boom
+    resp = app.handle("GET", "/api/scan/whatever", {}, b"", _GET)
+    assert resp.status == 500
+    assert json.loads(resp.body) == {"error": "sunucu hatası"}
+    assert b"ya\xc4\x9f\xc4\xb1n izi" not in resp.body
+
+
+def test_app_scan_rejects_malformed_json_body(tmp_path):
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, b"{not json", _JSON)
+    assert resp.status == 400
+    assert "JSON" in json.loads(resp.body)["error"]
+
+
+def test_app_scan_rejects_missing_required_fields(tmp_path):
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, b"{}", _JSON)
+    assert resp.status == 400
+    assert "geçersiz tarama isteği" in json.loads(resp.body)["error"]
+
+
+def test_app_scan_status_unknown_job_404(tmp_path):
+    resp = _app(tmp_path).handle("GET", "/api/scan/does-not-exist", {}, b"", _GET)
+    assert resp.status == 404
+
+
+def test_app_runs_listing_missing_dir_returns_empty(tmp_path):
+    app = _app(tmp_path / "henuz-yok")
+    assert json.loads(app.handle("GET", "/api/runs", {}, b"", _GET).body)["runs"] == []
+
+
+def test_app_runs_listing_skips_invalid_entries(tmp_path):
+    (tmp_path / "not-a-dir.txt").write_text("x", encoding="utf-8")
+    (tmp_path / "run-no-findings").mkdir()
+    broken = tmp_path / "run-broken"
+    broken.mkdir()
+    (broken / "findings.json").write_text("{bozuk json", encoding="utf-8")
+    ok = tmp_path / "run-ok"
+    ok.mkdir()
+    (ok / "findings.json").write_text("[]", encoding="utf-8")
+
+    app = _app(tmp_path)
+    runs = json.loads(app.handle("GET", "/api/runs", {}, b"", _GET).body)["runs"]
+    assert {r["id"] for r in runs} == {"run-ok"}
+
+
+def test_app_get_run_dotdot_traversal_rejected(tmp_path):
+    # ".." regex'i geçer (yalnızca nokta) ama runs_dir.resolve() dışına çıktığı için relative_to
+    # ValueError fırlatır — traversal koruması ikinci katmanda yakalanır.
+    resp = _app(tmp_path).handle("GET", "/api/runs/..", {}, b"", _GET)
+    assert resp.status == 400
+
+
+def test_app_get_run_not_found(tmp_path):
+    resp = _app(tmp_path).handle("GET", "/api/runs/run-does-not-exist", {}, b"", _GET)
+    assert resp.status == 404
+
+
+def test_app_read_snapshot_ignores_corrupt_json(tmp_path):
+    # config.snapshot.json bozuksa çökme yerine {} — /api/runs listelemesi yine de çalışmalı.
+    run_dir = tmp_path / "run-corrupt-snap"
+    run_dir.mkdir()
+    (run_dir / "findings.json").write_text("[]", encoding="utf-8")
+    (run_dir / "config.snapshot.json").write_text("{bozuk", encoding="utf-8")
+    runs = json.loads(_app(tmp_path).handle("GET", "/api/runs", {}, b"", _GET).body)["runs"]
+    assert runs[0]["id"] == "run-corrupt-snap"
+    assert runs[0]["target"] == ""   # snapshot okunamadı → boş, crash yok
+
+
+def test_app_defaults_reads_real_config_files(tmp_path):
+    (tmp_path / "scope.yaml").write_text(
+        "target:\n  base_url: http://real-target:9999\n"
+        "scope:\n  allowed_hosts: [real-target]\n  allowed_ports: [9999]\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "actors.yaml").write_text(
+        "actors:\n"
+        "  - name: user_A\n"
+        "    role: user\n"
+        "    own_object_ids: {basket: 1}\n"
+        "    auth:\n"
+        "      type: token\n"
+        "      login_url: http://real-target:9999/login\n"
+        "      credentials: {email: a@x, password: secret}\n"
+        "      token_location: {from: 'json:token'}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "endpoints.yaml").write_text(
+        "endpoints:\n  - method: GET\n    path_template: /rest/basket/{id}\n",
+        encoding="utf-8",
+    )
+    defaults = json.loads(_app(tmp_path).handle("GET", "/api/config/defaults", {}, b"", _GET).body)
+    assert defaults["target"] == "http://real-target:9999"
+    assert defaults["scope"]["allowed_hosts"] == ["real-target"]
+    actor = defaults["actors"][0]
+    assert actor["name"] == "user_A"
+    assert actor["auth"]["email"] == "a@x"
+    assert actor["auth"]["password"] == ""   # sır asla UI'ya gitmez
+    assert actor["auth"]["token_from"] == "json:token"
+    ep = defaults["endpoints"][0]
+    assert ep["path_template"] == "/rest/basket/{id}"
+    assert ep["id_param"] == "id"   # verilmedi → varsayılana düştü
+
+
+def test_app_load_yaml_ignores_unreadable_file(tmp_path):
+    # scope.yaml bir DOSYA değil dizinse read_text() OSError (IsADirectoryError) fırlatır —
+    # _load_yaml bunu yutup {} döner (crash yok), scope güvenli varsayılana düşer.
+    (tmp_path / "scope.yaml").mkdir()
+    (tmp_path / "actors.yaml").write_text("actors: []\n", encoding="utf-8")
+    (tmp_path / "endpoints.yaml").write_text("endpoints: []\n", encoding="utf-8")
+    defaults = json.loads(_app(tmp_path).handle("GET", "/api/config/defaults", {}, b"", _GET).body)
+    assert defaults["scope"]["allowed_hosts"] == ["localhost"]
+
+
 # --------------------------- RequestGuard (CSRF/DNS-rebinding) ---------------------------
 
 def test_guard_rejects_unknown_host(tmp_path):
@@ -324,6 +495,23 @@ def test_guard_rejects_oversized_body(tmp_path):
     guard = RequestGuard([_HOST], max_body_bytes=10)
     resp = _app(tmp_path, guard=guard).handle("POST", "/api/scan", {}, b"x" * 11, _JSON)
     assert resp.status == 413
+
+
+def test_guard_check_rejects_negative_content_length():
+    # WebApp.handle() her zaman len(body)>=0 gönderir; bu dal yalnızca RequestGuard.check()'in
+    # doğrudan çağrıldığı (server.py'nin ValueError sonrası length=-1 verdiği) durum için savunma.
+    guard = RequestGuard([_HOST])
+    denial = guard.check("GET", "/api/health", {"host": _HOST}, -1)
+    assert denial == (400, "geçersiz Content-Length")
+
+
+def test_guard_origin_without_hostname_does_not_match(tmp_path):
+    # "null" origin (sandboxed iframe/redirect) veya şema-dışı bir Origin — hostname yok,
+    # Host ile asla eşleşmemeli (_origin_matches_host False dönmeli, izin verilmemeli).
+    body = json.dumps(_valid_request().model_dump(mode="json")).encode()
+    headers = {**_JSON, "origin": "null"}
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, body, headers)
+    assert resp.status == 403
 
 
 # --------------------------- scope kilidi (server-side scope) ---------------------------
@@ -398,6 +586,17 @@ def test_storagestate_path_must_stay_inside_secrets_dir(tmp_path):
     assert "storagestate_path" in json.loads(resp.body)["error"]
 
 
+def test_storagestate_path_rejects_non_json_shape(tmp_path):
+    # regex'e hiç uymayan bir değer (.json ile bitmiyor) — relative_to'ya varmadan reddedilir.
+    app = _app(tmp_path)
+    req = _valid_request(actors=[ActorSpec(
+        name="user_A", auth=AuthSpec(type="storagestate", storagestate_path="notjson.txt"))])
+    body = json.dumps(req.model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 400
+    assert "yalnızca .json" in json.loads(resp.body)["error"]
+
+
 def test_storagestate_path_inside_secrets_dir_is_allowed(tmp_path):
     secrets = tmp_path / ".secrets"
     secrets.mkdir()
@@ -436,3 +635,92 @@ def test_server_end_to_end_health(tmp_path):
         r = httpx.get(f"http://127.0.0.1:{port}/api/health", timeout=5)
         t.join(timeout=5)
     assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_server_end_to_end_post_and_head(tmp_path):
+    # do_POST + do_HEAD dispatch — gerçek soket üzerinden, gövde sızmaz (HEAD).
+    fake = FakeRunner()
+    app = _app(tmp_path, runner=fake, server_scope=_server_scope())
+    with WebServer(app, host="127.0.0.1", port=0) as srv:
+        port = srv.bound_port
+        app.guard = RequestGuard([f"127.0.0.1:{port}"])
+        req = _valid_request(scope=ScopeSpec(
+            allowed_hosts=["localhost"], allowed_ports=[3000], allowed_methods=["GET"],
+            destructive_tests=False))
+        body = json.dumps(req.model_dump(mode="json")).encode()
+
+        t = threading.Thread(target=srv.handle_request, daemon=True)
+        t.start()
+        r_post = httpx.post(f"http://127.0.0.1:{port}/api/scan", content=body,
+                             headers={"content-type": "application/json"}, timeout=5)
+        t.join(timeout=5)
+
+        t2 = threading.Thread(target=srv.handle_request, daemon=True)
+        t2.start()
+        r_head = httpx.head(f"http://127.0.0.1:{port}/api/health", timeout=5)
+        t2.join(timeout=5)
+    assert r_post.status_code == 202
+    # _route yalnızca GET'i eşler (HEAD ayrı yönlendirilmez) → do_HEAD yine de 404 üretir,
+    # ama _write hiçbir durumda HEAD gövdesi yazmaz (RFC 7231 §4.3.2) — bunu doğrula.
+    assert r_head.status_code == 404 and r_head.content == b""
+
+
+def test_server_rejects_oversized_content_length_header(tmp_path):
+    # Gövdeyi belleğe okumadan ÖNCE Content-Length denetlenir — dev bir gövde hiç gönderilmese
+    # bile (yalnızca başlık) sunucu erken 413 ile reddeder ve bağlantıyı kapatır.
+    app = _app(tmp_path)
+    with WebServer(app, host="127.0.0.1", port=0) as srv:
+        port = srv.bound_port
+        app.guard = RequestGuard([f"127.0.0.1:{port}"])
+        t = threading.Thread(target=srv.handle_request, daemon=True)
+        t.start()
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            req = (
+                f"POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+                f"Content-Type: application/json\r\nContent-Length: {app.max_body_bytes + 1}\r\n\r\n"
+            ).encode()
+            sock.sendall(req)
+            resp = sock.recv(4096)
+        t.join(timeout=5)
+    assert b"413" in resp.split(b"\r\n", 1)[0]
+
+
+def test_server_rejects_invalid_content_length_header(tmp_path):
+    # Sayısal olmayan Content-Length → ValueError yakalanır, length=-1'e düşer → 400.
+    app = _app(tmp_path)
+    with WebServer(app, host="127.0.0.1", port=0) as srv:
+        port = srv.bound_port
+        app.guard = RequestGuard([f"127.0.0.1:{port}"])
+        t = threading.Thread(target=srv.handle_request, daemon=True)
+        t.start()
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            req = (
+                f"POST /api/scan HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+                f"Content-Type: application/json\r\nContent-Length: not-a-number\r\n\r\n"
+            ).encode()
+            sock.sendall(req)
+            resp = sock.recv(4096)
+        t.join(timeout=5)
+    assert b"400" in resp.split(b"\r\n", 1)[0]
+
+
+def test_server_serve_forever_binds_serves_and_closes(tmp_path):
+    # serve_forever gerçek bir bind+loop çalıştırır (context manager __enter__/__exit__'in dışı);
+    # bir istek atıp shutdown() ile döngüyü durdurarak bind→serve→close yolunun tamamını geçer.
+    app = _app(tmp_path)
+    srv = WebServer(app, host="127.0.0.1", port=0)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        for _ in range(50):
+            if srv._httpd is not None:
+                break
+            time.sleep(0.05)
+        port = srv.bound_port
+        app.guard = RequestGuard([f"127.0.0.1:{port}"])
+        r = httpx.get(f"http://127.0.0.1:{port}/api/health", timeout=5)
+        assert r.status_code == 200
+    finally:
+        srv._httpd.shutdown()
+        t.join(timeout=5)
+    assert srv._httpd is None
