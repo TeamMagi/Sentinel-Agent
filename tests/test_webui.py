@@ -13,11 +13,18 @@ import time
 import httpx
 import pytest
 
-from pentestai.models import CapturedRequest, Evidence, Finding, NormalizedResponse
-from pentestai.webui import (
-    ActorSpec, AuthSpec, EndpointSpec, RemediationCatalog, ScanManager, ScanOutcome,
-    ScanRequest, ScanRunner, ScopeSpec, WebApp, WebServer,
+from pentestai.models import (
+    BudgetConfig, CapturedRequest, Evidence, Finding, NormalizedResponse, Scope,
 )
+from pentestai.webui import (
+    ActorSpec, AuthSpec, BudgetSpec, EndpointSpec, RemediationCatalog, RequestGuard,
+    ScanBusyError, ScanManager, ScanOutcome, ScanRequest, ScanRunner, ScopeSpec, WebApp,
+    WebServer, narrow_budget, narrow_scope,
+)
+
+_HOST = "127.0.0.1:8787"
+_GET = {"host": _HOST}
+_JSON = {"host": _HOST, "content-type": "application/json"}
 
 
 # --------------------------- yardımcılar ---------------------------
@@ -176,26 +183,43 @@ def test_manager_snapshot_redacts_request():
 
 # --------------------------- WebApp (saf yönlendirme) ---------------------------
 
-def _app(tmp_path, runner=None):
+def _server_scope(**over) -> Scope:
+    base = dict(
+        allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"],
+        allowed_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
+        destructive_tests=True, external_network=True,
+    )
+    base.update(over)
+    return Scope(**base)
+
+
+def _app(tmp_path, runner=None, *, guard=None, server_scope=..., server_budget=None,
+        secrets_dir=None):
     mgr = ScanManager(runner or FakeRunner())
-    return WebApp(mgr, runs_dir=str(tmp_path), config_dir=str(tmp_path))
+    return WebApp(
+        mgr, runs_dir=str(tmp_path), config_dir=str(tmp_path),
+        guard=guard or RequestGuard([_HOST]),
+        server_scope=_server_scope() if server_scope is ... else server_scope,
+        server_budget=server_budget if server_budget is not None else BudgetConfig(),
+        secrets_dir=str(secrets_dir) if secrets_dir is not None else str(tmp_path / ".secrets"),
+    )
 
 
 def test_app_serves_index(tmp_path):
-    resp = _app(tmp_path).handle("GET", "/", {}, b"")
+    resp = _app(tmp_path).handle("GET", "/", {}, b"", _GET)
     assert resp.status == 200 and resp.content_type.startswith("text/html")
     assert b"Sentinel-Agent" in resp.body
 
 
 def test_app_health(tmp_path):
-    resp = _app(tmp_path).handle("GET", "/api/health", {}, b"")
+    resp = _app(tmp_path).handle("GET", "/api/health", {}, b"", _GET)
     assert resp.status == 200 and json.loads(resp.body)["ok"] is True
 
 
 def test_app_scan_rejects_invalid(tmp_path):
     body = json.dumps({"target": "http://evil.com", "scope": {"allowed_hosts": ["localhost"],
                       "allowed_ports": [3000]}, "actors": [], "endpoints": []}).encode()
-    resp = _app(tmp_path).handle("POST", "/api/scan", {}, body)
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, body, _JSON)
     assert resp.status == 400
     assert "error" in json.loads(resp.body)
 
@@ -203,11 +227,11 @@ def test_app_scan_rejects_invalid(tmp_path):
 def test_app_scan_flow_enriches_and_redacts(tmp_path):
     app = _app(tmp_path)
     body = json.dumps(_valid_request().model_dump(mode="json")).encode()
-    start = app.handle("POST", "/api/scan", {}, body)
+    start = app.handle("POST", "/api/scan", {}, body, _JSON)
     assert start.status == 202
     jid = json.loads(start.body)["job_id"]
     _wait(app.manager, jid)
-    status = app.handle("GET", "/api/scan/" + jid, {}, b"")
+    status = app.handle("GET", "/api/scan/" + jid, {}, b"", _GET)
     payload = json.loads(status.body)
     assert payload["state"] == "done"
     f = payload["findings"][0]
@@ -228,21 +252,159 @@ def test_app_runs_listing_and_traversal_guard(tmp_path):
     (run_dir / "config.snapshot.json").write_text(
         json.dumps({"target": "http://localhost:3000", "generated_at": "2026-01-01"}), encoding="utf-8")
     app = _app(tmp_path)
-    runs = json.loads(app.handle("GET", "/api/runs", {}, b"").body)["runs"]
+    runs = json.loads(app.handle("GET", "/api/runs", {}, b"", _GET).body)["runs"]
     assert runs and runs[0]["id"] == "run-20260101-000000"
     # açınca çözüm önerisi eklenir
-    got = json.loads(app.handle("GET", "/api/runs/run-20260101-000000", {}, b"").body)
+    got = json.loads(app.handle("GET", "/api/runs/run-20260101-000000", {}, b"", _GET).body)
     assert got["findings"][0]["remediation_guide"]["type"] == "idor"
     # path traversal reddi
-    bad = app.handle("GET", "/api/runs/..%2f..%2fetc", {}, b"")
+    bad = app.handle("GET", "/api/runs/..%2f..%2fetc", {}, b"", _GET)
     assert bad.status == 400
 
 
 def test_app_defaults_never_leak_password(tmp_path):
     # config klasörü boş → gömülü varsayılan; parola alanı boş olmalı
-    defaults = json.loads(_app(tmp_path).handle("GET", "/api/config/defaults", {}, b"").body)
+    defaults = json.loads(_app(tmp_path).handle("GET", "/api/config/defaults", {}, b"", _GET).body)
     for actor in defaults.get("actors", []):
         assert actor["auth"].get("password", "") == ""
+
+
+# --------------------------- RequestGuard (CSRF/DNS-rebinding) ---------------------------
+
+def test_guard_rejects_unknown_host(tmp_path):
+    resp = _app(tmp_path).handle("GET", "/api/health", {}, b"", {"host": "evil.example"})
+    assert resp.status == 403
+
+
+def test_guard_rejects_missing_host(tmp_path):
+    resp = _app(tmp_path).handle("GET", "/api/health", {}, b"", {})
+    assert resp.status == 403
+
+
+def test_guard_rejects_non_json_post_content_type(tmp_path):
+    # text/plain tarayıcının "simple request" saydığı tiplerden — preflight'sız gönderilebilir,
+    # bu yüzden CSRF'e açık; yalnızca application/json kabul edilir.
+    body = json.dumps(_valid_request().model_dump(mode="json")).encode()
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, body, {"host": _HOST, "content-type": "text/plain"})
+    assert resp.status == 415
+
+
+def test_guard_rejects_mismatched_origin(tmp_path):
+    body = json.dumps(_valid_request().model_dump(mode="json")).encode()
+    headers = {**_JSON, "origin": "https://evil.example"}
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, body, headers)
+    assert resp.status == 403
+
+
+def test_guard_allows_same_origin(tmp_path):
+    body = json.dumps(_valid_request().model_dump(mode="json")).encode()
+    headers = {**_JSON, "origin": f"http://{_HOST}"}
+    resp = _app(tmp_path).handle("POST", "/api/scan", {}, body, headers)
+    assert resp.status == 202
+
+
+def test_guard_rejects_oversized_body(tmp_path):
+    guard = RequestGuard([_HOST], max_body_bytes=10)
+    resp = _app(tmp_path, guard=guard).handle("POST", "/api/scan", {}, b"x" * 11, _JSON)
+    assert resp.status == 413
+
+
+# --------------------------- scope kilidi (server-side scope) ---------------------------
+
+def test_scan_denied_when_server_scope_unconfigured(tmp_path):
+    app = _app(tmp_path, server_scope=None)
+    body = json.dumps(_valid_request().model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 503
+
+
+def test_scan_request_cannot_widen_server_scope(tmp_path):
+    # sunucu yalnızca GET/HEAD'e izin veriyor; istek DELETE eklemeye çalışıyor.
+    app = _app(tmp_path, server_scope=_server_scope(allowed_methods=["GET", "HEAD"]))
+    req = _valid_request(scope=ScopeSpec(
+        allowed_hosts=["localhost"], allowed_ports=[3000],
+        allowed_methods=["GET", "HEAD", "DELETE"], destructive_tests=True))
+    body = json.dumps(req.model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 400
+    assert "allowed_methods" in json.loads(resp.body)["error"]
+
+
+def test_scan_request_can_narrow_server_scope(tmp_path, runner=None):
+    fake = FakeRunner()
+    app = _app(tmp_path, runner=fake, server_scope=_server_scope())
+    req = _valid_request(scope=ScopeSpec(
+        allowed_hosts=["localhost"], allowed_ports=[3000], allowed_methods=["GET"],
+        destructive_tests=False))
+    body = json.dumps(req.model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 202
+    _wait(app.manager, json.loads(resp.body)["job_id"])
+    assert fake.seen.scope.allowed_methods == ["GET"]   # koşucuya giden, daraltılmış scope
+
+
+def test_scan_request_cannot_exceed_server_budget(tmp_path):
+    app = _app(tmp_path, server_budget=BudgetConfig(max_total_requests=100))
+    req = _valid_request(budget={"max_total_requests": 5000})
+    body = json.dumps(req.model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 400
+    assert "budget" in json.loads(resp.body)["error"]
+
+
+def test_narrow_scope_pure_function():
+    server = _server_scope(allowed_hosts=["localhost", "127.0.0.1"])
+    ok = narrow_scope(server, ScopeSpec(allowed_hosts=["localhost"], allowed_ports=[3000]))
+    assert isinstance(ok, ScopeSpec)
+    bad = narrow_scope(server, ScopeSpec(allowed_hosts=["evil.example"], allowed_ports=[3000]))
+    assert isinstance(bad, str) and "allowed_hosts" in bad
+
+
+def test_narrow_budget_pure_function():
+    server = BudgetConfig(max_total_requests=100)
+    ok = narrow_budget(server, BudgetSpec(max_total_requests=50))
+    assert isinstance(ok, BudgetSpec)
+    bad = narrow_budget(server, BudgetSpec(max_total_requests=500))
+    assert isinstance(bad, str) and "max_total_requests" in bad
+
+
+# --------------------------- storageState path kısıtı ---------------------------
+
+def test_storagestate_path_must_stay_inside_secrets_dir(tmp_path):
+    (tmp_path / ".secrets").mkdir()
+    app = _app(tmp_path, secrets_dir=tmp_path / ".secrets")
+    req = _valid_request(actors=[ActorSpec(
+        name="user_A", auth=AuthSpec(type="storagestate", storagestate_path="../outside.json"))])
+    body = json.dumps(req.model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 400
+    assert "storagestate_path" in json.loads(resp.body)["error"]
+
+
+def test_storagestate_path_inside_secrets_dir_is_allowed(tmp_path):
+    secrets = tmp_path / ".secrets"
+    secrets.mkdir()
+    fake = FakeRunner()
+    app = _app(tmp_path, runner=fake, secrets_dir=secrets)
+    req = _valid_request(actors=[ActorSpec(
+        name="user_A", auth=AuthSpec(type="storagestate", storagestate_path="user_A.json"))])
+    body = json.dumps(req.model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 202
+
+
+# --------------------------- eşzamanlılık sınırı ---------------------------
+
+def test_scan_returns_429_when_manager_is_busy(tmp_path):
+    class BusyManager(ScanManager):
+        def start(self, request):
+            raise ScanBusyError("dolu")
+
+    app = _app(tmp_path)
+    app.manager = BusyManager(FakeRunner())
+    body = json.dumps(_valid_request().model_dump(mode="json")).encode()
+    resp = app.handle("POST", "/api/scan", {}, body, _JSON)
+    assert resp.status == 429
 
 
 # --------------------------- WebServer (gerçek soket, tek istek) ---------------------------
@@ -251,6 +413,7 @@ def test_server_end_to_end_health(tmp_path):
     app = _app(tmp_path)
     with WebServer(app, host="127.0.0.1", port=0) as srv:
         port = srv.bound_port
+        app.guard = RequestGuard([f"127.0.0.1:{port}"])   # gerçek porta göre güncelle
         t = threading.Thread(target=srv.handle_request, daemon=True)
         t.start()
         r = httpx.get(f"http://127.0.0.1:{port}/api/health", timeout=5)
