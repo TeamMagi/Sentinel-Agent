@@ -1,0 +1,87 @@
+# Sentinel-Agent — Kalibrasyon vaka seti (VAmPI — erev0s/VAmPI, "vulnerable" mod, izinli hedef)
+#
+# Her vaka bir YER GERÇEĞİDİR (ground truth). Etiketler VAmPI'nin "vulnerable=true" modundaki
+# BELGELENMİŞ davranışından türetilmiştir; **yayımlanacak sayı öncesi sabit sürümde HTTP ile
+# tek tek doğrulanmalıdır** (juiceshop.expected.yaml'daki gibi döngüsellik olmadan).
+#
+# "vulnerable↔hardened ikiz" metodolojisi (AuthProbe): aynı hedefte pozitif (gerçek zafiyet) +
+# negatif (not_vulnerable) vakalar → FP oranı deterministik ölçülür. VAmPI'yi vulnerable=0 ile
+# çalıştırınca pozitiflerin çoğu not_vulnerable'a döner (hardened ikiz) — ayrı set olarak koşulur.
+#
+# expect: CONFIRMED → gerçekten zafiyetli (araç CONFIRM etmeli, etmezse FN)
+#         not_vulnerable → burada bu tür zafiyet yok (araç CONFIRM ederse FP)
+
+cases:
+  # ---------- POZİTİF: gerçek zafiyetler ----------
+  - type: excessive_data_exposure
+    endpoint: "/users/v1/_debug"
+    method: GET
+    expect: CONFIRMED
+    note: "Tüm kullanıcıları parola alanlarıyla ifşa eder (aşırı veri ifşası)."
+
+  - type: idor
+    endpoint: "/users/v1/{username}"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — başka kullanıcının kaydına (email) sahiplik kontrolü olmadan erişim."
+
+  - type: idor
+    endpoint: "/books/v1/{book_title}"
+    method: GET
+    expect: CONFIRMED
+    note: "BOLA — başka kullanıcının kitabındaki gizli değere (secret) erişim."
+
+  - type: state_change_authz
+    endpoint: "/users/v1/{username}/email"
+    method: PUT
+    expect: CONFIRMED
+    note: "Başka kullanıcının e-postasını güncelleme (yazma-BOLA) — yetki kontrolü yok."
+
+  - type: mass_assignment
+    endpoint: "/users/v1/register"
+    method: POST
+    expect: CONFIRMED
+    note: "Kayıtta admin alanı set edilebiliyor (fazla-alan → yetki yükseltme)."
+
+  - type: sqli
+    endpoint: "/users/v1/{username}"
+    method: GET
+    expect: CONFIRMED
+    note: "String-format ile oluşturulan sorgu → error-based SQLi."
+
+  - type: jwt
+    endpoint: "/users/v1/{username}/email"
+    method: PUT
+    expect: CONFIRMED
+    note: "Zayıf/bilinen JWT secret'ı → token forge edilebilir."
+
+  - type: bfla
+    endpoint: "/users/v1/{username}"
+    method: DELETE
+    expect: CONFIRMED
+    note: "Admin-only silme fonksiyonu düşük yetkiyle çağrılabiliyor (fonksiyon-seviyesi)."
+
+  # ---------- NEGATİF: zafiyet YOK (hardened ikiz / public-by-design) ----------
+  - type: unauthorized_access
+    endpoint: "/users/v1"
+    method: GET
+    expect: not_vulnerable
+    note: "Yalnızca kullanıcı ADLARINI listeler; public-by-design → yetkisiz erişim zafiyeti değil."
+
+  - type: idor
+    endpoint: "/users/v1/login"
+    method: POST
+    expect: not_vulnerable
+    note: "Login obje endpoint'i değil → IDOR olamaz."
+
+  - type: unauthorized_access
+    endpoint: "/"
+    method: GET
+    expect: not_vulnerable
+    note: "Kök/健康 sayfası — kimlik doğrulama gerektirmez, hassas veri yok."
+
+  - type: mass_assignment
+    endpoint: "/books/v1"
+    method: POST
+    expect: not_vulnerable
+    note: "Kitap oluşturma yalnızca sahibe bağlanır; fazla-alan ile yetki yükseltme yok."
