@@ -49,7 +49,7 @@ Tarama öncesi kurban hesabına **benzersiz işaret verisi** ek (B1 write kapıs
 cevabında belirirse tartışmasız leaked-marker. **Kabul:** Juice Shop'ta canary'li IDOR'da FP=0,
 marker canary değeriyle eşleşiyor. *(Kaynak: MAPTA, AuthProbe)*
 
-### R-D1 — Per-role coverage + profil-etiketli bulgu · *(Sorumlu: Serhat · ~3s)*
+### R-D1 — Per-role coverage + profil-etiketli bulgu · *(Sorumlu: Serhat · ~3s)* ✅ tamamlandı
 Raporda "hangi aktör hangi endpoint'e ulaştı" tablosu; her bulgu keşfeden aktörle etiketli
 ("found as user_A"). **Kabul:** per-rol kapsam tablosu + profil etiketi raporda. *(Kaynak: Escape, StackHawk)*
 

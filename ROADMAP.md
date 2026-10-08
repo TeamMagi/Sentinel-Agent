@@ -108,7 +108,7 @@ Durum: ✅ var · 🟡 kısmi · ⬜ yeni. Efor kabaca adam-saat.
 
 | ID | Görev | Kaynak | Durum | Efor | Bağımlılık | Kabul kriteri |
 |---|---|---|---|---|---|---|
-| **R-D1** | **Per-role coverage + profil-etiketli bulgu** — "hangi aktör hangi endpoint'e ulaştı", "found as user_A" | Escape, StackHawk | ⬜ | ~3s | — | Raporda per-rol kapsam tablosu; her bulgu keşfeden aktörle etiketli |
+| **R-D1** | **Per-role coverage + profil-etiketli bulgu** — "hangi aktör hangi endpoint'e ulaştı", "found as user_A" | Escape, StackHawk | ✅ | ~3s | — | `Finding.found_as`/`victim_as` (`Scanner._tag`, oracle'lara dokunmadan) + `CoverageReporter` (`report/coverage.py`) → Markdown "Per-Role Coverage" tablosu + HTML "Kapsam" sekmesi (`sessions` verilince) |
 | **R-D2** | **Dedup: `CWE+endpoint+param`; `sources[]` izi + agreement bump** (çok sinyal → confidence↑) | p1-triage | 🟡 (Q4) | ~3s | — | Aynı kök-neden tek grup; SARIF fingerprint ile uyumlu |
 | **R-D3** | **Olgunluk paketi** — kurulabilir CLI (`sentinel scan`), scan modları (quick/standard/deep), CVSS/EPSS, budget-tabanlı erken durdurma (~40 çağrı/$0.30/300s) | StackHawk, strix, MAPTA, appsecsanta | 🟡 | ~6s | — | `pip install` → `sentinel scan …`; modlar bütçeyi ölçekliyor; erken durdurma çalışıyor |
 

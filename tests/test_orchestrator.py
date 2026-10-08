@@ -60,6 +60,11 @@ async def test_full_recon_scan_finds_idor_and_bfla():
     assert bfla_confirmed, "BFLA CONFIRMED bekleniyordu"
     assert any("alice@test.local" in f.evidence.leaked_markers for f in idor_confirmed)
 
+    # R-D1: her bulgu keşfeden/kurban aktörle etiketli ("found as user_A").
+    assert all(f.found_as and f.victim_as for f in findings)
+    assert all(f.victim_as == "admin" for f in bfla_confirmed)   # bfla: victim=admin, attacker=low
+    assert all(f.found_as in ("user_A", "user_B") for f in bfla_confirmed)
+
     await store.aclose_all()
 
 

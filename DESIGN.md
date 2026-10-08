@@ -428,6 +428,7 @@ State machine durumları: `RECON → PLAN → TEST → VERIFY → (RETEST | NEXT
 ### 10.10 evidence/ & report/
 - **store.py:** her verdict için req/resp/kontroller/leaked-marker/curl'ü SQLite (veya JSON) olarak saklar.
 - **report/render_md.py:** aşağıdaki örnek formatı üretir. **render_json.py:** makine-okunur çıktı (ileride SARIF'e köprü).
+- **report/coverage.py (R-D1, ROADMAP.md Eksen D):** `CoverageReporter` — "hangi aktör hangi endpoint'e ulaştı" tablosunu Finding.evidence'ından (baseline/attack response status) + `Finding.victim_as`/`found_as`'tan türetir; yeni izleme altyapısı gerekmez. `Scanner._tag` (`run_hypotheses`/`run_recon_scan` içinde, oracle sınıflarına dokunmadan) her Finding'i test eden/kurban aktörle etiketler → rapor "found as user_A" gösterir + `sessions` verilince Markdown/HTML raporuna per-rol kapsam tablosu eklenir (`sessions` verilmezse eski davranış — geriye dönük uyumlu).
 
 **Örnek rapor bölümü:**
 ```markdown

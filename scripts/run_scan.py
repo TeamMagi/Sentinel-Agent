@@ -132,7 +132,7 @@ async def _run(args) -> int:
         await scanner.aclose()
 
     run_id, root = scanner.save(findings, args.mode,
-                                trace=agent.trace if agent is not None else None)
+                                trace=agent.trace if agent is not None else None, sessions=sessions)
     if args.sarif:   # CI için bilinen bir yola SARIF kopyası (koşum dizinine de yazıldı)
         shutil.copyfile(root / "report.sarif", args.sarif)
     confirmed = sum(1 for f in findings if f.verdict == "CONFIRMED")
