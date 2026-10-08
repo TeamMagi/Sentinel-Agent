@@ -54,3 +54,21 @@ def test_llm_parse_ignores_prose_and_bad_items():
     text = 'İşte adaylar: [{"type":"bfla","path_template":"/api/admin"},{"bad":1}] bitti'
     hs = _parse_hypotheses(text)
     assert len(hs) == 1 and hs[0].type == "bfla"     # geçersiz öğe atıldı, prose yok sayıldı
+
+
+class _RaisingLLM(MockLLMClient):
+    """propose_hypotheses çağrısında hata fırlatan client (Ollama erişilemez senaryosu)."""
+
+    async def propose_hypotheses(self, recon_summary):
+        raise RuntimeError("ollama erişilemez")
+
+
+@pytest.mark.asyncio
+async def test_generate_llm_error_falls_back_to_deterministic():
+    # LLM erişilemezse (ağ/servis hatası) tarama ÇÖKMEZ; deterministik hipotezler döner.
+    gen = HypothesisGenerator(_RaisingLLM())
+    hs = await gen.generate(EPS)
+    det = HypothesisGenerator().deterministic(EPS)
+    assert {(h.type, h.endpoint.method, h.endpoint.path_template) for h in hs} == \
+           {(h.type, h.endpoint.method, h.endpoint.path_template) for h in det}
+    assert all(h.source == "deterministic" for h in hs)
