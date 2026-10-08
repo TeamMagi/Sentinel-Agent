@@ -7,7 +7,7 @@
 _LLM akıl yürütür — deterministik motor kanıtlar._
 
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-303%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-484%20passing-brightgreen.svg)](tests/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg)](docker-compose.yml)
 [![Web UI](https://img.shields.io/badge/web%20ui-stdlib%20(0%20dep)-9775fa.svg)](#-web-arayüzü-kontrol-paneli)
 [![OWASP API](https://img.shields.io/badge/OWASP%20API%20Top%2010-%231%20BOLA-red.svg)](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
