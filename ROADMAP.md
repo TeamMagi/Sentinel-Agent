@@ -100,7 +100,7 @@ Durum: ✅ var · 🟡 kısmi · ⬜ yeni. Efor kabaca adam-saat.
 
 | ID | Görev | Kaynak | Durum | Efor | Bağımlılık | Kabul kriteri |
 |---|---|---|---|---|---|---|
-| **R-C1** | **Baseline + diff modu** — bilinen FP'leri baseline'da bastır, yalnız yeni bulguyu raporla, "no silent drops" (bastırılan sebeple raporda kalır) | Snyk, ZAP, p1-triage | ⬜ | ~5s | — | `--baseline` verilince yalnız yeni bulgular gate'ler; bastırılanlar sebeple listede |
+| **R-C1** | **Baseline + diff modu** — bilinen FP'leri baseline'da bastır, yalnız yeni bulguyu raporla, "no silent drops" (bastırılan sebeple raporda kalır) | Snyk, ZAP, p1-triage | ✅ | ~5s | — | `Baseline` (`report/baseline.py`) + CLI `--baseline <önceki-findings.json>` — `baseline_status` etiketi, CI kapısı yalnız "new" CONFIRMED'i sayar, "known" bulgular Markdown'da sebebiyle kalır (silinmez); verdict kötüleşirse (regresyon) asla bastırılmaz |
 | **R-C2** | **LLM FP-triyajı `likely_fp`** — yerel Ollama, verdict+confidence+reason, **asla silmez**, fallback `unreviewed` | p1-triage | ⬜ | ~4s | LLM opsiyonel | LLM kapalıyken davranış değişmez; açıkken bulgu `likely_fp` etiketi alır, verdict değişmez |
 | **R-C3** | **MCP tool-server** — Replayer + oracle'ları tipli MCP araçları olarak aç → diğer ajanlar (Claude Code) Sentinel'i "hâkim" olarak çağırır | appsecsanta, strix | ⬜ | ~6s | — | `sentinel-mcp` sunucusu authorize→replay→oracle'ı tipli araç olarak sunuyor |
 

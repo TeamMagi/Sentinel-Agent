@@ -66,7 +66,7 @@ metni gizlenir. **Kabul:** ≥3 hedef, ≥30 etiketli vaka, precision/recall/FP 
 
 ## Dalga 2 — Benimsenme + kanıt
 
-### R-C1 — Baseline + diff modu · *(Sorumlu: Serhat · ~5s)*
+### R-C1 — Baseline + diff modu · *(Sorumlu: Serhat · ~5s)* ✅ tamamlandı
 Bilinen FP'ler baseline'da bastırılır, yalnız **yeni bulgu** raporlanır; "no silent drops"
 (bastırılan sebebiyle raporda kalır). **Kabul:** `--baseline` ile yalnız yeni bulgular gate'ler.
 *(Kaynak: Snyk, ZAP, p1-triage)*

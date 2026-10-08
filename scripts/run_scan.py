@@ -30,6 +30,7 @@ from pentestai.llm import (  # noqa: E402
 from pentestai.models import Endpoint  # noqa: E402
 from pentestai.orchestrator import Pipeline  # noqa: E402
 from pentestai.recon import HarRecon, OpenApiRecon  # noqa: E402
+from pentestai.report.baseline import Baseline  # noqa: E402
 from pentestai.scanner import Scanner  # noqa: E402
 
 
@@ -41,7 +42,8 @@ def _drop_none(**kw) -> dict:
 def _fail_exit(findings, fail_on: str) -> int:
     """CI kapısı: eşik ≥ severity'de CONFIRMED bulgu varsa non-zero (2) döner.
 
-    `--fail-on none` (varsayılan) → her zaman 0 (mevcut davranış korunur).
+    `--fail-on none` (varsayılan) → her zaman 0 (mevcut davranış korunur). R-C1: `baseline_status
+    == "known"` bulgular gate'lemez (--baseline verilmişse) — "yalnız yeni bulgular gate'ler".
     """
     if not fail_on or fail_on == "none":
         return 0
@@ -50,6 +52,8 @@ def _fail_exit(findings, fail_on: str) -> int:
         return 0
     ti = SEVERITY_ORDER.index(threshold)
     for f in findings:
+        if f.baseline_status == "known":
+            continue
         if f.verdict == "CONFIRMED" and f.severity and SEVERITY_ORDER.index(f.severity) >= ti:
             return 2
     return 0
@@ -131,6 +135,9 @@ async def _run(args) -> int:
     finally:
         await scanner.aclose()
 
+    if args.baseline:   # R-C1: bilinen (CONFIRMED dahil) bulguları etiketle — hiçbiri gizlenmez
+        Baseline.load(args.baseline).apply(findings)
+
     run_id, root = scanner.save(findings, args.mode,
                                 trace=agent.trace if agent is not None else None, sessions=sessions)
     if args.sarif:   # CI için bilinen bir yola SARIF kopyası (koşum dizinine de yazıldı)
@@ -161,6 +168,10 @@ def main(argv=None) -> int:
                    choices=["none", "info", "low", "medium", "high", "critical"], default="none",
                    help="CI kapısı: bu severity ve üstünde CONFIRMED bulgu varsa çıkış kodu 2 "
                         "(varsayılan none → her zaman 0)")
+    p.add_argument("--baseline",
+                   help="R-C1: önceki bir koşumun findings.json'ı — aynı kök-neden+verdict "
+                        "'bilinen' sayılır ve --fail-on'u tetiklemez (raporda sebebiyle kalır, "
+                        "gizlenmez)")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--no-bootstrap", action="store_true", help="per-actor crawl'ı atla")
     p.add_argument("--enumerate", action="store_true",
