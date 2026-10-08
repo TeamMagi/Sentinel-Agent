@@ -286,11 +286,14 @@ sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek sef
 > 🤖 **LLM zorunlu değil.** Varsayılan `--llm none`; deterministik kural-tabanlı hipotezlerle araç
 > tam çalışır ve kanıtlı `CONFIRMED` üretir. LLM yalnızca **kapsamı ve açıklama kalitesini** artırır.
 
-### 🔌 MCP tool-server (diğer ajanlar için "deterministik hâkim")
+### 🔌 MCP tool-server — "diğer AI ajanlarının kanıt motoru"
 
-Sentinel'in `authorize→replay→oracle` çekirdeği, [Model Context Protocol](https://modelcontextprotocol.io)
-üzerinden tipli araçlar olarak açılabilir — Claude Code gibi başka bir ajan, kendi verdict'ini
-üretmek yerine Sentinel'i çağırıp deterministik kanıt alır.
+**Konumlandırma (RK-13):** XBOW/Strix gibi ajanik pentest araçları da IDOR/BOLA *şüphesi*
+üretebilir — ama LLM'in kendi çıkarımı "zero false-positive" garantisi vermez. Sentinel'in
+`authorize→replay→oracle` çekirdeği [Model Context Protocol](https://modelcontextprotocol.io)
+üzerinden tipli araçlar olarak açık: **başka bir ajan kendi verdict'ini üretmek yerine
+Sentinel'i çağırıp deterministik, leaked-marker'lı kanıt alır** — "LLM akıl yürütür,
+deterministik motor kanıtlar" ilkesi kendi sınırları dışındaki ajanlara da hizmet eder.
 
 ```bash
 pip install -e ".[mcp]"     # opsiyonel bağımlılık — mcp SDK
@@ -300,6 +303,46 @@ sentinel-mcp --scope config/scope.yaml --actors config/actors.yaml --endpoints c
 Araçlar: `list_actors`, `list_endpoints`, `probe` (keşif, verdict yok), `run_oracle`
 (authorize→replay→oracle — `verdict`'i her zaman deterministik Oracle verir), `reverify`
 (flakiness eleme). Tüm sonuçlar redaction'lıdır; MCP istemcisi asla ağa dokunmaz.
+
+#### Örnek akış: Claude Code + sentinel-mcp
+
+Claude Code'u (ya da MCP destekleyen herhangi bir ajanı) proje dizininde `sentinel-mcp`'ye bağla:
+
+```bash
+claude mcp add sentinel -- sentinel-mcp \
+    --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
+```
+
+(Eşdeğeri: proje köküne bir `.mcp.json` eklemek —
+
+```json
+{
+  "mcpServers": {
+    "sentinel": {
+      "command": "sentinel-mcp",
+      "args": ["--scope", "config/scope.yaml", "--actors", "config/actors.yaml",
+                "--endpoints", "config/endpoints.yaml"]
+    }
+  }
+}
+```
+)
+
+Artık Claude Code kendi kod-inceleme sezgisini **kanıtla doğrulatabilir** — kendi verdict'ini
+uydurmak yerine Sentinel'i çağırır:
+
+> **Sen:** `GET /api/orders/{id}` bence IDOR'a açık, kontrol eder misin?
+>
+> **Claude Code:** `list_actors` → `user_A`, `user_B` kayıtlı.
+> `run_oracle(oracle="idor", method="GET", path_template="/api/orders/{id}", victim_name="user_A", attacker_name="user_B", resource_key="order")`
+> → `{"finding": {"verdict": "CONFIRMED", "confidence": "high", "leaked_markers": ["<REDACTED>"], ...}}`
+>
+> Sentinel'in deterministik oracle'ı **CONFIRMED** dedi (kurbanın kendi verisi saldırganın
+> yanıtında sızmış bulundu) — bu benim tahminim değil, kod kararı. `reverify(..., runs=3)` ile
+> flakiness'i de eleyebilirim.
+
+Bu akışta hiçbir verdict LLM'den gelmez (CLAUDE.md §5 kural 2 burada da geçerli) — Claude Code
+yalnızca *hangi* testin çalıştırılacağına karar verir, *sonucu* her zaman Sentinel'in Oracle'ı verir.
 
 ### 🧠 Local LLM (Ollama) — buluta veri çıkmadan
 
