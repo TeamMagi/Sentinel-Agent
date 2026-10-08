@@ -46,8 +46,6 @@ def _setup(handler):
 async def test_fingerprint_header_detected():
     store, detector, session = _setup(fingerprint_handler)
     findings = await detector.scan(session)
-    fp = [f for f in findings if "fingerprint" in f.evidence.leaked_markers[0].lower()
-          or "x-powered-by" in f.evidence.leaked_markers[0].lower()]
     assert any(f.type == "info_leak" for f in findings)
     assert findings   # X-Powered-By + versionlu Server header → en az bir bulgu
     await store.aclose_all()

@@ -21,7 +21,10 @@ import sys
 # Kurulum yapılmadan da çalışsın diye src'yi path'e ekle.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from pentestai.cli import _fail_exit, scan_main  # noqa: E402,F401 (F401: geriye dönük uyumluluk için dışa aktarılır)
+from pentestai.cli import (  # noqa: E402,F401 (F401: geriye dönük uyumluluk için dışa aktarılır)
+    _fail_exit,
+    scan_main,
+)
 
 main = scan_main
 

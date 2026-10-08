@@ -37,6 +37,9 @@ Uzun bir tasarım tartışmasında netleşen ilkeler:
 | **Leaked-marker** | Aktör A'ya ait benzersiz verinin, aktör B'nin cevabında görünmesi — kesin sızıntı kanıtı |
 | **Choke point** | Tüm giden trafiğin geçtiği tek fonksiyon (auth + policy burada zorlanır) |
 
+> Genişletilmiş sözlük (oracle/detector/marker/verdict/canary/holdout/margin/agent-security
+> terimleri dahil): **[docs/sozluk.md](docs/sozluk.md)** (AS-9).
+
 ---
 
 ## 3. Hedef ve kapsam
@@ -407,6 +410,28 @@ async def test_idor(endpoint, A: Actor, B: Actor, scope) -> Finding:
 **bfla.py (Stage 1):** düşük yetkili aktör admin-only endpoint'i çağırır. Kontrol: admin aynı endpoint'te 200 mü (endpoint gerçekten var mı)? Verdict: düşük yetkili 200 + beklenen şekil alıyorsa CONFIRMED, 403 ise REJECTED.
 
 **canary.py (R-A1, ROADMAP.md Eksen A):** `CanaryPlanter` — tarama başlamadan kurbanın objesine, saldırganın önceden bilemeyeceği benzersiz bir değer (`snt-canary-<hex>`) yazar (B1 write kapısından geçer: `destructive_tests` + `allowed_methods` her zaman zorlanır; kapı reddederse ya da yazma başarısızsa sessizce `None` döner — canary'siz, önceki davranış korunur). `IdorOracle.run(..., canary=...)` bu değeri `MarkerExtractor.extract`'e `extra` olarak geçirir: canary tanım olarak saldırganın kendi meşru yanıtında OLAMAYACAĞI için `public_data` filtresini bile aşan tartışmasız bir leaked-marker adayıdır. Verdict mantığı DEĞİŞMEZ — canary yalnızca marker havuzunu güçlendirir, CONFIRMED kararı yine "değer gerçekten saldırganın yanıtında görüldü mü" testinden geçer.
+
+**agent_base.py + agentadapter/ (AS-1, agent-security):** yukarıdaki tüm oracle'lar hedefin bir
+HTTP API olduğunu varsayar (victim/attacker, iki session). Hedef bir **LLM-ajan/MCP** ise bunun
+yerine `AgentOracle(ABC)` kullanılır: victim/attacker yerine tek bir `AgentTrace` (`models.
+AgentTrace` — ajana gönderilen görevin normalize edilmiş `ToolCall` zinciri) üzerinde çalışır.
+`agentadapter.AgentAdapter` (`HttpAgentAdapter`/`StaticAgentAdapter`) hedefe görevi gönderip
+trace'i üretir — ağa çıkan tek adım burasıdır ve `Replayer`den geçer (değişmez §5.1). `AgentOracle.
+_in_scope_calls` her `target_url` taşıyan tool-call'u `PolicyEngine.authorize`'dan geçirir; scope-
+dışı çağrılar kanıt sayılmadan reddedilip loglanır (değişmez §5.6 — ajan/LLM çıktısına scope
+kararı devredilmez). `UntrustedToActionOracle` (AS-3, `oracle/untrusted_to_action.py`) bunun ilk
+somut örneği: güvenilmez içerik (web.search/email.read) çıktısı ile sonraki ayrıcalıklı tool-
+call'un argümanları arasındaki yapısal (en-uzun-ortak-alt-dize) örtüşmeyi kanıt sayar; kullanıcı
+aynı aksiyonu `AgentTrace.user_intent`'te açıkça istediyse REJECTED (FP kapanı). Diğer predicate'ler
+(EXFILTRATION/DESTRUCTIVE_WRITE/CONFUSED_DEPUTY — AS-2/AS-4) aynı `AgentOracle` tabanına yeni alt
+sınıf olarak eklenir (Open/Closed); kaynak: docs/rakip-analizi-agent-security-2026-09.md §1.1.
+
+**margin.py (AS-6, robustluk marjı):** `classify.py` ile aynı desen — ayrı, saf, post-hoc
+enrichment. Bir CONFIRMED/LIKELY kararının ne kadar "rahat" verildiğini (`Finding.
+confirmation_margin` = sızan bağımsız marker sayısı - 1, + baseline'dan durum-kodu ayrışması varsa
++1) hesaplar ve asgari kanıtla geçen ("kıl payı") kararları `Finding.low_margin`'de işaretler.
+Verdict'i DEĞİŞTİRMEZ (değişmez §5.2 korunur) — yalnızca raporda görünür kılar (`render_md.py`).
+Ders: eşiği kıl payı geçen kanıt ortam sürüklenmesinde (sürüm/konfig değişimi) kaybolabilir.
 
 ### 10.7 recon/ (Stage 1)
 - **openapi.py:** Swagger/OpenAPI varsa yut → endpoint + parametre + object-id taşıyan path'ler (dev kısayolu).

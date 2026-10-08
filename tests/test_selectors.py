@@ -11,7 +11,9 @@ from pentestai.llm.client import LLMClient
 from pentestai.models import Endpoint
 from pentestai.orchestrator.actions import Probe, RunOracle
 from pentestai.orchestrator.selectors import (
-    LLMSelector, _parse_actions, action_select_json_schema,
+    LLMSelector,
+    _parse_actions,
+    action_select_json_schema,
 )
 
 

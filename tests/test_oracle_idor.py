@@ -8,8 +8,7 @@ import pytest
 
 from pentestai.models import Actor, AuthState, Endpoint, Scope
 from pentestai.net import Replayer, SessionStore
-from pentestai.oracle import IdorOracle
-from pentestai.oracle import base
+from pentestai.oracle import IdorOracle, base
 from pentestai.policy import PolicyEngine
 
 DB = {

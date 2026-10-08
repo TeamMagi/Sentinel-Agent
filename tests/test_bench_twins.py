@@ -10,7 +10,12 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from pentestai.bench.twins import (
-    BflaTwin, IdorTwin, NegativeTwin, NegativeTwinGuard, PublicEndpointTwin, TwinResult,
+    BflaTwin,
+    IdorTwin,
+    NegativeTwin,
+    NegativeTwinGuard,
+    PublicEndpointTwin,
+    TwinResult,
 )
 from pentestai.models import Evidence, Finding
 from pentestai.oracle.base import CONFIRMED, REJECTED

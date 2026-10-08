@@ -9,7 +9,7 @@ import pytest
 
 from pentestai.cli import SCAN_PROFILES, _apply_scan_profile, add_scan_arguments, main, scan_main
 from pentestai.models import Actor, AuthState, BudgetConfig, CapturedRequest, Scope
-from pentestai.net import BudgetTracker, Replayer, ResponseNormalizer, SessionStore
+from pentestai.net import BudgetExceeded, BudgetTracker, Replayer, ResponseNormalizer, SessionStore
 from pentestai.policy import PolicyEngine
 
 
@@ -20,7 +20,7 @@ def _args(scan_mode=None, **overrides):
     argv = ["--scope", "x", "--actors", "y"]
     if scan_mode:
         argv += ["--scan-mode", scan_mode]
-    for k, v in overrides.items():
+    for k, _v in overrides.items():
         argv.append(f"--{k.replace('_', '-')}")
     return p.parse_args(argv)
 
@@ -91,6 +91,6 @@ async def test_quick_mode_budget_actually_stops_early_end_to_end():
 
     for _ in range(budget_cfg.max_total_requests):
         await replayer.replay(CapturedRequest(method="GET", url="http://localhost:3000/x"), s)
-    with pytest.raises(Exception):   # BudgetExceeded — quick modun 40 istek eşiği aşıldı
+    with pytest.raises(BudgetExceeded):   # quick modun 40 istek eşiği aşıldı
         await replayer.replay(CapturedRequest(method="GET", url="http://localhost:3000/x"), s)
     await store.aclose_all()

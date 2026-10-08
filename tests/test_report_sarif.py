@@ -56,7 +56,8 @@ def test_fingerprint_is_stable_and_distinct():
     a1 = _doc([_f("idor", endpoint="/rest/basket/{id}")])["runs"][0]["results"][0]
     a2 = _doc([_f("idor", endpoint="/rest/basket/{id}")])["runs"][0]["results"][0]
     b = _doc([_f("idor", endpoint="/api/OtherThing/{id}")])["runs"][0]["results"][0]
-    fp = lambda r: r["partialFingerprints"]["sentinel/v1"]
+    def fp(r):
+        return r["partialFingerprints"]["sentinel/v1"]
     assert fp(a1) == fp(a2)          # aynı bulgu → aynı imza (koşumlar arası dedup)
     assert fp(a1) != fp(b)           # farklı endpoint → farklı imza
 

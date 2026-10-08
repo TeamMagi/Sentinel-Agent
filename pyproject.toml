@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21"]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "respx>=0.21", "ruff>=0.6"]
 mcp = ["mcp>=2.0"]   # v1'de FastMCP idi; v2'de MCPServer'a taşındı (mcpserver.py bu API'yi kullanır)
 
 [project.scripts]
@@ -37,3 +37,29 @@ where = ["src"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+# AS-9 (GOREVLER.md — ops olgunluğu): tomokazu-rikioka harness'inin ruff seçimiyle aynı
+# kural ailesi (docs/rakip-analizi-agent-security-2026-09.md §4). line-length 110: Türkçe
+# yorumlar İngilizce'den daha uzun olduğu için ruff'ın 88 varsayılanı gürültü üretiyordu.
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["runs", "benchmarks", "templates"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = [
+  "E501",   # satır uzunluğu — Türkçe yorum/docstring'lerde tek tek kırpmak okunurluğu bozar
+  # UP045/UP007 (Optional[X] → X | None, Union[X,Y] → X | Y): kod tabanı baştan beri
+  # `typing.Optional`/`typing.Union` kullanıyor (bkz. models/__init__.py, CLAUDE.md §3 "tip
+  # ipuçları zorunlu" örnekleri). ~200 satırlık salt-stilistik, fonksiyonel değeri sıfır bir
+  # değişikliği tüm depoya yaymak yerine mevcut kuralla tutarlı kalınır; yeni kod her iki
+  # biçimi de kullanabilir.
+  "UP045", "UP007",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B018"]   # test dosyalarında bilinçli "duz ifade" assert-öncesi kontroller olabilir
+# Detector iki alt-aile paylaşıyor (run VEYA scan) — her alt sınıf yalnızca BİRİNİ override
+# eder; @abstractmethod her ikisini de zorunlu kılar, tasarımı bozar (bkz. detector/base.py docstring).
+"src/pentestai/detector/base.py" = ["B024"]
