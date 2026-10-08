@@ -18,7 +18,7 @@ PRODUCED_TYPES = [
     "open_redirect", "cors", "clickjacking", "jwt", "user_enumeration",
     "ssrf", "rfi", "xxe", "cache_poisoning", "prototype_pollution",
     "info_leak", "exposure", "default_credentials", "vulnerable_component",
-    "rate_limit", "session_lifecycle", "graphql_introspection",
+    "rate_limit", "session_lifecycle", "graphql_introspection", "graphql_bola",
 ]
 
 
