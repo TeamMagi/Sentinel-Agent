@@ -41,6 +41,20 @@ Atamalar değiştirilebilir — önemli olan yükün dengeli kalması.
 - ✅ **Ek düzeltmeler**: redaction'da kaçışlı-tırnak JSON bug'ı · `unauthorized_access`
   public-endpoint false-positive'i · LLM erişilemezse deterministik yol · proof-replay redaksiyon tutarlılığı.
 
+- ✅ **Görkem — ikinci dalga (RK) tamamlandı** (473 test yeşil):
+  - **RK-2** JUnit XML + CSV reporter'ları (`report/render_junit.py`, `report/render_csv.py`) →
+    `runs/<id>/junit.xml` + `report.csv` (redaction'lı; verdict→test sonucu, kaynak-yetenek matrisi).
+  - **RK-9** İmzalı/hash'li taşınabilir kanıt-paketi (`evidence/proof.py::build_bundle/verify_bundle`,
+    `proof/<id>.bundle.json`, `scripts/replay.py` bundle desteği, `SENTINEL_PROOF_KEY` ile HMAC imza).
+  - **RK-5** Scalar inference / feedback-driven keşif (`orchestrator/idtools.py::infer_resource_ids`
+    + `recon/crawl.py::feedback_bootstrap`, scanner'a bağlı; ağsız test yeşil).
+  - **RK-6** İç-içe/dolaylı id + UUID + gövde/header konumu (`models.Endpoint.with_id`) ve **sürümlü
+    path resource_key çakışması** (`Endpoint.resource_key` sürüm segmentini atlar).
+  - **RK-10** 0-FP negatif-ikiz regresyon paketi (`bench/twins.py`, `scripts/bench_guard.py`,
+    `make bench-guard`, CI `bench-guard` işi) — hardened ikizde yanlış CONFIRMED → kırmızı.
+  - **RK-12** Nuclei-tarzı YAML template ekosistemi (`detector/template.py::TemplateDetector`,
+    `templates/*.yaml`, `--templates` bayrağı) — kötü template güvenle elenir, tarama çökmez.
+
 ---
 
 ## Ortak ilkeler (her görev için — CLAUDE.md §3, §5, §6)
