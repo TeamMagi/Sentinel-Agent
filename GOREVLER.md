@@ -71,6 +71,26 @@ Sorumluluklar **toplam yük eşit** olacak şekilde paylaştırılır. Atamalar 
   **gövde-parametresi** testi read-only kapsamda çalışmıyor. İkisi de Dalga 2 (recall/kapsam)
   ruhunda; ayrı görev olarak açılabilir.
 
+- ✅ **Görkem — AS turu tamamlandı** (557 test yeşil):
+  - **AS-2** `ConfusedDeputyOracle` + `DestructiveWriteOracle` (`agent/confused_deputy.py`,
+    `agent/destructive_write.py`) — niyet beyanı varken CD REJECTED (FP kapanı); DW
+    `destructive_tests` kapısı arkasında, kapalıyken sessizce atlanmaz (INCONCLUSIVE + gerekçe).
+  - **AS-4** `ExfiltrationOracle` + canary (`agent/exfiltration.py`) — düz **ve** geri-döndürülebilir
+    kodlamalarda (base64/base64url/hex/url/ters) sızıntı yakalanır; canary değeri hiçbir
+    kodlamasıyla bulguya yazılmaz (`_mask`, §5 kural 5); canary kullanıcı girdisindeyse REJECTED.
+  - **AS-5** Holdout + genelleme (`bench/suite.py::MetricSet`, `holdout` bayrağı) — rapor kalibre ↔
+    holdout tablolarını ve `generalization_gap`'i ayrı verir; holdout yokken bunun ÖLÇÜLMEDİĞİ
+    açıkça yazılır. *Dürüstlük notu:* bugünkü 3 hedefin üçü de kalibre olduğu için hiçbiri holdout
+    işaretlenmedi — suite'e eklenecek ilk yeni hedef holdout olmalı (bkz. `benchmarks/suite.yaml`).
+  - **AS-7** Sürüm bütünlüğü (`scripts/verify_release.py`, `provenance/file_manifest.json`) —
+    ağsız/import'suz 5 kontrol (manifest hash · ast-parse · JSON · rapor aritmetiği · yerel
+    linkler); CI'da kapı. Temizde 0, tahrifte 1.
+  - ➕ **AS-1'in tabanı** (Serhat'ın görevinin ön-koşul dilimi) eklendi: `models/agent.py`
+    (`ToolCall`/`AgentTrace`/`UserTurn` + `source` provenance) ve `agent/base.py::AgentOracle`.
+    Serhat'ta **kalan AS-1 kapsamı**: canlı ajan/MCP hedefinden trace toplayan adaptör
+    (`Replayer`/scope kapısı entegrasyonu). `classify` tablosuna AS-3 için `untrusted_to_action`
+    satırı da önden eklendi (bulgular 'generic'e düşmesin).
+
 ---
 
 ## Ortak ilkeler (her görev için — CLAUDE.md §3, §5, §6)
@@ -210,7 +230,7 @@ Diğer üç predicate oracle'ı bunun üstüne kurulur. Tüm ajan trafiği `Repl
 geçer; LLM ağa dokunmaz (değişmez §5.1). **Kabul:** sahte ajan trace'iyle ağsız test; yeni predicate
 eklemek çekirdeği değiştirmiyor; scope dışı tool çağrısı reddedilip loglanıyor. *(Kaynak: yarışma SDK'sı)*
 
-### AS-2 — `ConfusedDeputyOracle` + `DestructiveWriteOracle` · *(Sorumlu: Görkem · ~5s)*
+### ✅ AS-2 — `ConfusedDeputyOracle` + `DestructiveWriteOracle` · *(Sorumlu: Görkem · ~5s)* — **tamamlandı**
 **CD:** açık kullanıcı niyeti olmadan yan-etkili tool-call (ör. `email.send`) tetiklendi mi.
 **DW:** `fs.write`/`fs.delete` korumalı kaynağı hedefliyor mu. Verdict yalnız deterministik trace
 kanıtıyla; DW yalnızca `destructive_tests` açıkken. **Kabul:** her iki oracle için CONFIRMED ve
@@ -224,7 +244,7 @@ ayrıcalıklı bir aksiyonu tetikliyor mu. **Kaynak-izleme** (hangi güvenilmez 
 besledi) kanıt olarak kaydedilir. **Kabul:** enjeksiyon→aksiyon zinciri CONFIRMED; aynı aksiyonu
 kullanıcı kendi istediğinde REJECTED; ağsız test. *(Kaynak: predicate UNTRUSTED_TO_ACTION; Agent-Sentry)*
 
-### AS-4 — `ExfiltrationOracle` + canary sır · *(Sorumlu: Görkem · ~5s)*
+### ✅ AS-4 — `ExfiltrationOracle` + canary sır · *(Sorumlu: Görkem · ~5s)* — **tamamlandı**
 `CanaryPlanter` (R-A1) mantığını ajana taşı: sentetik `SECRET_MARKER` canary'si dışarı giden çağrıda
 (ör. `http.post` gövdesi) görünüyor mu — **geri-döndürülebilir encode** (base64/hex/url) varyantları
 dahil. Canary rapora/evidence'a ham yazılmaz. **Kabul:** düz **ve** encode edilmiş sızıntı CONFIRMED;
@@ -234,7 +254,7 @@ sır dışarı çıkmadığında REJECTED; redaction testi; ağsız. *(Kaynak: p
 
 ## Dalga 6 — Metodoloji ve olgunluk
 
-### AS-5 — Holdout hedef + genelleme raporu · *(Sorumlu: Görkem · ~4s)*
+### ✅ AS-5 — Holdout hedef + genelleme raporu · *(Sorumlu: Görkem · ~4s)* — **tamamlandı**
 Yarışmanın **public ↔ private guardrail** ayrımının karşılığı: bugün 3 benchmark hedefinin **hepsini**
 kalibre ediyoruz, hiçbiri "dokunmadığımız" holdout değil → overfit'i ölçemiyoruz. `suite.yaml`'a
 `holdout: true` işaretli hedef(ler) ekle; rapor **kalibre ↔ holdout** metriklerini AYRI tablolarda
@@ -248,7 +268,7 @@ verildiğini raporlasın (kaç owner-private marker sızdı, baseline'dan ayrı�
 CONFIRMED'ler raporda **işaretlensin** (verdict değişmez). **Kabul:** `Evidence`'a marj alanı; düşük
 marj raporda görünür; marj hesabı ağsız testlerle kapsanıyor. *(Kaynak: 1. çözüm — margin > +5)*
 
-### AS-7 — Sürüm bütünlüğü: dosya manifesti + `verify_release` · *(Sorumlu: Görkem · ~3s)*
+### ✅ AS-7 — Sürüm bütünlüğü: dosya manifesti + `verify_release` · *(Sorumlu: Görkem · ~3s)* — **tamamlandı**
 RK-9'u (bulgu bazlı imzalı bundle) **repo/sürüm düzeyine** taşı: yayımlanan artefaktların hash
 manifesti + `scripts/verify_release.py` — **ağsız, hedefsiz, yalnız stdlib** ile manifest/JSON/rapor
 aritmetiğini ve yerel doküman linklerini doğrular. **Kabul:** `python -m scripts.verify_release`
@@ -293,7 +313,7 @@ Efor açık uçlu → yük dengesine sayılmaz; Dalga 1–2 bitmeden başlanmaz.
 | | Dalga 5 (agent-security) | Dalga 6 (metodoloji) | Toplam |
 |---|---|---|---|
 | **Serhat** | AS-1(5) + AS-3(6) = 11 | AS-6(3) + AS-9(3) = 6 | **17 saat** |
-| **Görkem** | AS-2(5) + AS-4(5) = 10 | AS-5(4) + AS-7(3) = 7 | **17 saat** |
+| **Görkem** ✅ | AS-2(5) + AS-4(5) = 10 | AS-5(4) + AS-7(3) = 7 | **17 saat — bitti** |
 
 **Önerilen sıra:** **AS-1 önce** (adaptör + `AgentOracle` tabanı; AS-2/AS-3/AS-4 ona bağlı) → sonra
 predicate oracle'ları paralel (AS-2 ‖ AS-3 ‖ AS-4) → Dalga 6 metodoloji (AS-5 holdout ile
