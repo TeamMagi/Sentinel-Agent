@@ -74,3 +74,19 @@ def test_summary_is_redacted():
     assert "alice@secret.com" not in summary
     assert "42.5" not in summary
     assert "2 kimliklendirici alan sızdı" in summary
+
+
+class _RaisingLLM(LLMClient):
+    """complete çağrısında hata fırlatan client (Ollama erişilemez senaryosu)."""
+
+    async def complete(self, system: str, user: str, *, fmt=None) -> str:
+        raise RuntimeError("ollama erişilemez")
+
+
+@pytest.mark.asyncio
+async def test_enrich_llm_error_leaves_finding_unchanged():
+    # LLM erişilemezse (ağ/servis hatası) enrich ÇÖKMEZ; bulgu zenginleştirmesiz döner.
+    enricher = FindingEnricher(_RaisingLLM())
+    f = await enricher.enrich(_finding("CONFIRMED"))
+    assert f.impact is None and f.remediation is None and f.severity_suggested is None
+    assert f.verdict == "CONFIRMED"      # verdict/severity kodda; hata düşürmez
