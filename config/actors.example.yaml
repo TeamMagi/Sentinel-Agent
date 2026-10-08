@@ -16,3 +16,17 @@ actors:
       type: storagestate                # elle login → export edilmiş Playwright state
       storagestate_path: "./.secrets/user_B.storagestate.json"
     own_object_ids: { basket: "2", basketitem: "2" }
+
+  # OAuth/OIDC redirect'i veya JS-tabanlı SPA login formu olan hedefler için (storagestate'in
+  # "elle login → export" adımını otomatikleştirir). Yalnızca TOTP MFA otomatikleşir — mfa_*
+  # alanları yalnızca hedefte MFA VARSA gerekli; yoksa hepsini kaldır.
+  # - name: user_C
+  #   role: user
+  #   auth:
+  #     type: browser
+  #     login_url: "https://app.example.com/login"
+  #     credentials: { email: "c@test.local", password: "REDACTED" }
+  #     mfa_code_selector: 'input[name="otp"]'   # yalnızca MFA varsa
+  #     mfa_totp_secret: "REDACTED_BASE32_SECRET" # .secrets/'ten okunmalı, ASLA commit edilmez
+  #     headless: true
+  #   own_object_ids: { basket: "3" }

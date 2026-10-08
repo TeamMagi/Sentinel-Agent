@@ -220,7 +220,7 @@ kurban, biri saldırgan. (Opsiyonel `admin` ile BFLA de test edilir.) İki yol v
 # 1) Scope: hedefin host/port/path/method allowlist'i
 cp config/scope.example.yaml     config/scope.yaml
 
-# 2) Aktörler: en az 2 hesap (token | storagestate | static auth)
+# 2) Aktörler: en az 2 hesap (token | storagestate | static | browser auth)
 cp config/actors.example.yaml    config/actors.yaml
 
 # 3) Endpoint'ler: elle liste, ya da --openapi / --har ile otomatik keşif
@@ -245,6 +245,21 @@ pip install .
 sentinel scan --scope config/scope.yaml --actors config/actors.yaml \
     --endpoints config/endpoints.yaml --scan-mode quick --out runs/
 ```
+
+**Kimlik doğrulama türleri** (`config/actors.yaml` → `auth.type`):
+
+| Tür | Ne zaman | Nasıl |
+|---|---|---|
+| `token` | Basit login (tek `POST` → JSON'da token) | `login_url` + `credentials` + `token_location` |
+| `static` | Token/cookie zaten elinde | doğrudan `headers`/`cookies` |
+| `storagestate` | SPA/OAuth login — elle login, Playwright'la EXPORT | `storagestate_path` (`.secrets/` altından) |
+| `browser` | SPA/OAuth login + **TOTP MFA** — export adımını otomatikleştir | `login_url` + `credentials` + (opsiyonel) `mfa_totp_secret` — bkz. `config/actors.example.yaml` |
+
+`browser`, `StorageStateAuthProvider`'ın "elle login → export" adımını gerçek bir (varsayılan
+headless) tarayıcıyla otomatikleştirir; yalnızca **TOTP** MFA'yı otomatik çözer (SMS/push
+desteklenmez — `mfa_code_selector` algılanıp `mfa_totp_secret` verilmemişse net bir hatayla durur,
+sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek seferlik `AuthState`, tıpkı
+`storagestate` gibi). Ayrıntı: `src/pentestai/auth/browser.py` docstring'i.
 
 ### CLI referansı (`run_scan.py`)
 

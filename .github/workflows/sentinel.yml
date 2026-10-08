@@ -32,6 +32,10 @@ jobs:
           python-version: "3.11"
       - name: Bağımlılıklar
         run: pip install -e ".[dev]"
+      - name: Playwright Chromium kur
+        # BrowserAuthProvider testleri (tests/test_auth_browser.py) gerçek bir Chromium
+        # ister — route interception ile ağa hiç çıkmaz, ama tarayıcı ikili dosyası gerekir.
+        run: playwright install --with-deps chromium
       - name: Testler
         run: pytest -q
 

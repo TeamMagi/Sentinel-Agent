@@ -311,6 +311,7 @@ class AuthProvider(Protocol):
 ```
 - **token_provider:** `login_url`'a POST → cevaptan token'ı `token_location` ile çıkar (ör. `json:authentication.token`) → `AuthState(headers={"Authorization": f"Bearer {t}"})`. JWT ise `exp` decode edilip `expires_at` set edilir.
 - **storagestate:** Playwright `storageState` JSON'unu oku → cookies + localStorage → JWT'yi localStorage/cookie'den çıkar. (Elle login akışını otomatikleştirme derdi olmadan en sağlam v0 yolu.)
+- **browser** (`auth/browser.py`): storagestate'in "elle login → export" adımını GERÇEK bir tarayıcıyla (Playwright, zaten bağımlılık) otomatikleştirir — OAuth/OIDC redirect'leri ve JS-tabanlı SPA login formları için. Yalnızca TOTP MFA (RFC 6238, bağımsız implementasyon) otomatikleşir; SMS/push desteklenmez (açık `RuntimeError`). `refresh()` YOK — tek seferlik `AuthState`, tıpkı storagestate gibi. Login öncesi `login_url` `PolicyEngine.authorize(purpose="auth")`'dan geçer ama tarayıcının kendi ağ yığını `PinnedTransport`'a bağlı DEĞİLDİR (gerçek bir tarayıcı sürmenin kaçınılmaz sınırı).
 
 ### 10.2 net/session_store — aktör başına izolasyon
 ```python
