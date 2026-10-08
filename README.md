@@ -127,9 +127,19 @@ gelir. Sunucu bilinçli olarak Python **standart kütüphanesiyle** yazıldı �
 takım imajını değiştirmez. Varsayılan olarak yalnızca `127.0.0.1`'e bağlanır (kazara dışa açılmaz).
 
 ```bash
+cp config/scope.example.yaml config/scope.yaml   # panel scope'u BURADAN kilitler (aşağıya bkz.)
 python -m scripts.serve_ui                 # → http://127.0.0.1:8787
 python -m scripts.serve_ui --port 9000 --out runs/
 ```
+
+**Scope kilidi:** panel taramaya başlarken kullandığı scope'u (host/port/method/destructive_tests/…)
+İSTEKTEN değil `--scope` ile verilen dosyadan (varsayılan `config/scope.yaml`) okur; formdan
+gönderilen scope bunu yalnızca **daraltabilir**, asla genişletemez. Dosya yoksa panel açılır ama
+tarama başlatılamaz (503) — önce `cp config/scope.example.yaml config/scope.yaml`.
+
+**Ağa açma:** `--host 0.0.0.0` (LAN'dan erişim) ile başlatırken en az bir `--allowed-host
+<ip>:<port>` vermen GEREKİR — panel her isteğin `Host` başlığını bir allowlist'e karşı denetler
+(DNS-rebinding savunması); allowlist boşsa hiçbir istek geçemez ve panel kimseye açılmaz.
 
 Üç görünüm:
 
@@ -139,10 +149,13 @@ python -m scripts.serve_ui --port 9000 --out runs/
 | 🔎 **Bulgular** | Verdict sayaçları + filtre/arama; her bulguda **“Açığın yeri”** (istek/yanıt kanıtı, sızan-marker vurgusu, repro-curl) ve **“Nasıl çözülür”** (adım adım öneri + OWASP kaynakları) |
 | 🗂️ **Geçmiş** | `runs/` altındaki önceki koşumları açıp aynı ayrıntıyla incele |
 
-**Güvenlik:** Hedef host scope dışındaysa tarama **submit anında reddedilir**; her istek yine
-`PolicyEngine`'den geçer. Parolalar sunucuda yalnızca girişte kullanılır — log'a/rapora/arayüze
-ham yazılmaz, bulgular arayüze dönmeden redaction'dan geçer. Çözüm önerileri deterministik bir
-katalogdan gelir (LLM `--enrich` ile zenginleştirdiyse onun metni öne çıkar).
+**Güvenlik:** Hedef host, panelin kilitlediği scope dışındaysa tarama **submit anında reddedilir**;
+her istek yine `PolicyEngine`'den geçer. Panelin kendisi bir `RequestGuard` ile korunur — bilinmeyen
+`Host` başlığı (DNS-rebinding) ve `application/json` dışındaki `POST` gövdeleri (CSRF) reddedilir.
+`storagestate_path` yalnızca `.secrets/` içinden bir dosyayı gösterebilir. Parolalar sunucuda
+yalnızca girişte kullanılır — log'a/rapora/arayüze ham yazılmaz, bulgular arayüze dönmeden
+redaction'dan geçer. Çözüm önerileri deterministik bir katalogdan gelir (LLM `--enrich` ile
+zenginleştirdiyse onun metni öne çıkar).
 
 <div align="center">
 

@@ -7,6 +7,8 @@ sink'ler (findings.json, JsonReporter, MarkdownReporter).
 """
 import json
 
+import pytest
+
 from pentestai.evidence.store import EvidenceStore, redact
 from pentestai.models import CapturedRequest, Evidence, Finding, NormalizedResponse
 from pentestai.report import JsonReporter, MarkdownReporter
@@ -150,3 +152,18 @@ def test_markdown_reporter_redacts_leaked_markers():
     out = MarkdownReporter().render([f])
     assert "kurban@example.com" not in out
     assert "<REDACTED>" in out
+
+
+# --- run_id çakışması (aynı saniyede başlayan iki tarama birbirinin evidence'ını EZMEMELİ) ---
+
+def test_new_run_id_unique_within_same_second():
+    ids = {EvidenceStore.new_run_id() for _ in range(50)}
+    assert len(ids) == 50
+
+
+def test_save_run_does_not_overwrite_existing_run_dir(tmp_path):
+    store = EvidenceStore(str(tmp_path))
+    run_id = "run-20260101-000000-abc123"
+    store.save_run(run_id, [])
+    with pytest.raises(FileExistsError):
+        store.save_run(run_id, [])

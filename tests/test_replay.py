@@ -45,6 +45,29 @@ async def test_no_cross_contamination():
 
 
 @pytest.mark.asyncio
+async def test_actor_cookie_never_leaks_to_out_of_scope_host():
+    # SessionStore, aktör cookie'sini base_url'ün host'una bağlar (domain-scoped) — bu jar
+    # başka bir kod yolundan yanlışlıkla farklı bir host'a kullanılırsa bile cookie sızmamalı.
+    captured: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request.headers.get("cookie"))
+        return httpx.Response(200)
+
+    store = SessionStore(base_url="http://localhost:3000", transport=httpx.MockTransport(handler))
+    actor = Actor(name="user_A", auth=AuthState(cookies={"session": "S3CR3T"}))
+    session = store.create(actor)
+
+    await session.client.get("http://localhost:3000/api/x")
+    assert captured[-1] == "session=S3CR3T"
+
+    await session.client.get("http://evil.example/csrf-token")
+    assert captured[-1] is None   # cookie dış host'a GİTMEDİ
+
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
 async def test_out_of_scope_raises():
     def handler(request):  # pragma: no cover - çağrılmamalı
         raise AssertionError("scope dışı istek gönderildi!")

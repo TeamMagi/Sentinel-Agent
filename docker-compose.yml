@@ -16,9 +16,12 @@ services:
     # Konteyner içinden hedefe erişim: http://juice-shop:3000
     # Host'tan erişim:              http://localhost:3000
 
-  # Kalibrasyon hedefi — OWASP Juice Shop (kasıtlı zafiyetli, izinli test hedefi)
+  # Kalibrasyon hedefi — OWASP Juice Shop (kasıtlı zafiyetli, izinli test hedefi).
+  # Sürüm SABİTLİ (:latest değil) — takımda/CI'da herkes AYNI zafiyet setine karşı kalibre olsun;
+  # imaj sessizce değişip beklenmeyen bulgu/false-negative üretmesin. Güncellerken benchmarks/
+  # juiceshop.expected.yaml'ı da gözden geçir.
   juice-shop:
-    image: bkimminich/juice-shop
+    image: bkimminich/juice-shop:v20.2.0
     ports:
       - "3000:3000"
     restart: unless-stopped
