@@ -376,7 +376,7 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [x] (D) Açık "Kısıtlar" bölümü (README/DESIGN) · *kaynak: TRACE X* · 🟡 — README'ye "⚠️ Kısıtlar (dürüst sınırlar)" bölümü eklendi
 - [ ] (E) Exculpatory adımını açık kontrol aşaması yap · *kaynak: TRACE X* · 🟡
 - [x] (F) Tek komut `make prove` · *kaynak: TRACE X* · 🟡 — `make prove` = pytest + self-eval + bench-guard + verify_release (ağsız, ilk kırılan kapıda durur); `make eval` de eklendi
-- [ ] (G) Verdict-invariance testi — LLM ne dönerse dönsün verdict aynı · *kaynak: NoScam* · 🔴
+- [x] (G) Verdict-invariance testi — LLM ne dönerse dönsün verdict aynı · *kaynak: NoScam* · 🔴 — `tests/test_verdict_invariance.py` (5): adversarial LLM (demote/escalate/injection/çöp/patlama) → verdict+severity SABİT, yalnızca severity_suggested/impact değişir; Hypothesis'te verdict alanı yok
 - [ ] (H) Policy truth-table (belge + test) · *kaynak: NoScam* · 🟡
 - [ ] (I) Prompt-injection sertleştirmesi — yanıt içeriği LLM'e label+truncate · *kaynak: NoScam* · 🟡
 - [ ] (J) Benign-app negative-control regresyonu (0 CONFIRMED ispatı) · *kaynak: NoScam* · 🟡
