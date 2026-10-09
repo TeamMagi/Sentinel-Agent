@@ -306,3 +306,18 @@ tezimize aykırı ya da başka domain → scope-creep.
 - [x] **#6 Hedef MCP tool-manifest taraması** — `detector/mcp_manifest.py` `McpManifestScanner` (statik, ağsız): exec/eval/keyfi-fs/SSRF/sır paternleri → LIKELY + severity.
 - [x] **#7 Property-based oracle testi** — `tests/test_property_oracle.py` (hypothesis): CONFIRMED ⟹ marker gerçekten attack yanıtında; marker yoksa asla CONFIRMED. dev dep + CI.
 - [x] **#8 Yönetici özeti raporu** — `report/render_exec.py` `ExecSummaryReporter`: tek-sayfa bağımsız HTML (duruş + öne çıkan bulgular + counterfactual, yazdır→PDF); her koşumda `report.exec.html`.
+
+---
+
+# 📈 Recall turu — gerçek açık bularak recall'ı artırma (eşik gevşetmeden)
+
+> İlke: sayıyı ŞİŞİRMEK (verdict eşiğini gevşetmek) YASAK — precision'ı ve tezi çökertir. Recall
+> yalnızca GERÇEK yeni açık yakalayarak artırılır; her ekleme `eval/`'e karşı ölçülür (FP-rate %0 kaldı).
+
+- [x] **Query-param BOLA otomatik keşfi** — `OpenApiRecon` kullanıcı-kapsamlı query param'larını id_location=query BOLA adayı işaretler (IdorOracle zaten test ediyordu).
+- [x] **Koleksiyon/liste BOLA** (`CollectionLeakOracle`, CONFIRMED) — id-siz liste endpoint'inde A'nın owner-private objesi B'nin listesine sızıyor mu; public-katalog kapanı (aynı içerik→REJECTED) + A-kesin marker'lar. Planner id-siz GET/HEAD'e hipotez üretir. eval'e 3 vaka (→15).
+- [x] **Komşu-id enumerasyonu** (`IdorEnumerationOracle`, **LIKELY**) — sıralı-int id'de config'te olmayan komşulara erişip başkasının PII'sini (email/kart/IBAN/SSN/tel deseni) bulur. Opt-in `--enumerate-ids`. Tek-aktör yetkisizliği kanıtlayamadığından **CONFIRMED değil, LIKELY** (bar korunur).
+- [x] **Header-scoped BOLA otomatik keşfi** — X-Account-Id/X-Tenant-Id gibi başlıklar id_location=header adayı.
+- [~] **Nested çoklu-id BOLA** — bilinçli EKLENMEDİ: innermost obje-id'si zaten test ediliyor; dış kapsam-id'sini swaplamak geçerli objeye eşleşmez (404/FP riski), marjinal değer.
+
+**Sonuç:** recall genişledi (query/header BOLA otomatik keşfi + koleksiyon BOLA CONFIRMED + komşu-id LIKELY); **precision %100 / FP-rate %0 korundu**; CONFIRMED barı (deterministik iki-aktör kanıtı) hiç gevşetilmedi.
