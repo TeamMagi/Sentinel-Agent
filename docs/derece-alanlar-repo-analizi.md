@@ -375,7 +375,7 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [x] (C) Dürüst benchmark metrik tablosu (README) · *kaynak: TRACE X* · 🔴 — README §"Çok-hedefli benchmark"te zaten var (precision/recall/FP-rate + "neyi kaçırıyoruz")
 - [x] (D) Açık "Kısıtlar" bölümü (README/DESIGN) · *kaynak: TRACE X* · 🟡 — README'ye "⚠️ Kısıtlar (dürüst sınırlar)" bölümü eklendi
 - [ ] (E) Exculpatory adımını açık kontrol aşaması yap · *kaynak: TRACE X* · 🟡
-- [ ] (F) Tek komut `make prove` · *kaynak: TRACE X* · 🟡
+- [x] (F) Tek komut `make prove` · *kaynak: TRACE X* · 🟡 — `make prove` = pytest + self-eval + bench-guard + verify_release (ağsız, ilk kırılan kapıda durur); `make eval` de eklendi
 - [ ] (G) Verdict-invariance testi — LLM ne dönerse dönsün verdict aynı · *kaynak: NoScam* · 🔴
 - [ ] (H) Policy truth-table (belge + test) · *kaynak: NoScam* · 🟡
 - [ ] (I) Prompt-injection sertleştirmesi — yanıt içeriği LLM'e label+truncate · *kaynak: NoScam* · 🟡
@@ -383,13 +383,13 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 
 - [ ] (K) GitHub Action + exit-code gating (SARIF'i CI kapısına bağla) · *kaynak: SlopGuard* · 🔴
 - [ ] (L) Bulgu-başına remediation ipucu (raporda "nasıl düzeltilir") · *kaynak: SlopGuard* · 🟡
-- [ ] (M) Çalıştırılabilir eval artefaktı `eval/labeled.json`+`evaluate.py` (A+C+J'yi somutlaştırır) · *kaynak: SlopGuard* · 🔴
+- [x] (M) Çalıştırılabilir eval artefaktı `eval/labeled.json`+`evaluate.py` (A+C+J'yi somutlaştırır) · *kaynak: SlopGuard* · 🔴 — `eval/` (labeled.json + evaluate.py + results.{json,md}) + `src/pentestai/bench/eval.py` + `tests/test_eval.py`; 8 vaka, GERÇEK oracle, ağsız → precision %100 / recall %100 / **FP-rate %0**; A(self-eval)+C(metrik)+J(benign)+R(near-miss) tek artefaktta
 - [x] (N) `INCONCLUSIVE` disiplinini belgele/çerçevele ("güvenli demeyiz") · *kaynak: SlopGuard* · 🟢 — README verdict merdivenine "Güvenli demeyiz, kanıt raporlarız" çerçevesi eklendi
 
 - [ ] (O) Trajectory-level exfiltration + nedensel lineage (`triggered_by`) · *kaynak: ChainBreak* · 🔴
 - [ ] (P) Counterfactual dual-track kanıt (baseline vs kontrollü, yan yana) · *kaynak: ChainBreak* · 🔴
 - [~] (Q) Ajan invariant'larını isimlendir/belgele + anlatıyı yeniden çerçevele · *kaynak: ChainBreak (+eski galeri)* · 🔴 — README'de 5 predicate "isimli, birinci-sınıf güvenlik kontratı" olarak çerçevelendi, bayat predicate tablosu düzeltildi (UNTRUSTED_TO_ACTION artık "implemented"), "zero hallucination" + "klasik API + ajan-çağı yetki, ikisini de KANITLA" dili eklendi. **Kalan:** deck/video/Devpost anlatısı
-- [ ] (R) "Near-miss" benchmark kategorisi (saldırı-benzeri-ama-masum) · *kaynak: ChainBreak* · 🟡
+- [x] (R) "Near-miss" benchmark kategorisi (saldırı-benzeri-ama-masum) · *kaynak: ChainBreak* · 🟡 — M'ye dahil: session-scoped id + public-by-design near-miss vakaları (`SessionScopedIdorNearMiss` + `PublicEndpointTwin`), ikisi de doğru şekilde CONFIRMED DEĞİL
 - [ ] (S) Bağlamsal sonuç/impact skoru (blast-radius/veri-hassasiyeti) · *kaynak: CyberShield* · 🟡
 - [~] (T) Taksonomi eşleme (OWASP API Top 10 / CWE / MITRE) raporda · *kaynak: CyberShield* · 🟡 — CWE+OWASP `classify.py`'de **tam** (motor+SARIF). **Kalan:** MITRE ATT&CK eşlemesi + rapor vitrini
 - [~] (U) IMPACT anlatısı (access-control neden önemli) deck/README/video · *kaynak: CyberShield* · 🟡 — README "Neden önemli?" bloğu güçlendirildi (mass-PII/account-takeover, "kanıtlar, tahmin etmez"). **Kalan:** deck/video

@@ -489,6 +489,32 @@ python -m scripts.benchmark --suite benchmarks/suite.yaml
 Tek hedef için: `python -m scripts.benchmark --run runs/<id> --expected benchmarks/juiceshop.expected.yaml`
 (regresyon kapısı: `--min-precision 1.0 --min-recall 1.0`).
 
+### 🧪 Çalıştırılabilir self-eval — "yalancı çıktı üretmiyoruz" (tek komut, ağsız)
+
+Yukarıdaki benchmark canlı hedef ister. Onun **ağsız, herkesin 5 saniyede yeniden ürettiği**
+kardeşi `eval/`'dir: GERÇEK oracle'ları `httpx.MockTransport` ile üç kategori etiketli fixture'a
+karşı koşar ve precision/recall/**FP-rate** yayımlar — bir güvenlik ekibinin (ya da jürinin)
+kendi makinesinde çalıştırıp doğrulayabileceği tek-dosya bir kanıt artefaktı:
+
+```bash
+make eval           # veya: python eval/evaluate.py
+```
+
+| Kategori | Ne | Beklenen | Neyi kanıtlar |
+|---|---|---|---|
+| **positive** (planted TP) | Gerçek IDOR/BFLA açığı | `CONFIRMED` | recall — açığı yakalıyoruz |
+| **negative** (design-safe) | Yetki kontrolü çalışan endpoint | `CONFIRMED değil` | FP kapanı — güvenli olanı flag'lemiyoruz |
+| **near-miss** (saldırıya-benzer-ama-masum) | Session-scoped id · public-by-design endpoint | `CONFIRMED değil` | **en sıkı disiplin** — IDOR tarayıcılarının klasik FP tuzaklarında bile çekimser kalıyoruz |
+
+Yayımlanan sonuç (`eval/results.md`, 8 vaka): **precision %100 · recall %100 · FP-rate %0 ·
+near-miss CONFIRMED = 0.** Etiketler `eval/labeled.json`'da yer-gerçeğidir; `evaluate.py` katalog ↔
+etiket sürüklenmesini (drift) yakalar ve **FP>0 ya da bir near-miss CONFIRMED olursa çıkış kodu ≠ 0**
+(CI kapısı). Recall < 1 dürüst bir sınırdır, kapıyı kırmaz — "bulduğumuz kanıtlıdır" deriz,
+"her şeyi buluruz" demeyiz.
+
+> 🎯 **Tek komutta her şeyi kanıtla:** `make prove` = network'süz unit testler · self-eval (FP-rate %0)
+> · 0-FP negatif-ikiz kapısı · sürüm bütünlüğü — dördü tek çıktıda, ilk kırılan kapıda durur.
+
 ---
 
 ## 🏗️ Mimari

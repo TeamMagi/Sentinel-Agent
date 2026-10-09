@@ -31,6 +31,7 @@ import hashlib
 import json
 import pathlib
 import re
+import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "provenance" / "file_manifest.json"
@@ -217,6 +218,12 @@ def verify(quiet: bool = False) -> int:
 
 
 def main(argv=None) -> int:
+    # Windows konsolu (cp1254) emoji/UTF-8 basınca çökmesin (Linux/CI'da no-op).
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+        except (AttributeError, ValueError):
+            pass
     p = argparse.ArgumentParser(
         prog="verify_release",
         description="Sürüm bütünlüğü doğrulayıcı (AS-7) — ağsız, yalnız stdlib")
