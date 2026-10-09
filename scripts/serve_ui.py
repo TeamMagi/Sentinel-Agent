@@ -23,7 +23,14 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from pentestai.config import load_scope_config  # noqa: E402
-from pentestai.webui import RequestGuard, ScanManager, ScannerRunner, WebApp, WebServer  # noqa: E402
+from pentestai.webui import (  # noqa: E402
+    QuickScanRunner,
+    RequestGuard,
+    ScanManager,
+    ScannerRunner,
+    WebApp,
+    WebServer,
+)
 
 _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
@@ -87,9 +94,11 @@ def main(argv=None) -> int:
               f"({scope_path.with_name(scope_path.stem + '.example' + scope_path.suffix)} de yok)")
 
     manager = ScanManager(ScannerRunner(out_dir=args.out))
+    quick_manager = ScanManager(QuickScanRunner(out_dir=args.out))   # GOREVLER #14: URL on-ramp
     app = WebApp(
         manager, runs_dir=args.out, config_dir=args.config_dir, guard=guard,
         server_scope=server_scope, server_budget=server_budget, secrets_dir=args.secrets_dir,
+        quick_manager=quick_manager,
     )
     server = WebServer(app, host=args.host, port=args.port)
     print(f"[web-ui] http://{args.host}:{args.port}  (çıktı: {args.out})  — durdurmak için Ctrl-C")

@@ -52,3 +52,15 @@ async def test_rejected_on_secure():
     f = await oracle.run(ENDPOINT, admin, low)
     assert f.verdict == base.REJECTED
     await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_non_privileged_path_downgraded_to_likely():
+    """P3 FP kapısı: endpoint yönetim/ayrıcalıklı bir path değilse (tüm rollere açık olabilir),
+    düşük-yetkili 200 + aynı yapı tek başına BFLA kanıtı değil → CONFIRMED yerine LIKELY."""
+    non_priv = Endpoint(method="GET", path_template="/api/reports", id_param="id")
+    store, oracle, admin, low = _setup(vulnerable_handler)
+    f = await oracle.run(non_priv, admin, low)
+    assert f.verdict == base.LIKELY and f.verdict != base.CONFIRMED
+    assert f.triage_note
+    await store.aclose_all()

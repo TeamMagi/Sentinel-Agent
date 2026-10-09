@@ -176,7 +176,10 @@ pentest-ai/
 │   │   ├── normalize.py   # scrub volatile fields
 │   │   └── session_store.py
 │   ├── policy/            # scope.py, authorize.py
-│   ├── oracle/            # base.py, markers.py, idor.py, bfla.py
+│   ├── oracle/            # base.py, markers.py, idor.py, bfla.py, dom_xss.py
+│   ├── browser/           # driver.py (BrowserDriver — TIER_C.md C1, gerçek Chromium yürütme motoru)
+│   ├── netscan/           # tls.py (TlsInspector — TIER_C.md C2, ham TLS handshake yürütme motoru)
+│   ├── rawsocket/         # http_client.py (RawHttpClient — TIER_C.md C3, ham TCP + zamanlama yürütme motoru)
 │   ├── recon/             # openapi.py, har.py, crawl.py            (Stage 1)
 │   ├── llm/               # client.py, prompts.py, actions.py       (Stage 1)
 │   ├── orchestrator/      # pipeline.py                             (Stage 2)
@@ -384,6 +387,24 @@ def authorize(req, scope) -> Allow | Deny:
     if req.body_size > scope.max_payload_bytes:  return Deny("payload")
     return Allow(pinned_ip=ip)
 ```
+**Truth-table (documented + executable).** The decision order is fail-closed; the first matching
+rule wins. The table below is identical to `tests/test_authorize_truth_table.py` (single source):
+
+| # | Condition (in order) | Result | Reason |
+|---|---|---|---|
+| 1 | host ∉ `allowed_hosts` | **Deny** | `host out of scope` |
+| 2 | pin_map set **and** pinned IP out-of-scope/rebind | **Deny** | `ip out of scope / rebind` |
+| 3 | port ∉ `allowed_ports` | **Deny** | `port not allowed` |
+| 4 | *(purpose=test)* method ∉ `allowed_methods` | **Deny** | `method not allowed` |
+| 5 | *(purpose=test)* destructive method **and** `destructive_tests=false` | **Deny** | `destructive method blocked` |
+| 6 | path (wire **or** decoded) out-of-prefix **or** matches a deny pattern | **Deny** | `path out of scope` |
+| 7 | `no_secrets_in_query` **and** a secret key in the query | **Deny** | `secret in URL query` |
+| 8 | body > `max_payload_bytes` | **Deny** | `payload too large` |
+| 9 | (all passed) | **Allow** | `pinned_ip` |
+
+`purpose="auth"` skips only 4–5 (login/CSRF/logout); 1–3 and 6–8 are applied unchanged. If the table
+changes, the test turns red (drift protection).
+
 - **Purity:** `authorize()` only checks scope (host/port/method/path/payload) → it can be tested in isolation, with no network. The **budget/rate COUNT is NOT here**; the stateful `BudgetTracker` + rate-limiter run inside replay, after authorize (§10.11). The DNS-pin map is also produced once at the start of the scan and injected into authorize (`ip = pin_map[req.host]`); authorize does no live DNS.
 - **Path normalization:** `path_allowed` applies the prefix/deny check not to the RAW path but to two independent normalized forms (`net.policy.authorize._normalize_forms`): the *wire* form (what httpx will ACTUALLY send on the wire — dot-segments resolved, consecutive `/` merged) and the *decoded* form (the permissive form a target server might additionally percent-decode / backslash-flip / matrix-param-strip and reinterpret). Both must pass — otherwise a path like `/api/../rest/secret` passes the prefix check thinking it is `/api/`, but goes out as `/rest/secret` on the wire (scope escape).
 - **`purpose="test"|"auth"`:** `authorize(req, purpose=...)` — `"auth"` (auth-infrastructure requests like login/CSRF-fetch/logout) only skips the method/destructive gate; the host/port/pin/path/deny/secret/payload checks are applied UNCHANGED. These requests too pass through the same gate via `TokenAuthProvider`/`CSRFProvider`/`SessionLifecycleDetector` — it is not a separate choke point.

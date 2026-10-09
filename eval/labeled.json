@@ -1,0 +1,21 @@
+{
+  "schema": "sentinel-eval/1",
+  "description": "Sentinel-Agent çalıştırılabilir self-eval yer-gerçeği. Ağsız (httpx.MockTransport), GERÇEK oracle'lar. Kategoriler: positive=planted TP (CONFIRMED beklenir), negative=design-safe (CONFIRMED beklenmez), near_miss=saldırıya-benzer-ama-masum (CONFIRMED beklenmez, en sıkı disiplin). Yeniden üretme: python eval/evaluate.py",
+  "cases": [
+    {"name": "idor-basket:vulnerable",             "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-basket:hardened",               "vuln_type": "idor", "category": "negative",  "expected": "not:CONFIRMED"},
+    {"name": "bfla-admin:vulnerable",              "vuln_type": "bfla", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "bfla-admin:hardened",                "vuln_type": "bfla", "category": "negative",  "expected": "not:CONFIRMED"},
+    {"name": "idor-public-by-design:vulnerable",   "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-public-by-design:near-miss",    "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"},
+    {"name": "idor-session-scoped:vulnerable",     "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-session-scoped:near-miss",      "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"},
+    {"name": "idor-query-param:vulnerable",        "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-query-param:hardened",          "vuln_type": "idor", "category": "negative",  "expected": "not:CONFIRMED"},
+    {"name": "idor-empty-result:vulnerable",       "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-empty-result:near-miss",        "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"},
+    {"name": "collection-leak:vulnerable",         "vuln_type": "bola", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "collection-leak:scoped",             "vuln_type": "bola", "category": "negative",  "expected": "not:CONFIRMED"},
+    {"name": "collection-leak:public",             "vuln_type": "bola", "category": "near_miss", "expected": "not:CONFIRMED"}
+  ]
+}

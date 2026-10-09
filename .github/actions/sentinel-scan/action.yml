@@ -1,0 +1,90 @@
+# Sentinel-Agent — tekrar-kullanılabilir composite GitHub Action (K — SlopGuard dersi).
+#
+# Başka bir repo Sentinel'i kendi CI'ına tek adımda "düşürebilir": tarar, SARIF üretir (Security
+# sekmesine yüklenebilir) ve eşiğe göre PR'ı bloklayabilir (exit-code). Çekirdek workflow zaten
+# vardı (.github/workflows/sentinel.yml); bu ise dışa açık, `uses:` ile çağrılan sarmalayıcıdır.
+#
+# Kullanım (başka repo):
+#   - uses: Hybrid-Translation-Project/Sentinel-Agent/.github/actions/sentinel-scan@main
+#     with:
+#       scope: config/scope.yaml
+#       actors: config/actors.yaml
+#       endpoints: config/endpoints.yaml
+#       fail-on: high            # bu eşik ve üstünde CONFIRMED → adım kırmızı (exit 2)
+#   - uses: github/codeql-action/upload-sarif@v3
+#     with: { sarif_file: ${{ steps.sentinel.outputs.sarif }} }
+
+name: "Sentinel-Agent access-control scan"
+description: "Kanıt-temelli IDOR/BOLA/BFLA taraması → SARIF + exit-code kapısı (deterministik)."
+
+inputs:
+  scope:
+    description: "scope YAML yolu (host/port/method allowlist)"
+    required: true
+  actors:
+    description: "actors YAML yolu (en az 2 hesap: kurban + saldırgan)"
+    required: true
+  endpoints:
+    description: "endpoints YAML yolu (ya da --openapi/--har extra-args ile keşif)"
+    required: false
+    default: ""
+  mode:
+    description: "passive | active"
+    required: false
+    default: "active"
+  fail-on:
+    description: "none|low|medium|high|critical — bu eşik+üstü CONFIRMED bulguda çıkış kodu 2"
+    required: false
+    default: "none"
+  sarif:
+    description: "üretilecek SARIF dosya yolu"
+    required: false
+    default: "sentinel.sarif"
+  out:
+    description: "koşum çıktı dizini (runs/)"
+    required: false
+    default: "runs/"
+  python-version:
+    description: "kurulacak Python sürümü"
+    required: false
+    default: "3.11"
+  extra-args:
+    description: "run_scan'e eklenecek ham argümanlar (ör. --openapi spec.json --scan-mode quick)"
+    required: false
+    default: ""
+
+outputs:
+  sarif:
+    description: "üretilen SARIF dosyasının yolu (upload-sarif'e verilir)"
+    value: ${{ inputs.sarif }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Python kur
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Sentinel-Agent'ı kur
+      shell: bash
+      # Action'ın kendi repo kökünü kur (github.action_path = .../.github/actions/sentinel-scan).
+      # `sentinel` konsol giriş noktasını (pentestai.cli:main) sağlar → caller repo'da `scripts/`
+      # bulunmasa da çalışır.
+      run: pip install "$(realpath "${{ github.action_path }}/../../..")"
+
+    - name: Tarama (SARIF üret, eşiğe göre çıkış kodu)
+      id: sentinel
+      shell: bash
+      run: |
+        ep_arg=""
+        if [ -n "${{ inputs.endpoints }}" ]; then ep_arg="--endpoints ${{ inputs.endpoints }}"; fi
+        sentinel scan \
+          --scope "${{ inputs.scope }}" \
+          --actors "${{ inputs.actors }}" \
+          $ep_arg \
+          --mode "${{ inputs.mode }}" \
+          --out "${{ inputs.out }}" \
+          --sarif "${{ inputs.sarif }}" \
+          --fail-on "${{ inputs.fail-on }}" \
+          ${{ inputs.extra-args }}

@@ -36,6 +36,53 @@ def test_scanner_init_with_enum_users_registers_detector():
     assert "user_enumeration" in scanner.detectors
 
 
+# --- run_security_headers_scan (GOREVLER #14: hafif URL on-ramp'ın parçası) ---
+
+@pytest.mark.asyncio
+async def test_run_security_headers_scan_is_actor_independent_and_direct():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000])
+    scanner = Scanner(BASE, scope, BudgetConfig(max_rps_per_host=1000))
+
+    def handler(request):
+        # X-Frame-Options/CSP/HSTS hepsi eksik → en az bir bulgu üretmeli.
+        return httpx.Response(200, headers={"content-type": "text/html"}, text="<html></html>")
+
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(handler))
+    anon = store.create(Actor(name="anonymous", role="anonymous"))
+    root = Endpoint(method="GET", path_template="/", id_param="id")
+    findings = await scanner.run_security_headers_scan(anon, root)
+    types = {f.type for f in findings}
+    assert types == {"clickjacking", "security_headers"}   # dedektör her zaman ikisini de döner
+    await store.aclose_all()
+
+
+# --- extra_hypotheses (GOREVLER #13: dış araç/nuclei adayları) ---
+
+@pytest.mark.asyncio
+async def test_run_recon_scan_tests_extra_hypotheses_from_external_tool():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000])
+    # id'siz endpoint → run_hypotheses tek oturumla (victim==attacker, BOPLA öz-testi) çalışır.
+    nuclei_ep = Endpoint(method="GET", path_template="/api/nuclei-found", id_param="id")
+    extra = [Hypothesis(type="excessive_data_exposure", endpoint=nuclei_ep,
+                        rationale="nuclei ingestion testi", source="deterministic")]
+    scanner = Scanner(BASE, scope, BudgetConfig(max_rps_per_host=1000), extra_hypotheses=extra)
+
+    def handler(request):
+        if request.url.path == "/api/nuclei-found":
+            return httpx.Response(200, json={"id": "1"})
+        return httpx.Response(404, json={})
+
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(handler))
+    A = store.create(Actor(name="user_A", role="user", auth=AuthState(headers={"Authorization": "Bearer A"})))
+    findings = await scanner.run_recon_scan(
+        [A], [],   # ana recon envanteri boş — hipotez SADECE extra_hypotheses'ten gelmeli
+        bootstrap=False, exposure_scan=False, info_leak_scan=False,
+        rate_limit_scan=False, cve_scan=False, template_scan=False,
+    )
+    assert any(f.endpoint == "/api/nuclei-found" for f in findings)
+    await store.aclose_all()
+
+
 # --- discover_more + _run_graphql_bola (RK-3/RK-8 uçtan uca) ---
 
 GQL_SCHEMA = {
@@ -237,8 +284,15 @@ async def test_run_hypotheses_excessive_data_exposure_without_id_uses_single_tar
     hyp = Hypothesis(type="excessive_data_exposure", endpoint=ep, rationale="r")
     findings = await scanner.run_hypotheses([A, B], [hyp])
 
-    assert len(findings) == 1                 # id'siz koleksiyon → targets[:1], tek sefer yeter
-    assert findings[0].victim == "user_A"      # ilk aktörle test edildi
+    by_type: dict[str, list] = {}
+    for f in findings:
+        by_type.setdefault(f.type, []).append(f)
+    # bopla (excessive_data_exposure): id'siz koleksiyon → targets[:1], tek sefer yeter
+    assert len(by_type["excessive_data_exposure"]) == 1
+    assert by_type["excessive_data_exposure"][0].victim == "user_A"
+    # recall eklentisi: CollectionLeakOracle (bola) id'siz koleksiyonda çift yönlü koşar; iki aktör
+    # AYNI (public) listeyi gördüğü için public-katalog kapanı devreye girer → REJECTED (FP yok).
+    assert by_type["bola"] and all(f.verdict == "REJECTED" for f in by_type["bola"])
 
     await store.aclose_all()
 

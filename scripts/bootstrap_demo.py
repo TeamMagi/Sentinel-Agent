@@ -60,7 +60,10 @@ def _write_configs(out_dir: pathlib.Path, base_url: str, victim_bid: int, attack
             "destructive_tests": False,
             "external_network": False,
         },
-        "budget": {"max_total_requests": 200, "max_rps_per_host": 5, "max_wall_clock_sec": 120},
+        # Bütçe, tüm dedektör/oracle ailesinin (idor/bfla/injection/crlf/oauth/jwt-confusion/hpp/…)
+        # iki endpoint üzerinde rahatça koşabileceği kadar: 200 artık yetersizdi (rate_limit fazında
+        # BudgetExceeded'e düşüyordu). scope.example.yaml ile hizalı.
+        "budget": {"max_total_requests": 2000, "max_rps_per_host": 5, "max_wall_clock_sec": 300},
         "privacy": {"no_secrets_in_query": True},
     }, sort_keys=False), encoding="utf-8")
 

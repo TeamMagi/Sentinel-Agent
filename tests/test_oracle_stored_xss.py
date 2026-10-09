@@ -14,7 +14,9 @@ BASE = "http://localhost:3000"
 EP = Endpoint(method="PUT", path_template="/api/profiles/{id}", id_param="id")
 
 
-def make_app(*, escapes_output: bool):
+def make_app(*, escapes_output: bool, read_html: bool = True):
+    """`read_html`: okuma cevabı HTML bağlamı (True → tarayıcı ham `<x>`'i çalıştırır, gerçek
+    stored XSS) mi yoksa JSON API (False → ham marker DATA'dır, tek başına XSS değil) mi olsun."""
     db = {"P-1": {"id": "P-1", "comment": ""}}
 
     def _escape(s: str) -> str:
@@ -30,10 +32,11 @@ def make_app(*, escapes_output: bool):
             obj["comment"] = body.get("comment", "")
             return httpx.Response(200, json=obj)
         # GET: depolanan veriyi döndür (escapes_output=True → çıktı escape edilir)
-        out = dict(obj)
-        if escapes_output:
-            out["comment"] = _escape(out["comment"])
-        return httpx.Response(200, json=out)
+        comment = _escape(obj["comment"]) if escapes_output else obj["comment"]
+        if read_html:
+            html = f"<html><body><div class='comment'>{comment}</div></body></html>"
+            return httpx.Response(200, text=html, headers={"content-type": "text/html; charset=utf-8"})
+        return httpx.Response(200, json={"id": obj["id"], "comment": comment})
 
     return handler
 
@@ -49,10 +52,21 @@ def _setup(handler):
 
 @pytest.mark.asyncio
 async def test_confirmed_when_stored_unescaped():
-    store, oracle, A = _setup(make_app(escapes_output=False))
+    store, oracle, A = _setup(make_app(escapes_output=False))   # HTML bağlamı + escape yok
     f = await oracle.run(EP, A, A, resource_key="profile")
     assert f.verdict == base.CONFIRMED and f.confidence == "high"
     assert f.evidence.leaked_markers
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_likely_when_reflected_in_json_not_html():
+    """P1-FP düzeltmesi: marker yansıdı ama okuma JSON API (HTML değil) → CONFIRMED değil, LIKELY."""
+    store, oracle, A = _setup(make_app(escapes_output=False, read_html=False))
+    f = await oracle.run(EP, A, A, resource_key="profile")
+    assert f.verdict == base.LIKELY and f.confidence == "medium"
+    assert f.verdict != base.CONFIRMED
+    assert f.triage_note
     await store.aclose_all()
 
 

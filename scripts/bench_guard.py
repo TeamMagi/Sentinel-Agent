@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import pathlib
 import sys
 
@@ -62,6 +63,10 @@ def main(argv=None) -> int:
     p.add_argument("--strict-recall", action="store_true",
                    help="vulnerable ikizi kaçırmak da kapıyı kırar (yalnız FP değil)")
     args = p.parse_args(argv)
+    # Windows konsolu (cp1254) emoji basınca çökmesin (Linux/CI'da no-op).
+    for _s in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            _s.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     return asyncio.run(_run(args))
 
 

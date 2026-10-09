@@ -27,7 +27,9 @@ from pentestai.webui import (
     AuthSpec,
     BudgetSpec,
     EndpointSpec,
+    QuickScanRequest,
     RemediationCatalog,
+    RemediationPromptBuilder,
     RequestGuard,
     ScanBusyError,
     ScanManager,
@@ -150,6 +152,50 @@ def test_scanrequest_redacted_hides_password():
     assert "<REDACTED>" in dumped and '"p"' not in dumped
 
 
+# --------------------------- QuickScanRequest (GOREVLER #14) ---------------------------
+
+def test_quickscan_target_derives_origin_from_url():
+    req = QuickScanRequest(url="http://localhost:3000/rest/basket/1?x=1")
+    assert req.target == "http://localhost:3000"
+
+
+def test_quickscan_validate_accepts_valid_url():
+    assert QuickScanRequest(url="https://example.com").validate_request() is None
+
+
+def test_quickscan_validate_rejects_empty_url():
+    assert "URL" in (QuickScanRequest(url="").validate_request() or "")
+
+
+def test_quickscan_validate_rejects_hostless_url():
+    assert QuickScanRequest(url="not-a-url").validate_request() is not None
+
+
+def test_quickscan_validate_rejects_non_http_scheme():
+    problem = QuickScanRequest(url="ftp://example.com").validate_request()
+    assert problem and "http" in problem
+
+
+def test_quickscan_derived_scope_defaults_to_get_head_only():
+    scope = QuickScanRequest(url="http://localhost:3000").derived_scope(external_network=False)
+    assert scope.allowed_hosts == ["localhost"]
+    assert scope.allowed_ports == [3000]
+    assert scope.allowed_methods == ["GET", "HEAD"]
+    assert scope.destructive_tests is False
+    assert scope.external_network is False
+
+
+def test_quickscan_derived_scope_infers_default_https_port():
+    scope = QuickScanRequest(url="https://example.com/x").derived_scope(external_network=True)
+    assert scope.allowed_ports == [443]
+    assert scope.external_network is True
+
+
+def test_quickscan_redacted_masks_token_in_url():
+    req = QuickScanRequest(url="http://localhost:3000/?token=Bearer abc.def.ghi")
+    assert "abc.def.ghi" not in req.redacted()["url"]
+
+
 # --------------------------- remediation ---------------------------
 
 def test_remediation_known_type():
@@ -170,6 +216,45 @@ def test_remediation_llm_override():
     assert g["source"] == "llm"
     assert g["fix_summary"] == "Sahiplik kontrolü ekle."
     assert g["steps"]     # adımlar yine katalogdan
+
+
+# --------------------------- remediation_prompt ---------------------------
+
+def test_prompt_builder_includes_context_and_steps():
+    guide = RemediationCatalog().guide_for({"type": "idor"})
+    finding = {
+        "method": "GET", "endpoint": "/rest/basket/{id}", "parameter": "id",
+        "type": "idor", "verdict": "CONFIRMED",
+        "evidence": {"leaked_markers": ["victim-marker-xyz"]},
+    }
+    prompt = RemediationPromptBuilder().build(finding, guide)
+    assert "GET /rest/basket/{id}" in prompt
+    assert "idor" in prompt
+    assert "CONFIRMED" in prompt
+    assert "victim-marker-xyz" in prompt
+    assert guide["fix_summary"] in prompt
+    for step in guide["steps"]:
+        assert step in prompt
+    for ref in guide["references"]:
+        assert ref["url"] in prompt
+
+
+def test_prompt_builder_omits_optional_sections_when_absent():
+    guide = RemediationCatalog().guide_for({"type": "idor"})
+    prompt = RemediationPromptBuilder().build({"type": "idor"}, guide)
+    assert "Parametre:" not in prompt
+    assert "Sızan işaretçi" not in prompt
+
+
+def test_prompt_builder_redacts_leaked_token_defensively():
+    guide = RemediationCatalog().guide_for({"type": "idor"})
+    finding = {
+        "type": "idor",
+        "evidence": {"leaked_markers": ["Bearer abc.def.ghi"]},
+    }
+    prompt = RemediationPromptBuilder().build(finding, guide)
+    assert "Bearer abc.def.ghi" not in prompt
+    assert "<REDACTED>" in prompt
 
 
 # --------------------------- scan_manager ---------------------------
@@ -262,15 +347,34 @@ def _server_scope(**over) -> Scope:
     return Scope(**base)
 
 
+class FakeQuickRunner:
+    """`/api/quickscan` için ağsız koşucu — `QuickScanRunner` ile aynı arayüz (duck-typing)."""
+
+    def __init__(self, findings=None, raise_msg: str | None = None):
+        self.findings = findings if findings is not None else []
+        self.raise_msg = raise_msg
+        self.seen: QuickScanRequest | None = None
+
+    def run(self, request: QuickScanRequest, on_progress) -> ScanOutcome:
+        self.seen = request
+        on_progress("sahte hızlı tarama çalışıyor…")
+        if self.raise_msg:
+            raise RuntimeError(self.raise_msg)
+        return ScanOutcome(run_id="run-quick-0001", root="runs/run-quick-0001",
+                           findings=list(self.findings))
+
+
 def _app(tmp_path, runner=None, *, guard=None, server_scope=..., server_budget=None,
-        secrets_dir=None):
+        secrets_dir=None, quick_runner=None):
     mgr = ScanManager(runner or FakeRunner())
+    quick_mgr = ScanManager(quick_runner or FakeQuickRunner())
     return WebApp(
         mgr, runs_dir=str(tmp_path), config_dir=str(tmp_path),
         guard=guard or RequestGuard([_HOST]),
         server_scope=_server_scope() if server_scope is ... else server_scope,
         server_budget=server_budget if server_budget is not None else BudgetConfig(),
         secrets_dir=str(secrets_dir) if secrets_dir is not None else str(tmp_path / ".secrets"),
+        quick_manager=quick_mgr,
     )
 
 
@@ -306,6 +410,8 @@ def test_app_scan_flow_enriches_and_redacts(tmp_path):
     f = payload["findings"][0]
     # çözüm önerisi eklenmiş
     assert f["remediation_guide"]["type"] == "idor"
+    # AI-ready prompt eklenmiş ve endpoint'i içeriyor
+    assert f["endpoint"] in f["remediation_prompt"]
     # redaction: ham token gitmedi
     raw = json.dumps(payload, ensure_ascii=False)
     assert "SECRETTOKEN123" not in raw
@@ -557,6 +663,79 @@ def test_scan_request_cannot_exceed_server_budget(tmp_path):
     assert "budget" in json.loads(resp.body)["error"]
 
 
+# --------------------------- WebApp: /api/quickscan (GOREVLER #14) ---------------------------
+
+def test_quickscan_start_and_status_happy_path(tmp_path):
+    fake = FakeQuickRunner(findings=[_finding_with_token()])
+    app = _app(tmp_path, quick_runner=fake, server_scope=_server_scope())
+    body = json.dumps({"url": "http://localhost:3000/"}).encode()
+    start = app.handle("POST", "/api/quickscan", {}, body, _JSON)
+    assert start.status == 202
+    job_id = json.loads(start.body)["job_id"]
+    _wait(app.quick_manager, job_id)
+    status = app.handle("GET", "/api/quickscan/" + job_id, {}, b"", _GET)
+    payload = json.loads(status.body)
+    assert payload["state"] == "done"
+    assert payload["findings"][0]["remediation_guide"]["type"] == "idor"   # webui zenginleştirmesi de çalışır
+    # sunucuya giden istek, sunucu scope'uyla NARROW edilmiş host'u taşıyor
+    assert fake.seen.scope.allowed_hosts == ["localhost"]
+    assert fake.seen.scope.allowed_methods == ["GET", "HEAD"]
+
+
+def test_quickscan_rejects_missing_url(tmp_path):
+    app = _app(tmp_path, server_scope=_server_scope())
+    resp = app.handle("POST", "/api/quickscan", {}, json.dumps({"url": ""}).encode(), _JSON)
+    assert resp.status == 400
+
+
+def test_quickscan_rejects_malformed_json(tmp_path):
+    app = _app(tmp_path, server_scope=_server_scope())
+    resp = app.handle("POST", "/api/quickscan", {}, b"{ bozuk", _JSON)
+    assert resp.status == 400
+
+
+def test_quickscan_denied_when_server_scope_unconfigured(tmp_path):
+    app = _app(tmp_path, server_scope=None)
+    body = json.dumps({"url": "http://localhost:3000/"}).encode()
+    resp = app.handle("POST", "/api/quickscan", {}, body, _JSON)
+    assert resp.status == 503
+
+
+def test_quickscan_rejects_host_outside_server_scope(tmp_path):
+    # §5.6: host scope.yaml'da yoksa — friction kaldırılan actor/endpoint tanımıdır, scope kapısı değil.
+    app = _app(tmp_path, server_scope=_server_scope(allowed_hosts=["localhost"]))
+    body = json.dumps({"url": "http://evil.example:3000/"}).encode()
+    resp = app.handle("POST", "/api/quickscan", {}, body, _JSON)
+    assert resp.status == 400
+    assert "allowed_hosts" in json.loads(resp.body)["error"]
+
+
+def test_quickscan_cannot_widen_server_external_network(tmp_path):
+    # Sunucu external_network=False iken bile istek ASLA True'ya genişletilmez (miras alınır).
+    app = _app(tmp_path, quick_runner=FakeQuickRunner(),
+              server_scope=_server_scope(allowed_hosts=["localhost"], external_network=False))
+    body = json.dumps({"url": "http://localhost:3000/"}).encode()
+    resp = app.handle("POST", "/api/quickscan", {}, body, _JSON)
+    assert resp.status == 202
+
+
+def test_quickscan_status_unknown_job_404(tmp_path):
+    app = _app(tmp_path, server_scope=_server_scope())
+    resp = app.handle("GET", "/api/quickscan/does-not-exist", {}, b"", _GET)
+    assert resp.status == 404
+
+
+def test_quickscan_error_surfaces_in_status(tmp_path):
+    fake = FakeQuickRunner(raise_msg="hedefe ulaşılamadı")
+    app = _app(tmp_path, quick_runner=fake, server_scope=_server_scope())
+    body = json.dumps({"url": "http://localhost:3000/"}).encode()
+    start = app.handle("POST", "/api/quickscan", {}, body, _JSON)
+    job_id = json.loads(start.body)["job_id"]
+    _wait(app.quick_manager, job_id)
+    status = json.loads(app.handle("GET", "/api/quickscan/" + job_id, {}, b"", _GET).body)
+    assert status["state"] == "error" and "hedefe ulaşılamadı" in status["error"]
+
+
 def test_narrow_scope_pure_function():
     server = _server_scope(allowed_hosts=["localhost", "127.0.0.1"])
     ok = narrow_scope(server, ScopeSpec(allowed_hosts=["localhost"], allowed_ports=[3000]))
@@ -694,6 +873,28 @@ def test_scan_returns_429_when_manager_is_busy(tmp_path):
     body = json.dumps(_valid_request().model_dump(mode="json")).encode()
     resp = app.handle("POST", "/api/scan", {}, body, _JSON)
     assert resp.status == 429
+
+
+# --------------------------- WebServer bind güvenliği (P3) ---------------------------
+
+def test_server_refuses_non_loopback_bind_by_default(tmp_path):
+    """authN yok → loopback-dışı bind (0.0.0.0/LAN) varsayılan olarak REDDEDİLİR (fail-closed)."""
+    app = _app(tmp_path)
+    for host in ("0.0.0.0", "", "192.168.1.10"):
+        with pytest.raises(ValueError):
+            WebServer(app, host=host, port=0)
+
+
+def test_server_allows_non_loopback_with_explicit_optin(tmp_path):
+    """Bilinçli allow_external=True → hata yok (soket __init__'te açılmaz, yalnızca kabul edilir)."""
+    app = _app(tmp_path)
+    srv = WebServer(app, host="0.0.0.0", port=0, allow_external=True)
+    assert srv.host == "0.0.0.0"
+
+
+def test_server_localhost_hostname_is_loopback(tmp_path):
+    app = _app(tmp_path)
+    assert WebServer(app, host="localhost", port=0).host == "localhost"
 
 
 # --------------------------- WebServer (gerçek soket, tek istek) ---------------------------

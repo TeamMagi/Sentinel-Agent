@@ -1,0 +1,419 @@
+# Ek Repo Analizleri (2. tur) — İlham/Rakip İnceleme
+
+> **Amaç:** Yeni gönderilen repoları tek tek inceleyip Sentinel-Agent'ın
+> **eksiklerini/öğrenebileceklerini** biriktirmek. Hedef aracı "kullanmak" değil; **kendimizi ve
+> projeyi geliştirmek.**
+>
+> **Yöntem:** Her repo bir bölüm. Her bölümde: *Ne yapıyor · Öne çıkanlar · Bizde eksik olan ·
+> Sentinel'e nasıl eklenir (hangi modül/sınıf) · Almayacaklarımız · Tek cümlelik ders.* Bu belge
+> **analizdir; kod değiştirmez.**
+>
+> **Önemli çerçeve:** Sentinel-Agent, access-control (IDOR/BOLA/BFLA) + ajan-çağı yetki ekseninde
+> teknik olarak derin (onlarca oracle, deterministik CONFIRMED, replay, actor izolasyonu, redaction,
+> scope gate, benchmark holdout, self-eval, hash-zincirli kanıt, counterfactual, SARIF, web UI).
+> Yeni repolar farklı problem alanlarında olabilir; ders çoğunlukla **"kanıtı inandırıcı sunma"** ve
+> **karşıt dersler** olacak — bunu her repoda ayırt edeceğiz.
+>
+> **Not (git geçmişi):** Bu dosyanın önceki içeriği — TLN Cybersecurity Challenge 2026 dereceye
+> girenlerinin (TRACE X · NoScam · SlopGuard · ChainBreak · CyberShield) analizi + A–U görev
+> tracker'ı — bu turda yerini yeni repolara bıraktı ama **git geçmişinde duruyor** (`git log --
+> follow docs/derece-alanlar-repo-analizi.md`; en son tam sürüm commit `975aec1` civarı). O turun
+> tüm görevleri (A–U) **tamamlandı ve kodda mevcut** (eval/ · hash-zincir · counterfactual · lineage
+> · verdict-invariance · prompt-injection sertleştirme · composite Action · MITRE/blast-radius vb.).
+
+---
+
+## Repo 1 — `pradeepkumar-ai-byte/VaxGuard` = **VaxGuard**
+
+**Link:** https://github.com/pradeepkumar-ai-byte/VaxGuard
+**Tür:** Üretim LLM'leri için "otonom yapay bağışıklık sistemi" — prompt-injection/jailbreak/veri-
+sızdırma vb. 6 saldırı vektörüne karşı hem **tarayıcı (diagnostic)** hem **runtime savunma
+middleware'i (vaccine)**. *(Bizden farklı alan: LLM-uygulama güvenliği, access-control değil.)*
+**Yığın:** Python 3.10+ · FastAPI · SQLAlchemy (SQLite/PostgreSQL) · Click CLI · Groq LPU
+(`qwen/qwen3-benzeri`) · vanilla HTML/CSS/JS "glassmorphism" dashboard + WebSocket telemetri · pytest.
+
+### 1.1 Ne yapıyor (kısaca)
+İki katman: (1) **Diagnostic engine** — bir LLM'i 6 taksonomideki (`data/attacks.yaml`) saldırılarla
+tarar, 0–100 "Global Immunity Score" hesaplar; (2) **Vaccine generator** — self-reflective
+Generate→Critique→Refine zinciriyle savunma prompt'ları üretir, "immune memory" (TF-IDF centroid
+drift) ile zero-day anomali yakalayıp otomatik "aşı" konuşlandırır. Canlı WebSocket dashboard +
+CLI + REST + Docker + GitHub Actions CI.
+
+### 1.2 Öne çıkanlar (jüriyi etkileyen)
+1. **Çok-yüzeyli, düşük-friction dağıtım:** CLI (`vaxguard serve/scan`) · REST API · WebSocket canlı
+   telemetri · Docker · CI. Erişilebilirlik güçlü (SlopGuard/ChainBreak ile aynı sinyal).
+2. **Canlı telemetri dashboard'u:** `ws://…/ws/stream` üzerinden `THREAT_DETECTED` /
+   `AUTO_IMMUNITY_DEPLOYED` / `SCAN_COMPLETED` olayları; immunity gauge + 6 eksen radar + canlı
+   sandbox. Tarama **sürerken** görsel akış — güçlü demo kartı.
+3. **Tek headline metrik:** 0–100 "Global Immunity Score" — jüri/karar-verici için tek bakışta duruş.
+4. **Yayınlanmış benchmark tablosu** (`RESULTS.md`, 50 adversarial vektör): overall %78→%6 breach,
+   benign-FPR %0. Kategori kırılımı verilmiş.
+5. **Dürüst limitations:** benign-FPR'nin **%0 olmasının "fazla mükemmel/overfit işareti"**
+   olabileceğini, güven aralığı/ablation olmadığını, test modellerinin açıklanmadığını **kendisi**
+   yazmış → dürüstlük vitrini (TRACE X ile aynı sinyal).
+6. **Kısmi deterministik/LLM ayrımı:** regex/heuristik + TF-IDF (deterministik) ile LLM'i ayırmış.
+
+### 1.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan)
+- ⚠️ **Canlı, akış-tabanlı telemetri yok.** Web UI'miz tarama ilerlemesini gösteriyor ama VaxGuard
+  gibi olay-bazlı **WebSocket canlı akış** (her tespit anında event) ve radar/gauge görselleştirmesi
+  yok. Sunum/demo değeri olan bir vitrin farkı (kod-orta).
+- ⚠️ **Tek "duruş skoru" (headline) yok.** Bizde CONFIRMED/LIKELY/… sayaçları var ama VaxGuard'ın
+  0–100 "Immunity Score" gibi **tek bakışta özet** bir rakam yok. (S — blast-radius ile birleşebilir;
+  ama bizde bunu *advisory* tutmak şart — verdict'i asla ezmemeli.)
+- ✅ **Tekrar güçlenen:** dürüst limitations + yayınlanmış metrik (bizde artık `eval/` + Kısıtlar
+  bölümüyle var) ve çok-yüzeyli erişilebilirlik (CLI/API/CI + composite Action ile karşılandı).
+
+### 1.4 KARŞIT DERS (en değerli çıktı) — tezimizi doğruluyor
+- ❗ **VaxGuard breach verdict'ini "LLM-as-a-judge"a bırakıyor** → karar **non-deterministik**.
+  Üstüne benign-FPR %0 "fazla mükemmel" (kendi limitation'ı). Bu tam olarak bizim **YAPMADIĞIMIZ**
+  şey: Sentinel'de verdict'i **kod** verir, LLM oy vermez (verdict-invariance testiyle *kanıtlı*),
+  ve near-miss disiplinli `eval/` FP-rate %0'ı **etikete** dayandırır, LLM yargısına değil.
+  → **Slayt/anlatı kartı:** *"Rakipler saldırıyı LLM'e yargılatıyor; biz kararı deterministik
+  kanıta bağlıyoruz — 'evidence-first, model gets no vote'."*
+- ❗ **VaxGuard bir savunma/enforcement middleware'i** (ChainBreak gibi); biz **bulucu/kanıtlayıcı**yız.
+  Onların "aşı üret + trafiği filtrele" rolünü almayız.
+
+### 1.5 Sentinel'e nasıl eklenir — mimariye uyumlu, invariant'ları bozmadan
+| # | Öneri | Nereye (modül/sınıf) | Not | Öncelik |
+|---|---|---|---|---|
+| V1 | **Canlı tarama telemetrisi**: web UI'ya tarama sürerken olay akışı (bulgu bulundukça) | `webui/` (SSE/WebSocket veya polling) + `scan_manager` event'leri | Sunum/demo değeri; verdict'i etkilemez, salt görüntüleme | 🟡 Orta |
+| V2 | **Tek "duruş özeti" rozeti**: CONFIRMED/severity dağılımından türeyen advisory skor | `report/` (+ `classify`/`impact` ile) | S ile birleşir; **advisory**, verdict'i asla ezmez | 🟢 Düşük |
+| V3 | **Karşıt-ders anlatısı**: "model oy vermez" farkını deck/README'de VaxGuard-tarzı LLM-judge'a karşı vurgula | doküman | Kod yok; en yüksek getirili sunum hamlesi | 🟢 Düşük |
+
+### 1.6 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+- **LLM-as-a-judge breach classification** — bizim tezimize aykırı (verdict'i kod verir), ALINMAZ.
+- **Vaccine synthesis (Generate→Critique→Refine), auto-immunity aşı konuşlandırma, TF-IDF prompt-
+  drift, prompt-injection savunma middleware'i** — hepsi VaxGuard'ın LLM-uygulama-savunması domain'ine
+  ait; access-control bulucu/kanıtlayıcı aracımıza taşınmaz (scope-creep + enforcement rolü).
+- **Groq/tek-sağlayıcı bağımlılığı** — bizde LLM opsiyonel ve çok-sağlayıcı; değişmez.
+
+### 1.7 Tek cümlelik ders
+> VaxGuard **karşıt bir örnek**: erişilebilirlik ve dürüst-limitation'da güçlü ama güvenlik
+> kararını **LLM'e yargılatıyor** — Sentinel'in "kararı deterministik kanıt verir, model oy vermez"
+> tezini *tersinden* doğruluyor; alacağımız tek somut şey **canlı telemetri vitrini** ve bu **karşıt
+> anlatı**, motoru değil.
+
+---
+
+## Repo 2 — `abhisheksinghyadav0004-ux/CyberSentinel-AI` = **CyberSentinel-AI**
+
+**Link:** https://github.com/abhisheksinghyadav0004-ux/CyberSentinel-AI
+**Tür:** SOC analisti için ağ-trafiği triyaj panosu — canlı paket metadata'sı + yüklenen CSV ağ
+loglarını "soruşturmaya-hazır uyarılara" çevirir. *(Bizden çok farklı alan: network SOC monitoring;
+üstelik olgunluk düşük — portfolyo/öğrenme projesi, 2 commit.)*
+**Yığın:** Python (Flask) · Scapy (paket yakalama) · JS/HTML/CSS + Chart.js pano · **LLM YOK** ·
+DB yok (in-memory / tarayıcı localStorage).
+
+### 2.1 Ne yapıyor (kısaca)
+Scapy ile canlı paket yakalar ya da CSV log yükler; kural-tabanlı eşiklerle (ör. 5 sn'de tek
+kaynaktan ≥30 paket = Medium, ≥80 = Critical; >1500 bayt = Medium) uyarı üretir, yerel IOC
+watchlist'e eşler, Chart.js panosunda protokol dağılımı/trafik trendi gösterir. Uyarı yaşam-döngüsü
+(New/Investigating/Resolved) + analist notları (tarayıcıda saklı) + JSON export.
+
+### 2.2 Öne çıkanlar
+1. **Tamamen deterministik, kural-tabanlı tespit** — LLM yok; kararı eşikler + analist verir.
+   (İsimde "AI" var ama AI yok; dürüstlük açısından README bunu gizlemiyor.)
+2. **MITRE ATT&CK eşlemesi entegre** (T1583 / T1046 / T1498) — bulguları taksonomiye bağlıyor.
+3. **Veri-minimizasyonu:** "yalnızca analiz için gereken metadata saklanır; kimlik bilgileri ve ham
+   payload'lar hariç" — redaction/gizlilik disiplininin akrabası.
+4. **Açık limitations:** "IOC watchlist yereldir/demo amaçlıdır", "eşikler gerçek ortama göre
+   ayarlanmalı", "üretim için değil, öğrenme/portfolyo" — dürüst sınır beyanı.
+5. **Analist triyaj iş-akışı:** uyarı durumu (New/Investigating/Resolved) + not + severity filtresi.
+6. **Canlı pano:** auto-update Chart.js (protokol dağılımı, trafik trendi) — VaxGuard'daki canlı
+   telemetri temasını tekrar ediyor.
+
+### 2.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan — yeni olanlar)
+- ⚠️ **Bulgu triyaj yaşam-döngüsü zayıf.** Web UI'de bulguları görüyoruz ama VaxGuard/CyberSentinel
+  gibi durum makinesi (New/Investigating/Resolved) + kalıcı analist notu (koşumlar arası) belirgin
+  değil. Bir güvenlik ekibinin "bunu inceledim/kapattım" akışı. (Salt sunum/iş-akışı katmanı.)
+- ✅ **Tekrar güçlenen:** MITRE ATT&CK eşlemesi (bizde T ile eklendi — 2. kez doğrulandı),
+  redaction/veri-minimizasyonu (bizde §5 kural 5), açık limitations (bizde Kısıtlar), canlı pano
+  (V1 ile örtüşür — 2. kez çıktı).
+
+### 2.4 KARŞIT DERS — olgunluk/rigor farkı
+- ❗ **Test yok, metrik yok, FP disiplini yok, kalıcı depolama yok.** "AI" ismi taşıyan ama ne AI ne
+  ölçüm içeren bir projeye karşı bizim farkımız net: **deterministik kanıt + ölçülmüş/tekrar-
+  üretilebilir eval (875 test, `eval/` FP-rate %0, benchmark holdout)**. CyberShield dersinin (sayısı
+  olmayan dürüstlük yetmez) daha uç bir hali. Anlatıda "rigor" farkını güçlendirir.
+
+### 2.5 Sentinel'e nasıl eklenir
+| # | Öneri | Nereye (modül/sınıf) | Not | Öncelik |
+|---|---|---|---|---|
+| W1 | **Bulgu triyaj durumu + notu**: New/Investigating/Resolved + kalıcı analist notu | `webui/` (+ `runs/` yanında hafif durum dosyası) | Salt iş-akışı katmanı; verdict'e dokunmaz; opsiyonel | 🟢 Düşük |
+
+*(MITRE eşlemesi zaten T ile eklendi; canlı pano V1 ile kapsanıyor — yeni madde açmadık.)*
+
+### 2.6 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+Scapy paket yakalama, ağ-trafiği/IOC watchlist mantığı, protokol-dağılımı görselleştirmesi, network-
+SOC domain'i — access-control bulucu/kanıtlayıcı aracımıza taşınmaz. In-memory/localStorage depolama
+modelini de almayız (bizde `runs/` + kanıt defteri var).
+
+### 2.7 Tek cümlelik ders
+> CyberSentinel-AI, "AI" adı taşıyan ama AI'sız + testsiz + metriksiz bir portfolyo projesi —
+> bizim **rigor** farkımızı (deterministik kanıt + ölçülmüş eval) tersinden vurguluyor; alacağımız
+> tek somut şey opsiyonel bir **analist triyaj-durumu** iş akışı, ve MITRE eşlemesinin (zaten yaptık)
+> bir kez daha doğru yol olduğu.
+
+---
+
+## Repo 3 — `vimalspaceton618-afk/Talos` = **Talos / AgentGuard** ⭐ (bu turun bize en yakını)
+
+**Link:** https://github.com/vimalspaceton618-afk/Talos
+**Tür:** AI ajanları için **local-first güvenlik firewall proxy'si** — indirect prompt-injection
+(inbound) + veri sızıntısı (outbound DLP) tespiti, risk-tabanlı policy + karantina + HITL. *(Alan
+bize yakın: ajan-güvenliği; ama rol farkı kritik — ChainBreak/VaxGuard gibi bir **savunma/
+enforcement proxy'si**, biz **bulucu/kanıtlayıcı**yız.)*
+**Yığın:** Python 3.11+ · FastAPI (HITL API :8000) · Streamlit ops dashboard (:8501) · React+Vite
+command center (:3000) · SQLite · **LLM dokümanda belirtilmemiş** (kural/istatistik-tabanlı görünüyor).
+
+### 3.1 Ne yapıyor (kısaca)
+Ajanın önüne bir proxy koyar: gelen içerikte indirect prompt-injection tarar (`inbound_scanner`),
+giden veride DLP yapar (`outbound_dlp`), risk skoruna göre `policy_engine` ile karar verir, şüpheli
+istekleri **karantinaya** alır, insan (HITL) panodan inceler. Mock-agent test ortamı + red-team
+regresyon paketi + GitHub Actions CI (`security-regression.yml`).
+
+### 3.2 Öne çıkanlar
+1. **Deterministik, kural-tabanlı karar** (LLM'e yargı yok gibi) — bizim tezimizle **hizalı**
+   (VaxGuard'ın LLM-judge'una zıt; bu repo bizim tarafımızda).
+2. **CI'da red-team regresyon + deterministik yerel fixture'lar** (`security-regression.yml`,
+   benchmark JSON artefaktları **30 gün** saklanıyor) — bizim `bench-guard`/`eval` + CI desenimizin
+   birebir akrabası; artefakt-saklama/trend fikri güzel.
+3. **İki-yönlü ajan koruması**: inbound (injection) + outbound (DLP) — kavramsal olarak bizim
+   **UNTRUSTED_TO_ACTION** (inbound→action) + **EXFILTRATION** (outbound canary) predicate'lerimizle
+   birebir örtüşür.
+4. **HITL + karantina**: belirsizi insana bırakma — bizim INCONCLUSIVE/insan-doğrulaması ruhuyla aynı.
+5. **Çok-yüzey**: API + Streamlit + React + CLI script'leri + pip-installable.
+
+### 3.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan)
+- ⚠️ **CI'da eval/benchmark sonucunu artefakt olarak saklama/trend zayıf.** Bizim CI'ımız SARIF +
+  `runs/` yüklüyor ve `bench-guard`/`verify_release` koşuyor; ama `eval/results.json`'ı zamanla
+  saklanan bir **artefakt + basit trend** olarak yayınlamıyoruz. Talos benchmark JSON'ını 30 gün
+  saklıyor — "sayı zamanla nasıl gidiyor" görünür oluyor.
+- ✅ **Tekrar güçlenen / doğrulanan:** deterministik-karar (bizim tezimiz, VaxGuard'a zıt),
+  red-team regresyon + deterministik fixture (bizde `bench/twins` + `eval/`), inbound/outbound ajan
+  koruması (bizde predicate olarak **zaten var** — Talos bunları *korur*, biz *kanıtlarız*),
+  HITL/belirsizi-insana (bizde INCONCLUSIVE).
+
+### 3.4 KONUMLANDIRMA / KARŞIT DERS
+- ❗ **Guard vs Prover (3. kez):** ChainBreak + VaxGuard + Talos — hepsi ajanı **koruyan** runtime
+  guard/proxy. Sentinel farkı: hedef ajanın bu saldırılara **açık olup olmadığını KANITLAR**.
+  Anlatı kartı: *"AgentGuard ajanı korur; Sentinel hedefin indirect-injection/exfiltration'a açık
+  olduğunu deterministik kanıtla gösterir — biz savunmayı değil, açığı ispatlarız."*
+- ❗ **Deterministik ama ölçülmemiş:** Talos bizim gibi deterministik ama **yayınlanmış metrik /
+  FP disiplini / taksonomi eşlemesi yok**. Bizde `eval/` (FP-rate %0, near-miss) + CWE/OWASP/MITRE
+  var → aynı felsefede daha ölçülü olmak farkımız.
+
+### 3.5 Sentinel'e nasıl eklenir
+| # | Öneri | Nereye (modül/sınıf) | Not | Öncelik |
+|---|---|---|---|---|
+| X1 | **CI'da eval/benchmark artefaktı + trend**: `eval/results.json` + benchmark özetini saklanan artefakt olarak yayınla (zamanla FP-rate/recall gidişi) | `.github/workflows/sentinel.yml` (upload-artifact/retention) | Var olanı vitrine çıkarmak; kod ~yok | 🟢 Düşük |
+
+*(inbound/outbound ajan koruması bizde predicate olarak zaten var; guard/enforcement rolünü ALMAYIZ.)*
+
+### 3.6 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+Firewall/proxy enforcement rolü (araya girip blokla/karantinaya al), inbound/outbound **savunma**
+middleware'i, risk-skoru-ile-otomatik-blok — hepsi Talos'un *koruma* domain'ine ait. Biz hedefin
+açığını **kanıtlarız**, trafiği filtrelemeyiz (ChainBreak/VaxGuard için de aynı sınır).
+
+### 3.7 Tek cümlelik ders
+> Talos, bizim tarafımızda (deterministik) duran ama **koruyan** bir ajan-firewall'u; dersi üç katlı:
+> (1) "guard değil, prover'ız" konumlandırmasını 3. kez netleştir, (2) deterministik olup da
+> **ölçmemenin** eksikliğini bizim `eval/`+taksonomimiz kapatıyor, (3) tek somut alınacak **CI eval
+> artefaktı/trend** (X1).
+
+---
+
+## Repo 4 — `Undiluted7027/crucible` = **Crucible** ⭐ (felsefe olarak en yakınımız)
+
+**Link:** https://github.com/Undiluted7027/crucible
+**Tür:** npm audit uyarılarını **tekrar-üretilebilir güvenlik deneyine** çevirir — advisory'yi izole
+container'da replay eder, **3-revizyon** (vulnerable / broken-regresyon / fixed) yan yana karşılaştırır;
+"bu advisory beni gerçekten etkiliyor mu VE önerilen fix işe yarıyor mu" sorusunu deterministik kanıtlar.
+**Yığın:** TypeScript · Node 24 · Docker (Dockside) · özel CLI · **LLM YOK** (kural-tabanlı karar).
+
+### 4.1 Ne yapıyor (kısaca)
+Audit raporunu içeri alır, statik ES-module call-site analiziyle (kod ÇALIŞTIRMADAN) etkilenen yeri
+bulur, üç revizyonu container'da replay eder, JSON kanıt yakalar (**input-hash ile bayatlama/staleness
+tespiti**), Markdown rapor üretir. Karar deterministik: gözlem → "security violation | functional
+regression | passing". Felsefe **birebir bizim tezimiz:** deterministik, tekrar-üretilebilir kanıt.
+
+### 4.2 Öne çıkanlar
+1. **Tekrar-üretilebilir replay + kanıt** — bizim `Replayer`+proof-bundle felsefemizin npm-audit karşılığı.
+2. **3-revizyon fix-verification + regresyon** — fix açığı KAPATIYOR mu *ve* işlevi BOZUYOR mu, yan yana.
+3. **Input-hash STALENESS** — izlenen girdiler (checker kaynağı, fixture/patch, bağımlılık, config)
+   değişince kanıt "bayat → yeniden-ispat gerek" işaretine geçer.
+4. **Aşırı dürüst limitations** — "deadline-sized prototip; yalnızca 1 advisory (lodash GHSA); web
+   workspace / otonom onarım / keyfi-repo reprodüksiyon / auto-fix PR HARİÇ."
+5. **FP disiplini** — "call-site tespiti sözdizimseldir; exploitability KANITLAMAZ, uyarıyı reddetmeyi
+   meşrulaştırmaz." + "verify Docker'a bağlanmaz, tahrifi engellemez" (kapsam dürüstlüğü).
+
+### 4.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan — değerli)
+- ❌ **Proof-bundle STALENESS yok.** SHA-256 kanıtın İÇERİĞİNİ mühürlüyor (tahrif) ama **HEDEF
+  değişince** ("aynı endpoint artık farklı yanıt veriyor") kanıtın *bayatladığını* söyleyen bir
+  input-hash + "re-prove gerek" işareti yok. *(İlk turdaki GOREVLER #6 — hâlâ açık; Crucible doğruluyor.)*
+- ❌ **Fix-verification + functional-regression yok.** Önerilen düzeltmeyi uygulayıp yeniden tarayınca
+  açık kapanıyor mu (+ işlev bozulmuyor mu) — "failed-repair" durumu. *(GOREVLER #7/#8 — açık.)*
+- ✅ **Tekrar güçlenen:** deterministik-karar + reproducible-replay + dürüst-limitations (bizde var).
+
+### 4.4 Sentinel'e nasıl eklenir — mimariye uyumlu
+| # | Öneri | Nereye | Not | Öncelik |
+|---|---|---|---|---|
+| Y1 | **Proof-bundle staleness**: evidence'a hedef-yanıt input-hash'i ekle; `integrity`/`replay` hedefi yeniden çekince hash değiştiyse "STALE → re-prove" işaretle | `evidence/proof.py` + `evidence/ledger.py` + `scripts/integrity.py` | Verdict'e dokunmaz; kanıtın GÜNCELLİĞİni ölçer (hash-chain'in tamamlayıcısı) | 🟡 Orta |
+| Y2 | **Fix-verification + functional-regression**: remediation uygula → yeniden koş → açık kapandı mı **VE** işlev çalışıyor mu; "failed-repair" kanıtı | yeni `oracle`/`report` katmanı | ⛔ verdict merdivenini GEVŞETMEDEN yeni kanıt (yeni bulgu ≠ kısayol) | 🟡 Orta |
+
+### 4.5 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+npm-audit ingestion, Docker/Dockside container-replay altyapısı, ES-module call-site statik analizi —
+Crucible'ın tedarik-zinciri/paket domain'ine ait. Biz HTTP access-control replay'i yapıyoruz; container
+reprodüksiyon modelini almayız. *Fikirleri* (Y1 staleness, Y2 fix-verify) alırız, altyapısını değil.
+
+### 4.6 Tek cümlelik ders
+> Crucible, bizim "deterministik + tekrar-üretilebilir kanıt" tezimizin npm-audit dünyasındaki
+> ikizi; en değerli iki fikri — **staleness** (hedef değişti → kanıt bayat) ve **fix-verification**
+> (düzeltme gerçekten kapattı mı + işlevi bozdu mu) — ilk turdaki GOREVLER #6/#7/#8'i bağımsız doğruluyor.
+
+---
+
+## Repo 5 — `PuneetKumar1790/TrapScan` = **TrapScan**
+
+**Link:** https://github.com/PuneetKumar1790/TrapScan
+**Tür:** Chrome MV3 eklentisi — web'de gezen **AI ajanlarını "AI Agent Traps"tan koruyan** guard
+(içerik enjeksiyonu, semantik manipülasyon, bilişsel-durum saldırıları). Google DeepMind makalesine
+(Franklin vd. 2025) dayanıyor. *(Guard domain'i; biz prover.)*
+**Yığın:** JS/React · Chrome MV3 · Gemma 4 · Vercel. LLM sınıflandırır/açıklar, **karar vermez.**
+
+### 5.1 Ne yapıyor (kısaca)
+3 katman: (1) content-script — 6 **deterministik** yerel algoritma (DOM/CSS/regex/JSON-LD) şüpheli
+parça bulur, veri dışarı çıkmaz; (2) service-worker — şüpheli parçayı Gemma'ya gönderir (sınıflandırma
++ düz-metin açıklama, **verdict değil**); (3) popup — tehdit kartları + 1–10 risk skoru + indirilebilir
+HTML rapor. Deterministik-önce, LLM-açıklar — bizim ilkemiz.
+
+### 5.2 Öne çıkanlar / dersler
+1. **Deterministik-önce, LLM-yalnızca-açıklar** — tezimizi bir kez daha doğruluyor.
+2. **"AI Agent Traps" taksonomisi** (DeepMind) — adversarial-web-içeriğinin zengin sınıflandırması;
+   bizim UNTRUSTED_TO_ACTION senaryolarımızı **çeşitlendirmek** için ilham (referans).
+3. **Karşıt ders (rigor):** test/metrik/limitations/OWASP-CWE-eşleme **yok** → ölçülmüşlük farkımız.
+4. **Guard vs Prover (4. kez):** ChainBreak+VaxGuard+Talos+TrapScan hepsi ajanı *koruyan*; biz *kanıtlayan*.
+
+### 5.3 Bizde EKSİK (yeni, küçük)
+- ⚠️ Ajan-güvenliği test **senaryo çeşitliliği**: TrapScan'in trap taksonomisi (visual-camouflage,
+  cognitive-state, JSON-LD cognitive) UNTRUSTED_TO_ACTION için ek untrusted-content vakaları üretebilir.
+  (Yeni motor değil, senaryo/fixture zenginleştirme.)
+
+### 5.4 Sentinel'e nasıl eklenir
+| # | Öneri | Nereye | Not | Öncelik |
+|---|---|---|---|---|
+| Y3 | **Trap-taksonomi test senaryoları**: DeepMind trap tiplerini untrusted-content fixture'larına ekle | `tests`/`eval` (agent trace fixture'ları) | Yeni motor yok; UNTRUSTED_TO_ACTION recall/güven senaryosu | 🟢 Düşük |
+
+### 5.5 ALMAYACAKLARIMIZ
+Browser-extension guard rolü, Gemma bağımlılığı, web-content-trap enforcement domain'i — TrapScan'in
+koruma alanı. Biz hedef API/ajanın yetki açığını kanıtlarız, tarayıcıda içerik bloklamayız.
+
+### 5.6 Tek cümlelik ders
+> TrapScan bir agent-koruma guard'ı daha (guard-vs-prover 4. kez); alacağımız tek şey DeepMind "AI
+> Agent Traps" taksonomisini untrusted-content senaryolarımıza ilham — enforcement rolünü değil.
+
+---
+
+## Toplu "Yapılacaklar" (yeni tur — her repo sonrası güncellenir)
+
+- [x] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard (+CyberSentinel)* · 🟡 — scanner `on_phase` callback (opsiyonel, verdict'i etkilemez) → ScannerRunner her faz bitince '[faz] N bulgu · M CONFIRMED' akıtıyor; scan-status progress'te canlı görünür
+- [x] (V2) Tek "duruş özeti" advisory rozeti (S ile birleşir) · *kaynak: VaxGuard* · 🟢 — `report/posture.py` (0-100 advisory skor + grade, yalnız CONFIRMED sayılır, 'güvenli demez'); markdown rapor başlığında + web UI done payload'ında
+- [x] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢 — README 'Neyle farklı?'ya 'prover değil guard' + 'evidence-first, model gets no vote' bloğu eklendi (test_verdict_invariance referanslı)
+- [x] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢 — `report/triage_state.py` (runs/<id>/triage.json) + web UI GET/POST /api/runs/<id>/triage (traversal-korumalı); `tests/test_triage_state.py` (8)
+- [x] (X1) CI'da eval/benchmark artefaktı + trend (FP-rate/recall gidişi) · *kaynak: Talos* · 🟢 — sentinel.yml test job'ı self-eval'i koşup `eval/results.json`'ı 90 gün saklanan artefakt olarak yüklüyor
+- [x] (Y1) Proof-bundle **staleness** (hedef değişince input-hash → "re-prove gerek") · *kaynak: Crucible (+GOREVLER #6)* · 🟡 — proof'a `input_fingerprint` + `is_stale()` (status+gövde hash'i); tests/test_staleness.py (5)
+- [x] (Y2) **Fix-verification** ("failed-repair" kanıtı, verdict merdivenini gevşetmeden) · *kaynak: Crucible (+GOREVLER #7/#8)* · 🟡 — `report/remediation_verify.py` (fixed/failed-repair/regressed diff, fingerprint_of key) + `scripts/verify_fix.py`; tests(6). Fonksiyonel-regresyon hedefin işlevsel testini gerektirir → kapsam dışı (dürüstçe not).
+- [x] (Y3) Trap-taksonomi untrusted-content senaryoları (UNTRUSTED_TO_ACTION çeşitliliği) · *kaynak: TrapScan (DeepMind)* · 🟢 — tests/test_agent_traps.py: content-injection/jailbreak/cognitive-urgency trap'ları CONFIRMED, kullanıcı açıkça isterse REJECTED (FP kapanı)
+
+**Tekrarlayan sinyaller:**
+- **Guard vs Prover (4 ajan-güvenlik repo):** ChainBreak + VaxGuard + Talos + TrapScan hepsi ajanı
+  *koruyan* runtime guard/proxy/eklenti; Sentinel farkı hedefin **açık olduğunu kanıtlamak** → en net kart.
+- **Deterministik-karar + reproducible + dürüst-limitations** — Crucible (LLM'siz, replay, aşırı dürüst
+  scope) bunu 5. kez doğruladı; "deterministik + ölçülmüş + kararı kod verir" üçlüsü hâlâ ayrıştırıcımız.
+- **Erişilebilirlik/çok-yüzey + canlı pano** (CLI/API/CI/dashboard) — her repoda çıktı; bizde
+  CLI/MCP/web UI + composite Action var, eksik olan **canlı telemetri** (V1).
+- **Dürüst limitations + yayınlanmış/ölçülmüş metrik** — "olmazsa-olmaz"; bizde `eval/` + Kısıtlar
+  var. Talos deterministik ama ölçmemiş; VaxGuard ölçmüş ama LLM'e yargılatmış; CyberSentinel ne test
+  ne metrik → **deterministik + ölçülmüş + kararı kod verir** üçlüsünü aynı anda yapan biziz.
+- **MITRE ATT&CK eşlemesi** — birden çok repoda; bizde T ile eklendi → doğru yolda.
+
+---
+
+# 🎯 SENTEZ VE EYLEM (2. tur — 3 repo)
+
+## Ana teşhis (tek paragraf)
+Bu turdaki 3 reponun **hiçbiri access-control ekseninde bizden derin değil** ve **hiçbiri yeni bir
+zafiyet tipi/motor gerektirmiyor**. Üçü de ya farklı alan (VaxGuard: LLM-uygulama savunması;
+CyberSentinel: network SOC) ya da farklı **rol** (Talos: ajan-firewall/guard). En büyük değer
+**konumlandırma ve doğrulama**: (1) "guard değil, prover'ız" farkı 3 ajan-güvenlik reposuyla üst
+üste netleşti; (2) "kararı kod verir, model oy vermez" tezimiz VaxGuard'ın LLM-judge'una **karşıt**
+olarak parlıyor; (3) "deterministik **ve** ölçülmüş **ve** kararı kod verir" üçlüsünü aynı anda yapan
+tek proje biziz (Talos ölçmüyor, VaxGuard LLM'e yargılatıyor, CyberSentinel ne test ne metrik).
+Somut kod işi az ve hepsi 🟢/🟡 cila; çekirdeğe eklenecek yeni yetenek yok.
+
+## Örüntü tablosu — hangi ders kaç repoda?
+| Ders | VaxGuard | CyberSentinel | Talos | Sinyal |
+|---|:-:|:-:|:-:|---|
+| Guard/enforcement rolü (biz: prover) | ✅ | — | ✅ | **konumlandırma: prover farkı** |
+| Deterministik karar (LLM oy vermez) | ❌ (LLM-judge) | ✅ | ✅ | tezimiz doğru; VaxGuard karşıt örnek |
+| Yayınlanmış/ölçülmüş metrik | ✅ | ❌ | ❌ | bizde `eval/` var → fark |
+| Açık limitations | ✅ | ✅ | — | olmazsa-olmaz (bizde Kısıtlar) |
+| MITRE ATT&CK eşlemesi | ⚠️ | ✅ | ❌ | bizde T ile var |
+| Canlı pano/telemetri | ✅ | ✅ | ✅ | **3/3 — eksiğimiz (V1)** |
+| Çok-yüzey erişim (CLI/API/CI/dash) | ✅ | ⚠️ | ✅ | bizde var (+Action) |
+
+## Kendimize ne katacağız — önceliklendirilmiş
+**A) Kod GEREKTİRMEYEN (hemen, en yüksek getiri)**
+- **V3 — Konumlandırma/anlatı:** README/DESIGN'e iki net cümle: *"Guard değil, prover'ız"* (hedefin
+  açık olduğunu kanıtlarız, trafiği filtrelemeyiz) + *"evidence-first, model gets no vote"* (VaxGuard-
+  tarzı LLM-judge'a karşı). 3 repo bunu doğruladı → sıfır-risk, yüksek getiri.
+
+**B) Küçük kod (cila; istenirse)**
+- **X1 — CI eval artefaktı/trend:** `eval/results.json`'ı CI'da saklanan artefakt yap (zamanla
+  FP-rate/recall gidişi). Neredeyse bedava, jüriye "sayı zamanla korunuyor" der. (Talos deseni.)
+- **V1 — Canlı tarama telemetrisi:** web UI'de tarama sürerken bulgu-akışı (SSE/polling). 3/3 repoda
+  görülen tek gerçek UX eksiğimiz; demo değeri yüksek, orta iş.
+- **W1 — Bulgu triyaj durumu + notu:** New/Investigating/Resolved + kalıcı analist notu (web UI).
+  Küçük iş-akışı katmanı; verdict'e dokunmaz.
+- **V2 — Advisory "duruş özeti" rozeti:** severity dağılımından tek skor; **S ile birleştir**,
+  advisory tut (verdict'i asla ezmesin). Düşük öncelik.
+
+**C) YAPMAYACAKLARIMIZ (net):** LLM-as-judge (VaxGuard), vaccine/auto-immunity, firewall/proxy
+enforcement + karantina (Talos/ChainBreak/VaxGuard), Scapy/network-SOC (CyberSentinel). Hepsi ya
+tezimize aykırı ya da başka domain → scope-creep.
+
+## Öneri (eğer 2 şey yapılacaksa)
+1. **V3 (anlatı)** — kod yok, en yüksek getiri, 3 repo doğruladı.
+2. **X1 (CI eval artefaktı)** — neredeyse bedava, ölçülmüşlük vitrinini güçlendirir.
+> V1/W1 demo cilası isteğe bağlı; çekirdek zaten güçlü.
+
+---
+
+# 🛠️ Ek: kendi geliştirme fikirlerimiz (repo-türevi değil)
+
+> Kaynak: 2. tur sonrası "projeyi daha ne geliştirir?" beyin fırtınası. Repolardan değil, kod
+> incelemesinden çıktı. İlk 3'ü uygulandı; kalanı backlog.
+
+- [x] **#3 eval korpusunu büyüt** — query-param BOLA (id_location=query) + empty-result near-miss → 12 vaka, FP-rate %0 korundu. *(commit: eval genişletme)*
+- [x] **#2 access-control derinliği** — İnceleme: query-BOLA'yı IdorOracle+planner ZATEN test ediyor, write/second-order IDOR `StateChangingOracle`'da mevcut → yeni oracle redundant. Gerçek boşluk otomatik keşifti: `OpenApiRecon` artık kullanıcı-kapsamlı query param'larını query-BOLA adayı işaretliyor.
+- [x] **#1 mid-scan re-auth** — token süresi dolunca (401) opt-in yeniden yetkilenme (`Session.refresh_auth` + `Replayer.replay(reauth_on_401=True)`); varsayılan kapalı (401/403 oracle bulgusu olduğu için).
+- [x] **#4 Gerçek ajan adaptörleri** — `agentadapter/formats.py`: LangChain / OpenAI Assistants / MCP log → AgentTrace (ağsız). Uçtan-uca: MCP logu → UntrustedToActionOracle CONFIRMED.
+- [x] **#5 `triggered_by` lineage tüm predicate'lerde** — `lineage_marker()` ConfusedDeputy + DestructiveWrite CONFIRMED'lerine de nedensel zincir ekliyor.
+- [x] **#6 Hedef MCP tool-manifest taraması** — `detector/mcp_manifest.py` `McpManifestScanner` (statik, ağsız): exec/eval/keyfi-fs/SSRF/sır paternleri → LIKELY + severity.
+- [x] **#7 Property-based oracle testi** — `tests/test_property_oracle.py` (hypothesis): CONFIRMED ⟹ marker gerçekten attack yanıtında; marker yoksa asla CONFIRMED. dev dep + CI.
+- [x] **#8 Yönetici özeti raporu** — `report/render_exec.py` `ExecSummaryReporter`: tek-sayfa bağımsız HTML (duruş + öne çıkan bulgular + counterfactual, yazdır→PDF); her koşumda `report.exec.html`.
+
+---
+
+# 📈 Recall turu — gerçek açık bularak recall'ı artırma (eşik gevşetmeden)
+
+> İlke: sayıyı ŞİŞİRMEK (verdict eşiğini gevşetmek) YASAK — precision'ı ve tezi çökertir. Recall
+> yalnızca GERÇEK yeni açık yakalayarak artırılır; her ekleme `eval/`'e karşı ölçülür (FP-rate %0 kaldı).
+
+- [x] **Query-param BOLA otomatik keşfi** — `OpenApiRecon` kullanıcı-kapsamlı query param'larını id_location=query BOLA adayı işaretler (IdorOracle zaten test ediyordu).
+- [x] **Koleksiyon/liste BOLA** (`CollectionLeakOracle`, CONFIRMED) — id-siz liste endpoint'inde A'nın owner-private objesi B'nin listesine sızıyor mu; public-katalog kapanı (aynı içerik→REJECTED) + A-kesin marker'lar. Planner id-siz GET/HEAD'e hipotez üretir. eval'e 3 vaka (→15).
+- [x] **Komşu-id enumerasyonu** (`IdorEnumerationOracle`, **LIKELY**) — sıralı-int id'de config'te olmayan komşulara erişip başkasının PII'sini (email/kart/IBAN/SSN/tel deseni) bulur. Opt-in `--enumerate-ids`. Tek-aktör yetkisizliği kanıtlayamadığından **CONFIRMED değil, LIKELY** (bar korunur).
+- [x] **Header-scoped BOLA otomatik keşfi** — X-Account-Id/X-Tenant-Id gibi başlıklar id_location=header adayı.
+- [~] **Nested çoklu-id BOLA** — bilinçli EKLENMEDİ: innermost obje-id'si zaten test ediliyor; dış kapsam-id'sini swaplamak geçerli objeye eşleşmez (404/FP riski), marjinal değer.
+
+**Sonuç:** recall genişledi (query/header BOLA otomatik keşfi + koleksiyon BOLA CONFIRMED + komşu-id LIKELY); **precision %100 / FP-rate %0 korundu**; CONFIRMED barı (deterministik iki-aktör kanıtı) hiç gevşetilmedi.

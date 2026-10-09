@@ -1,4 +1,4 @@
-.PHONY: demo test bench-guard verify lint
+.PHONY: demo test bench-guard lint verify eval prove
 
 # Yorumlayıcı: yerel .venv varsa onu, yoksa python3'ü kullan (bazı sistemlerde `python` YOKTUR).
 # Elle geçersiz kılmak için: make bench-guard PYTHON=/usr/bin/python3.11
@@ -25,3 +25,17 @@ verify:
 # AS-9: ruff (E,W,F,I,UP,B,SIM — bkz. pyproject.toml [tool.ruff]). Ağsız, hedefsiz.
 lint:
 	$(PYTHON) -m ruff check .
+
+# Çalıştırılabilir self-eval artefaktı (M+A+C+J+R): planted TP + FP + near-miss → precision/recall/
+# FP-rate. Ağsız; eval/results.{json,md} üretir; FP>0 ya da near-miss CONFIRMED → çıkış ≠ 0.
+eval:
+	$(PYTHON) eval/evaluate.py
+
+# F (derece-analizi): tek komutta "HER ŞEYİ KANITLA" — jüri deneyimini kolaylaştırır.
+# Ağsız dört kapı: testler (network'süz unit) · self-eval (FP-rate %0) · 0-FP negatif-ikiz ·
+# sürüm bütünlüğü (etiket/template tahrifi). İlk kırılan kapıda durur (non-zero exit).
+prove:
+	$(PYTHON) -m pytest -q
+	$(PYTHON) eval/evaluate.py --quiet
+	$(PYTHON) -m scripts.bench_guard
+	$(PYTHON) -m scripts.verify_release

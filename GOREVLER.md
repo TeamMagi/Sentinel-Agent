@@ -1,47 +1,57 @@
-# Görev Listesi — TLN Cybersecurity Challenge 2026 (19–20 Eylül)
+# Görev Listesi — Galeri Rakip Analizi Eylem Planı (2026-09-21)
 
-> **Kaynak:** [`sentinel-agent-yapilacaklar.txt`](sentinel-agent-yapilacaklar.txt) (30 madde + teknik
-> öncelik notu). Bu dosya o listeyi **Serhat ve Görkem arasında paylaştırır**; maddelerin özgün
-> numaraları (1–30, T1–T4) korunur ki iki dosya birbirine referans verebilsin.
+> **Kaynak:** [`docs/rakip-analizi-tln-galeri-2026-09-21.md`](docs/rakip-analizi-tln-galeri-2026-09-21.md)
+> (91 Devpost gönderimi + en yakın 8 rakibin derin incelemesi). Bu dosya, o belgenin **eyleme
+> dönüştürülebilir** maddelerini **Serhat ↔ Görkem** arasında **efor bazında eşit** paylaştırır.
+> Madde numaraları analizin **§3 tablosu** (#1–#15) ve **§6** ile birebir eşleşir ki iki belge
+> birbirine referans verebilsin.
 >
 > Kurallar: **[CLAUDE.md](CLAUDE.md)** (Türkçe/imzasız commit, `pytest -q` yeşil kalmadan merge yok)
-> · mimari: **[DESIGN.md](DESIGN.md)**.
+> · mimari: **[DESIGN.md](DESIGN.md)** · korunacak kenar (moat): analiz **§5**.
 
-## Öncelik (kaynak dosyadan)
+## Öncelik (analiz §3'ten)
 
-| Aralık | Anlamı |
+| Grup | Anlamı |
 |---|---|
-| **1–9** | Pazarlık payı yok — mutlaka yapılacak |
-| **10–15** | En çok puan getirecek kısım (**UX bir puanlama kriteri** ve şu an en zayıf eksen) |
-| **16–30** | Konumlandırma, tutarlılık, teslim cilası |
-| **T1–T4** | 48 saatlik teknik öncelik sırası (kaynak dosyanın EK NOT'u) |
+| **A · P0** | Kod-dışı, hemen — sunum/anlatı. En yüksek getiri, sıfır kod riski. |
+| **B · P1** | Hızlı kazançlar (kod). Küçük yüzey, yüksek etki. |
+| **C · P2** | Orta kod lifti — yeni detector/oracle/gate. |
+| **D · P3** | Büyük lift — ekosistem entegrasyonu, öğrenen bileşenler. |
 
-## ⛔ İhlal edilemez kural (kaynak dosyanın UYARI'sı)
+## ⛔ İhlal edilemez kural
 
 **Verdict tarafına fallback KOYMAYIN.** Oracle emin olamadığında `INCONCLUSIVE` demesi bir eksiklik
 değil, projenin **en güçlü tarafıdır**. "Emin olamadım, o zaman LIKELY diyeyim" gibi bir gevşeme
 precision'ı kaybettirir ve tüm tezi çökertir. Bu, CLAUDE.md §5'teki değişmezlerin üstünde tutulur.
+Aşağıdaki remediation/verify/functional-regression maddeleri (#7, #8) **verdict merdivenini
+gevşetmeden** eklenecek: yeni bir kanıt, mevcut dört-kademeyi zenginleştirir, kısayol açmaz.
 
 ---
 
-## Yük dağılımı (dengeli — 26.0 / 26.5 saat)
+## Yük dağılımı (dengeli — efor bazında)
 
-| | A Temizlik | B Dil | C UX | D Konum | E Tutarlılık | F Teslim | T Teknik | Toplam |
-|---|---|---|---|---|---|---|---|---|
-| **Görkem** | 1,2,3,4 (3.5) | 6 (4.0) | 10,11,13 (3.5) | 16,17,18,19 (4.5) | 20,21,22,23 (2.5) | — | T3,T4 (8.0) | **26.0 s** |
-| **Serhat** | 5 (1.0) | 7,8,9 (5.0) | 12,14,15 (6.0) | — | — | 24–30 (6.5) | T1,T2 (8.0) | **26.5 s** |
+| | A Anlatı (P0) | B Kod (P1) | C Kod (P2) | D Kod (P3) | Efor toplamı |
+|---|---|---|---|---|---|
+| **Görkem** | #1, #3, #4, §6-5 (4.0) | #6, #7 (5.0) | #8, #9, #10, #11 (12.5) | — | **≈ 21.5 s** |
+| **Serhat** | #2, §6-1b, §6-4 (2.5) | #5 (2.5) | #12 (3.5) | #13, #14, #15 (12.5) | **≈ 21.0 s** |
 
-**Paylaştırma mantığı:** README'ye dokunan **bütün** maddeler (1,2,3,4,6,10,11,13,16–19) tek kişide
-(Görkem) toplandı — yarışma penceresinde iki kişinin aynı dosyada çakışması en pahalı hatadır.
-Serhat kod/UX yolunu (demo, panel, config üretimi), video/teslim paketini ve **kritik yol olan dikey
-dilimi** (T1–T2) alır.
+> Saatler analiz §3'ün efor sütunundan türetilmiştir (Düşük≈1.0 · Düşük-Orta≈1.5 · Orta≈2.5 ·
+> Orta-Yüksek≈3.5 · Yüksek≈5.0). Denge **madde sayısıyla değil eforla** kurulur (Görkem 10, Serhat 8
+> madde; efor 21.5/21.0). İş bölmeleri **DESIGN.md §7 bağımlılık yönüne** göre ayrıldı.
 
-**Önerilen sıra:** T1 → T2 (proje bunlarsız ayakta değil) → 1–9 (pazarlık payı yok) → 10–15 (en çok
-puan) → T3/T4 → 16–30.
+**Paylaştırma mantığı (katman sahipliğiyle):**
+- **Görkem** = README/deck anlatısı + **oracle / detector / verdict / evidence** katmanı (proof-bundle
+  bayatlaması, remediation-verify verdict'i, causal-lineage oracle, entropy detector, MCP-manifest
+  detektörü). Bu, Görkem'in T3 (LLM'siz hipotez/detector) ve T4 (benchmark) sahipliğiyle örtüşür.
+- **Serhat** = video/Devpost teslim paketi + **report/webui / net / policy** katmanı (yapıştırılabilir
+  remediation prompt UI'si, manifest-deviation policy kapısı, nuclei ingestion, pasif URL on-ramp,
+  immunity-memory). Bu, Serhat'ın T1/T2 (dikey dilim: scope/policy) ve panel/demo sahipliğiyle örtüşür.
+
+**Önerilen sıra:** A (P0, kod-dışı — hemen ve bedava) → B (P1 hızlı kazançlar) → C (P2) → D (P3).
 
 ---
 
-## A) Dışarıya çıkmadan önce temizlenecekler
+## A) Anlatı / sunum — P0 · *(kod-dışı, hemen)* · [analiz §6 + §3 #1–#4]
 
 ### [x] 1. Benchmark tablosunu README'den çıkar · *(Görkem · ~1s)*
 "Canlı koşum, 2026-09-16", 3 hedef / 31 vaka, precision %100, FP-rate %0, TP/FN/FP/TN dağılımı —
@@ -61,35 +71,70 @@ gibi gözlem cümleleri de birer **ölçüm iddiasıdır**. Gerçekten koşulana
 ### [x] 4. `make demo` çıktı örneğini kaldır · *(Görkem · ~0.5s)*
 `[done] 6 bulgu · 1 CONFIRMED · runs/run-.../` satırı gerçek bir demo çıktısı gibi duruyor. Gerçek
 çıktı alınana kadar çıkarılmalı.
+### [ ] #1. Anlatıyı "klasik API + ajan-çağı yetki, ikisini de KANITLA" diye çerçevele · *(Görkem · efor: Düşük)*
+Kaynak: ChainBreak/Ranger/Pramaan kümesinin varlığı · katman: README + deck.
+Sahip olduğumuz dört predicate (CONFUSED_DEPUTY, DESTRUCTIVE_WRITE, EXFILTRATION,
+UNTRUSTED_TO_ACTION) README/deck'te bir cümleyle öne çıksın; deck IDOR/BOLA'yı öne, ajan tarafını
+dipnota atmayı bıraksın. Innovation puanının toplandığı yere taşır.
 
-### [ ] 5. Ekran görüntülerini kontrol et · *(Serhat · ~1s)*
-**Durum:** `docs/web-ui-bulgu.png` ve `docs/web-ui-tarama.png` **dosya olarak VAR** (kırık resim yok).
-Kalan iş: görüntülerin **güncel arayüzü** gösterdiğini doğrulamak; göstermiyorsa yenilemek.
+### [ ] #2. "intended vs claimed vs actual" çerçevesini rapor/sunuma al · *(Serhat · efor: Düşük)*
+Kaynak: Ranger · katman: report/video anlatısı.
+Ajanın *ne yapmak istediği*, *ne iddia ettiği*, *ne gerçekten olduğu* ayrımını rapor/video diline
+işle. Bedava, kod gerektirmez, jüriye çok satar.
+
+### [ ] #3. "evidence-first, model gets no vote" + "trajectory/lineage" dilini vurgula · *(Görkem · efor: Düşük)*
+Kaynak: HORCRUX / ChainBreak · katman: README + deck.
+Jürinin ödüllendirdiği dili kullan: "reproducible offline", "measured not claimed". Bunları benchmark
+slaytı + proof-bundle slaytıyla eşle.
+
+### [ ] #4. Ranger kontrastı: "biz hedefi kanıtlıyoruz, meta-değerlendirmiyoruz" · *(Görkem · efor: Düşük)*
+Kaynak: Ranger · katman: deck + README.
+"Ranger ajanın davranışını değerlendirir; Sentinel hedefin zafiyetini kanıtlar — biz daha zor ispatı
+yapıyoruz, üstelik aynı Juice Shop üzerinde." Güçlü, net konumlandırma.
+
+### [ ] §6-1b. Devpost yazımı + videoda ajan-güvenliğini yükselt · *(Serhat · efor: Düşük)*
+Kaynak: analiz §6.1 · katman: Devpost/video teslim.
+Dört predicate'i Devpost açıklamasında ve video anlatısında görünür kıl (#1'in teslim-yüzü karşılığı).
+
+### [ ] §6-4. Devpost linkini gerçek adrese çevir · *(Serhat · efor: Düşük)*
+Kaynak: analiz §6.4 · katman: Devpost/deck.
+Deck'te placeholder `[devpost.com/software/…]` görülüyordu — gerçek gönderim adresiyle değiştir.
+
+### [ ] §6-5. "Herkes kanıt diyor; biz ÖLÇTÜK" slaytı · *(Görkem · efor: Düşük)*
+Kaynak: analiz §6.5 · katman: benchmark slaytı (T4 sahipliği).
+Kanıt-temelli küme kalabalık; farkı *ölçülmüş sayılar* (precision/recall + 0-FP tuzak) yaratıyor. En
+ayrıştırıcı slayt bu.
 
 ---
 
-## B) Dil
+## B) Kod — P1 · *(hızlı kazançlar)* · [analiz §3 #5–#7]
 
 ### [x] 6. README **İNGİLİZCE** olacak · *(Görkem · ~4s)*
 Jüri Amazon, U.S. Bank, Corteva, Blue Cross Blue Shield tarafından; hiçbiri Türkçe okumayacak.
 Bu maddeyi 10/11/13/16/17/18/19 ile **tek geçişte** yap (README'yi iki kez yazma).
+### [x] #5. Yapıştırılabilir "AI-ready remediation prompt" · *(Serhat · efor: Orta)*
+Kaynak: Synk · katman: report/webui.
+Remediation düzyazısını, geliştirme ortamına (Lovable/Cursor vb.) yapıştırılabilir somut bir prompt'a
+çevir. Küçük yüzey, yüksek UX getirisi.
 
-### [ ] 7. Demo videosu İngilizce (ya da İngilizce altyazılı) · *(Serhat · ~3s)*
-**5 dakika sınırı var.** İçerik kurgusu için bkz. madde 24–25.
+### [ ] #6. Proof-bundle "bayatlama" (hedef değişince yeniden-ispat işareti) · *(Görkem · efor: Orta)*
+Kaynak: Crucible · katman: evidence.
+Bundle zaten SHA-256 ile mühürlü; hedef yanıtı değişince bundle "yeniden-ispat gerekiyor" işaretine
+geçsin (girdi hash'i tutup karşılaştır). Verdict'e dokunmaz, kanıtın güncelliğini ölçer.
 
-### [ ] 8. Devpost submission metni İngilizce · *(Serhat · ~1.5s)*
-Proje adı, açıklama, kullanılan teknolojiler.
-
-### [ ] 9. Takım içi Türkçe kalabilir · *(Serhat · ~0.5s)*
-Commit mesajları, `CLAUDE.md`, `DESIGN.md` Türkçe kalır — bunlar jüriye gitmiyor. Tek iş: bu ayrımı
-`CLAUDE.md §2`'ye bir cümleyle yazıp karar netleşsin (juri-yüzü İngilizce / takım-içi Türkçe).
+### [ ] #7. Remediation doğrulama döngüsü + "failed-repair" verdict · *(Görkem · efor: Orta)*
+Kaynak: Crucible · katman: oracle/report.
+Önerilen düzeltmeyi uygulayıp yeniden tarayınca zafiyet kapanıyor mu? "failed-repair" durumu, mevcut
+dört-kademeli merdiveni **gevşetmeden** zenginleştirir (⛔ kuralına dikkat).
 
 ---
 
-## C) Kurulum ve kullanıcı deneyimi
+## C) Kod — P2 · *(orta lift)* · [analiz §3 #8–#12]
 
-> Puanlama kriteri: *"How intuitive, accessible, and practical is the solution for its intended
-> users?"* — **şu an en zayıf eksen.** Bu blok en çok puan getiren bloktur.
+### [ ] #8. Fonksiyonel-regresyon kontrolü (düzeltme işlevi bozuyor mu) · *(Görkem · efor: Orta-Yüksek)*
+Kaynak: Crucible · katman: oracle/verify (#7 ile eşleşir).
+Güvenlik düzeltmesi işlevi (ör. ödeme/format) bozabilir; "exploit bloklandı MI **VE** işlev hâlâ
+çalışıyor MU" çift kontrolü. #7'nin doğal devamı, aynı kişide.
 
 ### [x] 10. README'nin ilk ekranı `make demo` + panel ekran görüntüsü olsun · *(Görkem · ~1.5s)*
 Şu an okuyan önce Docker, WSL2 ve üç YAML dosyası görüyor.
@@ -115,10 +160,29 @@ istek) dönüyor — scope kilitli. `tests/test_serve_ui.py` eklendi.
 ### [ ] 15. Jürinin hiçbir şey kurmadan görebileceği bir şey bırak · *(Serhat · ~1.5s)*
 Barındırılmış panel olmasa bile **tek dosyalık `report.html`'i repoya koymak yeter** — jüri indirip
 açar, kanıtı görür. (Redaksiyonlu, gerçek bir koşumdan.)
+### [ ] #9. Causal lineage graph — çok-adımlı BOLA + UntrustedToAction · *(Görkem · efor: Yüksek)*
+Kaynak: ChainBreak · katman: oracle.
+Veri hassasiyeti + köken + hedef izleyen nedensel köken grafiği; çok-adımlı BOLA ve
+`UntrustedToActionOracle` için güçlü temel. En büyük P2 kalemi.
+
+### [ ] #10. Entropy-temelli sır detektörü (yeni detector) · *(Görkem · efor: Düşük-Orta)*
+Kaynak: SentinelZero · katman: detector.
+Shannon entropy ile sır/token tespiti — ucuz, deterministik, mevcut detector ailesine bir alt sınıf
+olarak oturur (Open/Closed).
+
+### [ ] #11. MCP tool-manifest tarama (hedefin MCP'sini denetle) · *(Görkem · efor: Orta)*
+Kaynak: SentinelZero/Pramaan · katman: detector/oracle.
+Biz MCP'yi *sunucu* olarak sunuyoruz; *hedefin* MCP tool şemasındaki tehlikeli execution
+örüntülerini tarayan detektör, ajan-güvenliği kapsamımızı genişletir.
+
+### [x] #12. manifest-deviation gate (ajan-izi: bildirilen ↔ gözlemlenen akış) · *(Serhat · efor: Orta-Yüksek)*
+Kaynak: HIVE · katman: policy/oracle.
+"İhlal yalnızca bildirilen mimariden sapınca sayılır" kapısı — bizim scope/policy kapımızın
+davranışsal karşılığı. Serhat'ın T1 dikey dilim (scope/policy) sahipliğine oturur.
 
 ---
 
-## D) Konumlandırma · *(tamamı Görkem — README sahipliği)*
+## D) Kod — P3 · *(büyük lift)* · [analiz §3 #13–#15]
 
 ### [x] 16. Özgünlük iddiasını daralt · *(Görkem · ~1.5s)*
 Differential authorization testing yeni değil: **Burp Autorize, AuthMatrix** ve README'de kendi
@@ -138,10 +202,24 @@ bir ihlal örneğiyle **bir paragrafta** anlat.
 ### [x] 19. Kapsam sprawl'ını kes · *(Görkem · ~1s)*
 Agent-security oracle'ları, template ekosistemi, sürüm bütünlüğü doğrulama, holdout → **vizyon
 dosyasında kalsın**; README'de "yol haritası" başlığı altında **tek satır** olsun.
+### [x] #13. Dış araç ingestion (özellikle nuclei template'leri) · *(Serhat · efor: Yüksek)*
+Kaynak: HORCRUX · katman: net/recon.
+Dış araç çıktılarını (öncelikle **nuclei template** ekosistemi) recon/hypothesis'e besle. En büyük
+kapsama getirisi; deterministik sonuç otoriter, AI yardımcı ilkesi korunur.
+
+### [x] #14. Hafif "URL ver, pasif tara" on-ramp (auth'suz detektörler) · *(Serhat · efor: Orta)*
+Kaynak: Synk · katman: net/webui.
+Auth gerektirmeyen pasif detektörler için (exposure/info-leak/headers/CVE) URL-ver-tara hafif giriş
+yolu. Friction sorununa kısmi çare — **pivot değil**, on-ramp (analiz §4'e uygun).
+
+### [x] #15. "immunity memory" / öğrenilen imza kütüphanesi · *(Serhat · efor: Yüksek)*
+Kaynak: HIVE · katman: hypothesis/store.
+Soyut zafiyet örüntülerini hatırlayan imza kütüphanesi; hypothesis üretimini besler. Açık uçlu, en
+belirsiz kalem — en sona.
 
 ---
 
-## E) İç tutarlılık · *(tamamı Görkem)*
+## Ne ALMAYACAĞIZ (analiz §4 — kimse bu maddelere sapmasın)
 
 ### [x] 20. `UntrustedToActionOracle` çelişkisini gider · *(Görkem · ~0.5s)*
 **Durum (doğrulandı):** README **satır 113** oracle tablosunda **uygulanmış** olarak listeli,
@@ -163,10 +241,16 @@ doğrulamak. Olmayan dosyaya/bölüme link vermeyin.
 
 ### [x] 23. "Stage 0 / 1 / 2" tablosunu gerçekleşenle eşle · *(Görkem · ~0.5s)*
 Yarışma sonunda Stage 0 bitmişse tabloda öyle görünsün.
+- **Tüketici scam/phishing pivotu** — kalabalık, türev, tezi sulandırır.
+- **ZK-proof / W3C Verifiable Credentials ağırlığı** (Pramaan) — maliyet çok yüksek; leaked-marker +
+  SHA-256 bundle zaten yeterli.
+- **Tam sıfır-config / tarayıcı-eklentisi pivotu** — erişim-kontrol testi kimlik ister. Hafif on-ramp
+  (#14) evet, pivot hayır.
+- **Çoklu-ajan "tartışma" gösterisi** (PARALLAX tarzı) — "kod karar verir" ilkesiyle gerginlik yaratır.
 
 ---
 
-## F) Sunum ve teslim · *(tamamı Serhat)*
+## Arşiv — önceki görev dalgası
 
 ### [ ] 24. Demo videosu üç kare üstüne kurulsun · *(Serhat · ~2.5s)*
 1. Zafiyetli hedefte **CONFIRMED** — kanıt + repro-curl ekranda.
@@ -245,3 +329,9 @@ kaldırıldı. Kayıp yok:
 - Gerekçe/kıyas dokümanları yerinde: [rakip analizi](docs/rakip-analizi-2026-09.md) ·
   [agent-security kıyası](docs/rakip-analizi-agent-security-2026-09.md) · [ROADMAP](ROADMAP.md) ·
   [kalite artığı](GOREVLER_Q.md) · [Tier C](TIER_C.md).
+Bu dosyanın önceki içeriği (yarışma penceresi listesi: A–G blokları, maddeler **1–30** ve **T1–T4**;
+ondan önceki RK-1…RK-14 ve AS-1…AS-9 dalgaları) galeri-analizi eylem planına yer açmak için
+kaldırıldı — **kayıp yok, git geçmişinde ve kodda duruyor**. Referanslar yerinde:
+[genel rakip analizi](docs/rakip-analizi-2026-09.md) ·
+[agent-security kıyası](docs/rakip-analizi-agent-security-2026-09.md) ·
+[galeri analizi](docs/rakip-analizi-tln-galeri-2026-09-21.md) · [ROADMAP](ROADMAP.md) · [DESIGN.md](DESIGN.md).

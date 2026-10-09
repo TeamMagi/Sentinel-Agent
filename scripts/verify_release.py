@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import hashlib
 import json
 import pathlib
@@ -218,11 +219,10 @@ def verify(quiet: bool = False) -> int:
 
 
 def main(argv=None) -> int:
-    # Windows konsolu (varsayılan cp125x) ✅ gibi karakterleri kodlayamayıp çöküyor;
-    # Docker/WSL2'de zaten UTF-8 olduğu için orada no-op (bkz. bench_guard.py aynı kalıp).
-    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
+    # Windows konsolu (cp1254) emoji/UTF-8 basınca çökmesin (Linux/CI'da no-op).
+    for _s in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            _s.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     p = argparse.ArgumentParser(
         prog="verify_release",
         description="Sürüm bütünlüğü doğrulayıcı (AS-7) — ağsız, yalnız stdlib")

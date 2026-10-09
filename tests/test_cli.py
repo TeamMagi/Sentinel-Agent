@@ -54,7 +54,7 @@ def test_no_scan_mode_keeps_scope_yaml_budget_unchanged():
     out, breadth = _apply_scan_profile(budget, _args())
     assert out.max_total_requests == 2000 and out.max_wall_clock_sec == 900
     assert breadth == {"exposure_scan": True, "info_leak_scan": True, "rate_limit_scan": True,
-                        "cve_scan": True, "enumerate_more": False}
+                        "cve_scan": True, "enumerate_more": False, "tls_scan": True}
 
 
 def test_quick_mode_scales_down_budget_and_breadth():
@@ -282,10 +282,12 @@ class _FakeScanner:
 
     instances: list = []
 
-    def __init__(self, target, scope, budget_cfg, out_dir="runs/", *, llm=None, templates_dir=None, **kw):
+    def __init__(self, target, scope, budget_cfg, out_dir="runs/", *, llm=None, templates_dir=None,
+                extra_hypotheses=(), **kw):
         self.target = target
         self.out_dir = Path(out_dir)
         self.llm = llm
+        self.extra_hypotheses = extra_hypotheses
         self.anon = _FakeSession("anonymous")
         self.executor = object()
         self.planner = object()
@@ -388,6 +390,83 @@ async def test_run_standard_active_mode_saves_and_prints_done(tmp_path, monkeypa
     assert fs.closed is True
     out = capsys.readouterr().out
     assert "[done]" in out and "CONFIRMED" in out
+
+
+@pytest.mark.asyncio
+async def test_run_nuclei_jsonl_feeds_extra_hypotheses_into_scanner(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    nuclei_out = tmp_path / "nuclei.jsonl"
+    nuclei_out.write_text(json.dumps({
+        "template-id": "exposed-idor", "info": {"name": "x", "severity": "high", "tags": ["idor"]},
+        "matched-at": "http://localhost:3000/api/nuclei-hit/42",
+    }), encoding="utf-8")
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"), nuclei_jsonl=str(nuclei_out))
+    rc = await cli._run(args)
+    assert rc == 0
+    fs = _FakeScanner.instances[-1]
+    assert len(fs.extra_hypotheses) == 1
+    assert fs.extra_hypotheses[0].type == "idor"
+    assert fs.extra_hypotheses[0].endpoint.path_template == "/api/nuclei-hit/{id}"
+
+
+@pytest.mark.asyncio
+async def test_run_without_nuclei_jsonl_passes_no_extra_hypotheses(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"))
+    await cli._run(args)
+    assert _FakeScanner.instances[-1].extra_hypotheses == ()
+
+
+# --------------------------- --immunity-memory (GOREVLER #15) ---------------------------
+
+def _write_immunity_memory(path, *, endpoint="/x/{id}", type_="idor", method="GET", count=1):
+    path.write_text(json.dumps([{
+        "pattern": f"{type_}:{method}:{endpoint}", "type": type_, "method": method,
+        "path_template": endpoint, "confirmed_count": count,
+        "first_seen": "2026-01-01T00:00:00+00:00", "last_seen": "2026-01-01T00:00:00+00:00",
+    }]), encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_run_immunity_memory_boosts_matching_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)   # endpoints.yaml: GET /x/{id}
+    mem = tmp_path / "immunity.json"
+    _write_immunity_memory(mem, endpoint="/x/{id}", count=5)
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"), immunity_memory=str(mem))
+    await cli._run(args)
+    fs = _FakeScanner.instances[-1]
+    assert len(fs.extra_hypotheses) == 1
+    assert fs.extra_hypotheses[0].type == "idor"
+    assert "5 kez" in fs.extra_hypotheses[0].rationale
+
+
+@pytest.mark.asyncio
+async def test_run_immunity_memory_records_confirmed_findings_after_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    mem = tmp_path / "immunity.json"   # henüz yok — bu koşum oluşturmalı
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"), immunity_memory=str(mem))
+    await cli._run(args)   # _FakeScanner.findings_to_return = [CONFIRMED idor /x/{id}]
+    assert mem.exists()
+    learned = json.loads(mem.read_text(encoding="utf-8"))
+    assert learned and learned[0]["type"] == "idor" and learned[0]["path_template"] == "/x/{id}"
+
+
+@pytest.mark.asyncio
+async def test_run_without_immunity_memory_flag_does_not_write_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"))
+    await cli._run(args)
+    assert not (tmp_path / "immunity.json").exists()
 
 
 @pytest.mark.asyncio
