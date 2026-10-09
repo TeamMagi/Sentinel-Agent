@@ -378,7 +378,7 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [x] (F) Tek komut `make prove` · *kaynak: TRACE X* · 🟡 — `make prove` = pytest + self-eval + bench-guard + verify_release (ağsız, ilk kırılan kapıda durur); `make eval` de eklendi
 - [x] (G) Verdict-invariance testi — LLM ne dönerse dönsün verdict aynı · *kaynak: NoScam* · 🔴 — `tests/test_verdict_invariance.py` (5): adversarial LLM (demote/escalate/injection/çöp/patlama) → verdict+severity SABİT, yalnızca severity_suggested/impact değişir; Hypothesis'te verdict alanı yok
 - [ ] (H) Policy truth-table (belge + test) · *kaynak: NoScam* · 🟡
-- [ ] (I) Prompt-injection sertleştirmesi — yanıt içeriği LLM'e label+truncate · *kaynak: NoScam* · 🟡
+- [x] (I) Prompt-injection sertleştirmesi — yanıt içeriği LLM'e label+truncate · *kaynak: NoScam* · 🟡 — `llm/prompts.py` `wrap_untrusted()`: fence-breakout nötrleme (içerikteki `<<UNTRUSTED_DATA>>`/rol etiketleri) + truncation (MAX 8000); 4 build_* metodu buradan geçer; `tests/test_prompt_hardening.py` (6). (Fence + "veri, talimat değil" zaten vardı; eksik olan kaçış+kırpma eklendi.)
 - [ ] (J) Benign-app negative-control regresyonu (0 CONFIRMED ispatı) · *kaynak: NoScam* · 🟡
 
 - [x] (K) GitHub Action + exit-code gating (SARIF'i CI kapısına bağla) · *kaynak: SlopGuard* · 🔴 — workflow zaten SARIF+`--fail-on` yapıyordu; eksik olan tekrar-kullanılabilir composite `.github/actions/sentinel-scan/action.yml` eklendi (başka repolar `uses:` ile çağırır, `sentinel scan` CLI'ıyla). README'de örnek kullanım.

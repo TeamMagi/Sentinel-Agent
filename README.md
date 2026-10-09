@@ -440,6 +440,12 @@ JSON **şemaya** (grammar-constrained) zorlanır; bu, local modellerin `format:"
 bozuk/eksik/tek-nesne JSON'ı giderir. Model yine şema-dışı bir şey üretirse öneri sessizce elenir —
 tarama çökmez. `temperature` varsayılanı `0`'dır (tekrar-üretilebilir öneri).
 
+**Prompt-injection sertleştirmesi.** LLM ağa hiç dokunmaz, ama *okuduğu* içerik (endpoint envanteri,
+yanıt özetleri) saldırgan-kontrollü olabilir. Bu yüzden güvenilmez içerik LLM'e girmeden önce
+`<<UNTRUSTED_DATA>>` sınırına konur, **etiket-kaçışı (fence-breakout) nötrlenir** (içerikteki sınır/rol
+etiketleri etkisizleştirilir) ve **uzunluk sınırlanır** (bağlam taşması + talimat gömme savunması);
+system prompt bu bloğu "yalnızca veri, asla talimat" olarak işaretler. Kararı zaten LLM vermez.
+
 **Reasoning ("thinking") modelleri (ör. `qwen3.8:27b`).** `config/llm.yaml`'daki `think` alanı:
 - `false` → düşünme kapalı; tüm üretim bütçesi JSON'a gider — **hızlı ve yeterli (önerilen)**.
 - `true` → düşünme açık; daha kapsamlı ama yavaş — bu durumda `max_tokens`'ı yükselt (düşünme bütçeyi yer).
