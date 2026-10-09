@@ -28,6 +28,7 @@ from pentestai.webui import (
     BudgetSpec,
     EndpointSpec,
     RemediationCatalog,
+    RemediationPromptBuilder,
     RequestGuard,
     ScanBusyError,
     ScanManager,
@@ -172,6 +173,45 @@ def test_remediation_llm_override():
     assert g["steps"]     # adımlar yine katalogdan
 
 
+# --------------------------- remediation_prompt ---------------------------
+
+def test_prompt_builder_includes_context_and_steps():
+    guide = RemediationCatalog().guide_for({"type": "idor"})
+    finding = {
+        "method": "GET", "endpoint": "/rest/basket/{id}", "parameter": "id",
+        "type": "idor", "verdict": "CONFIRMED",
+        "evidence": {"leaked_markers": ["victim-marker-xyz"]},
+    }
+    prompt = RemediationPromptBuilder().build(finding, guide)
+    assert "GET /rest/basket/{id}" in prompt
+    assert "idor" in prompt
+    assert "CONFIRMED" in prompt
+    assert "victim-marker-xyz" in prompt
+    assert guide["fix_summary"] in prompt
+    for step in guide["steps"]:
+        assert step in prompt
+    for ref in guide["references"]:
+        assert ref["url"] in prompt
+
+
+def test_prompt_builder_omits_optional_sections_when_absent():
+    guide = RemediationCatalog().guide_for({"type": "idor"})
+    prompt = RemediationPromptBuilder().build({"type": "idor"}, guide)
+    assert "Parametre:" not in prompt
+    assert "Sızan işaretçi" not in prompt
+
+
+def test_prompt_builder_redacts_leaked_token_defensively():
+    guide = RemediationCatalog().guide_for({"type": "idor"})
+    finding = {
+        "type": "idor",
+        "evidence": {"leaked_markers": ["Bearer abc.def.ghi"]},
+    }
+    prompt = RemediationPromptBuilder().build(finding, guide)
+    assert "Bearer abc.def.ghi" not in prompt
+    assert "<REDACTED>" in prompt
+
+
 # --------------------------- scan_manager ---------------------------
 
 def test_manager_runs_job_to_done():
@@ -306,6 +346,8 @@ def test_app_scan_flow_enriches_and_redacts(tmp_path):
     f = payload["findings"][0]
     # çözüm önerisi eklenmiş
     assert f["remediation_guide"]["type"] == "idor"
+    # AI-ready prompt eklenmiş ve endpoint'i içeriyor
+    assert f["endpoint"] in f["remediation_prompt"]
     # redaction: ham token gitmedi
     raw = json.dumps(payload, ensure_ascii=False)
     assert "SECRETTOKEN123" not in raw
