@@ -17,6 +17,8 @@
 #   unauth (NEGATİF) : /rest/products/search ve /api/products anonim GET = 200 → public-by-design;
 #                      "yetkisiz erişim zafiyeti" DEĞİL. Araç bunları CONFIRM ederse FALSE-POSITIVE'dir.
 #   idor login (NEG) : /rest/user/login obje endpoint'i değil → IDOR olamaz.
+#   crlf redirect(NEG): GET /redirect?to=...%0d%0aX-Crlf-Test:injected -> 302 Location'da dizi
+#                       %0D%0A KODLU kaldı (başlığa bölünmedi) → CRLF/response-splitting YOK (2026-10-02).
 
 cases:
   # ---------- POZİTİF: gerçek zafiyetler (araç CONFIRM etmeli) ----------
@@ -62,3 +64,10 @@ cases:
     method: GET
     expect: not_vulnerable
     note: "Login endpoint'i obje endpoint'i değil; IDOR yanlış-pozitifi olmamalı."
+
+  - type: crlf_injection
+    endpoint: "/redirect"
+    method: GET
+    expect: not_vulnerable
+    note: "CRLF süzülmüyor: to=...%0d%0aX-Crlf-Test:injected -> Location başlığında %0D%0A KODLU
+      kaldı, ayrı başlığa bölünmedi (bağımsız curl ile doğrulandı) → response splitting YOK (FP kapanı)."
