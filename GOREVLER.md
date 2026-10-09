@@ -91,7 +91,7 @@ ayrıştırıcı slayt bu.
 
 ## B) Kod — P1 · *(hızlı kazançlar)* · [analiz §3 #5–#7]
 
-### [ ] #5. Yapıştırılabilir "AI-ready remediation prompt" · *(Serhat · efor: Orta)*
+### [x] #5. Yapıştırılabilir "AI-ready remediation prompt" · *(Serhat · efor: Orta)*
 Kaynak: Synk · katman: report/webui.
 Remediation düzyazısını, geliştirme ortamına (Lovable/Cursor vb.) yapıştırılabilir somut bir prompt'a
 çevir. Küçük yüzey, yüksek UX getirisi.
@@ -130,7 +130,7 @@ Kaynak: SentinelZero/Pramaan · katman: detector/oracle.
 Biz MCP'yi *sunucu* olarak sunuyoruz; *hedefin* MCP tool şemasındaki tehlikeli execution
 örüntülerini tarayan detektör, ajan-güvenliği kapsamımızı genişletir.
 
-### [ ] #12. manifest-deviation gate (ajan-izi: bildirilen ↔ gözlemlenen akış) · *(Serhat · efor: Orta-Yüksek)*
+### [x] #12. manifest-deviation gate (ajan-izi: bildirilen ↔ gözlemlenen akış) · *(Serhat · efor: Orta-Yüksek)*
 Kaynak: HIVE · katman: policy/oracle.
 "İhlal yalnızca bildirilen mimariden sapınca sayılır" kapısı — bizim scope/policy kapımızın
 davranışsal karşılığı. Serhat'ın T1 dikey dilim (scope/policy) sahipliğine oturur.
@@ -139,17 +139,17 @@ davranışsal karşılığı. Serhat'ın T1 dikey dilim (scope/policy) sahipliğ
 
 ## D) Kod — P3 · *(büyük lift)* · [analiz §3 #13–#15]
 
-### [ ] #13. Dış araç ingestion (özellikle nuclei template'leri) · *(Serhat · efor: Yüksek)*
+### [x] #13. Dış araç ingestion (özellikle nuclei template'leri) · *(Serhat · efor: Yüksek)*
 Kaynak: HORCRUX · katman: net/recon.
 Dış araç çıktılarını (öncelikle **nuclei template** ekosistemi) recon/hypothesis'e besle. En büyük
 kapsama getirisi; deterministik sonuç otoriter, AI yardımcı ilkesi korunur.
 
-### [ ] #14. Hafif "URL ver, pasif tara" on-ramp (auth'suz detektörler) · *(Serhat · efor: Orta)*
+### [x] #14. Hafif "URL ver, pasif tara" on-ramp (auth'suz detektörler) · *(Serhat · efor: Orta)*
 Kaynak: Synk · katman: net/webui.
 Auth gerektirmeyen pasif detektörler için (exposure/info-leak/headers/CVE) URL-ver-tara hafif giriş
 yolu. Friction sorununa kısmi çare — **pivot değil**, on-ramp (analiz §4'e uygun).
 
-### [ ] #15. "immunity memory" / öğrenilen imza kütüphanesi · *(Serhat · efor: Yüksek)*
+### [x] #15. "immunity memory" / öğrenilen imza kütüphanesi · *(Serhat · efor: Yüksek)*
 Kaynak: HIVE · katman: hypothesis/store.
 Soyut zafiyet örüntülerini hatırlayan imza kütüphanesi; hypothesis üretimini besler. Açık uçlu, en
 belirsiz kalem — en sona.
