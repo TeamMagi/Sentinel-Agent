@@ -15,7 +15,7 @@ dependencies = [
   "PyYAML>=6.0",
   "SQLModel>=0.0.21",
   "playwright>=1.47",
-  "PyJWT>=2.8",
+  "PyJWT[crypto]>=2.8",   # [crypto] → cryptography: RS256→HS256 alg-confusion (jwt_confusion) için RSA/JWK gerekir
   "anthropic>=0.69",
 ]
 

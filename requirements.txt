@@ -4,7 +4,7 @@ pydantic>=2.7,<3.0
 PyYAML>=6.0
 SQLModel>=0.0.21
 playwright>=1.47
-PyJWT>=2.8            # JWT exp decode (session expiry)
+PyJWT[crypto]>=2.8   # JWT exp decode + [crypto]→cryptography (jwt_confusion alg-confusion RSA/JWK)
 anthropic>=0.69      # canlı LLM reasoning (Stage 1); lazy import, anahtar gerektirir
 
 # ---- test ----
