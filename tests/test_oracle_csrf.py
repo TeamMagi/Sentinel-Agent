@@ -35,12 +35,14 @@ def make_app(*, csrf_enforced: bool):
     return handler
 
 
-def _setup(handler, *, with_csrf_cfg: bool = True):
+def _setup(handler, *, with_csrf_cfg: bool = True, bearer: bool = False):
     scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"],
                   allowed_methods=["GET", "PUT"], destructive_tests=True)
     store = SessionStore(transport=httpx.MockTransport(handler))
     csrf = CSRFConfig(fetch_url=f"{BASE}/csrf-token", extract="json:csrfToken") if with_csrf_cfg else None
-    A = Actor(name="user_A", auth=AuthState(csrf=csrf), own_object_ids={"order": "A-1"})
+    # bearer=True → auth başlık-tabanlı (Authorization); aksi halde ambient (cookie/başlıksız).
+    headers = {"Authorization": "Bearer TOKEN_A"} if bearer else {}
+    A = Actor(name="user_A", auth=AuthState(headers=headers, csrf=csrf), own_object_ids={"order": "A-1"})
     oracle = CsrfOracle(Replayer(PolicyEngine(scope)), BASE)
     return store, oracle, store.create(A)
 
@@ -52,6 +54,18 @@ async def test_confirmed_when_csrf_not_enforced():
     assert f.verdict == base.CONFIRMED and f.confidence == "high"
     assert f.evidence.negative_control and f.evidence.positive_control
     assert "4271" in f.evidence.leaked_markers[0]
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_likely_when_bearer_auth_not_ambient():
+    """P1-FP düzeltmesi: token'sız yazma geçse bile auth başlık-tabanlıysa (bearer) tarayıcı
+    başlığı cross-site göndermez → CSRF sömürülemez → CONFIRMED değil, LIKELY + not."""
+    store, oracle, A = _setup(make_app(csrf_enforced=False), bearer=True)
+    f = await oracle.run(EP, A, A, resource_key="order")
+    assert f.verdict == base.LIKELY and f.confidence == "medium"
+    assert f.verdict != base.CONFIRMED
+    assert f.triage_note
     await store.aclose_all()
 
 

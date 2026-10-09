@@ -51,8 +51,30 @@ def test_card_number_is_redacted_plain_and_grouped():
 
 
 def test_tckn_is_redacted():
-    out = redact('{"tckn":"12345678901"}')
-    assert "12345678901" not in out
+    out = redact('{"tckn":"10000000146"}')   # checksum-geçerli (gerçek biçim) TCKN
+    assert "10000000146" not in out
+    assert "<REDACTED>" in out
+
+
+def test_invalid_tckn_is_preserved():
+    """P3: checksum tutmayan 11-haneli sayı gerçek TCKN DEĞİLDİR → redakte edilmez (id/timestamp
+    olabilir; aşırı-redaction findings.json/proof'taki gerçek id'leri bozuyordu)."""
+    out = redact('{"ref":"12345678901"}')      # sıralı, checksum geçersiz → TCKN değil
+    assert "12345678901" in out
+
+
+def test_non_luhn_long_numeric_id_is_preserved():
+    """P3: Luhn tutmayan uzun sayı (ör. 13-haneli ms-timestamp, snowflake/DB id) kart DEĞİLDİR →
+    korunur; aksi halde replay.py'nin ağsız yeniden-ispatı ve CI tüketimi için gereken gerçek
+    id'ler <REDACTED>'e dönüp bozuluyordu."""
+    out = redact('{"created_ms":1000000000000,"order_id":"1000000000000"}')
+    assert "1000000000000" in out              # Luhn geçmez → kart sayılmaz → korunur
+
+
+def test_valid_luhn_plain_card_still_redacted():
+    """Gizlilik korunur: Luhn-geçerli düz PAN hâlâ redakte edilir."""
+    out = redact('{"pan":"4111111111111111"}')  # Luhn-geçerli test Visa
+    assert "4111111111111111" not in out
     assert "<REDACTED>" in out
 
 

@@ -16,6 +16,28 @@ from pentestai.policy import PolicyEngine
 BASE = "http://localhost:3000"
 EP_OBJECT = Endpoint(method="DELETE", path_template="/api/orders/{id}", id_param="id")
 EP_FUNC = Endpoint(method="DELETE", path_template="/api/admin/cache", id_param="id")
+EP_PUT = Endpoint(method="PUT", path_template="/api/orders/{id}", id_param="id")
+
+
+def make_safe_bypass_app(*, public: bool):
+    """Orijinal method PUT (ownership korumalı) ama GET korumasız. `public=True` → GET id'yi
+    yoksayıp herkese AYNI içeriği döndürür (public-by-design); `public=False` → GET id-özel
+    (gerçek cross-owner sızıntı). Güvenli-method bypass'ta FP kapanını sınar."""
+    owners = {"A-1": "user_A", "B-2": "user_B"}
+
+    def handler(request):
+        oid, actor, method = _id_of(request), _actor_of(request), request.method.upper()
+        if method == "PUT":
+            if owners.get(oid) != actor:
+                return httpx.Response(403, json={"error": "forbidden"})
+            return httpx.Response(200, json={"id": oid, "val": 0})
+        if method == "GET":
+            if public:
+                return httpx.Response(200, json={"id": "X", "val": 0})   # id-yoksayan, herkese aynı
+            return httpx.Response(200, json={"id": oid, "val": 42 if oid == "B-2" else 7})  # id-özel
+        return httpx.Response(405, json={"error": "method"})
+
+    return handler
 
 
 def _id_of(request):
@@ -113,6 +135,27 @@ async def test_rejected_function_level_when_all_methods_checked():
     store, oracle, _, B, admin = _setup(make_func_app(put_bypasses=False))
     f = await oracle.run(EP_FUNC, admin, B, resource_key="")
     assert f.verdict == base.REJECTED
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_likely_when_safe_method_is_public_by_design():
+    """P1-FP düzeltmesi: GET ile bulunan bypass, GET id'yi yoksayıp herkese aynı içeriği
+    veriyorsa (public-by-design) CONFIRMED değil LIKELY olmalı."""
+    store, oracle, A, B, _ = _setup(make_safe_bypass_app(public=True))
+    f = await oracle.run(EP_PUT, A, B, resource_key="order")   # victim=A, attacker=B
+    assert f.verdict == base.LIKELY and f.confidence == "medium"
+    assert f.verdict != base.CONFIRMED
+    assert f.triage_note
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_confirmed_when_safe_method_leaks_owner_specific_data():
+    """Güvenli-method bypass gerçek cross-owner sızıntıysa (GET id-özel veri döndürüyor) CONFIRMED."""
+    store, oracle, A, B, _ = _setup(make_safe_bypass_app(public=False))
+    f = await oracle.run(EP_PUT, A, B, resource_key="order")   # victim=A, attacker=B
+    assert f.verdict == base.CONFIRMED and f.confidence == "high"
     await store.aclose_all()
 
 

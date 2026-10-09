@@ -875,6 +875,28 @@ def test_scan_returns_429_when_manager_is_busy(tmp_path):
     assert resp.status == 429
 
 
+# --------------------------- WebServer bind güvenliği (P3) ---------------------------
+
+def test_server_refuses_non_loopback_bind_by_default(tmp_path):
+    """authN yok → loopback-dışı bind (0.0.0.0/LAN) varsayılan olarak REDDEDİLİR (fail-closed)."""
+    app = _app(tmp_path)
+    for host in ("0.0.0.0", "", "192.168.1.10"):
+        with pytest.raises(ValueError):
+            WebServer(app, host=host, port=0)
+
+
+def test_server_allows_non_loopback_with_explicit_optin(tmp_path):
+    """Bilinçli allow_external=True → hata yok (soket __init__'te açılmaz, yalnızca kabul edilir)."""
+    app = _app(tmp_path)
+    srv = WebServer(app, host="0.0.0.0", port=0, allow_external=True)
+    assert srv.host == "0.0.0.0"
+
+
+def test_server_localhost_hostname_is_loopback(tmp_path):
+    app = _app(tmp_path)
+    assert WebServer(app, host="localhost", port=0).host == "localhost"
+
+
 # --------------------------- WebServer (gerçek soket, tek istek) ---------------------------
 
 def test_server_end_to_end_health(tmp_path):
