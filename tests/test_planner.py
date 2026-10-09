@@ -32,6 +32,35 @@ def test_deterministic_rules():
     assert ("csrf", "/api/uploads", "POST") not in types    # yazma metodu var ama id yok
 
 
+def test_emits_jwt_privilege_escalation_for_identity_reads():
+    eps = [
+        Endpoint(method="GET", path_template="/api/orders/{id}", id_param="id"),  # obje okuması
+        Endpoint(method="GET", path_template="/api/me"),                          # kimlik segmenti
+        Endpoint(method="GET", path_template="/api/management"),                  # "me" YALNIZ substring
+        Endpoint(method="PUT", path_template="/api/orders/{id}", id_param="id"),  # yazma → hariç
+    ]
+    types = {(h.type, h.endpoint.path_template, h.endpoint.method)
+             for h in HypothesisGenerator().deterministic(eps)}
+    assert ("jwt_privilege_escalation", "/api/orders/{id}", "GET") in types   # has_id okuma
+    assert ("jwt_privilege_escalation", "/api/me", "GET") in types            # segment eşleşmesi
+    # segment eşleşmesi (substring değil): "management" segmenti "me" ile eşleşMEmeli
+    assert ("jwt_privilege_escalation", "/api/management", "GET") not in types
+    # dikey yükseltme yalnız GET/HEAD — yazma metodunda iki-kez-baseline riski var
+    assert ("jwt_privilege_escalation", "/api/orders/{id}", "PUT") not in types
+
+
+def test_emits_nested_idor_for_dotted_body_id():
+    ep = Endpoint(method="POST", path_template="/api/getOrder",
+                  id_param="filter.orderId", id_location="body")
+    hs = HypothesisGenerator().deterministic([ep])
+    nested = [h for h in hs if h.type == "nested_idor"]
+    assert len(nested) == 1 and nested[0].body_path == "filter.orderId"
+    # düz body id (nokta yok) → nested_idor ÜRETİLMEZ (mevcut IdorOracle zaten kapsıyor)
+    flat = Endpoint(method="POST", path_template="/api/getOrder",
+                    id_param="orderId", id_location="body")
+    assert not any(h.type == "nested_idor" for h in HypothesisGenerator().deterministic([flat]))
+
+
 @pytest.mark.asyncio
 async def test_generate_merges_llm_and_dedupes():
     canned = [Hypothesis(type="idor", endpoint=Endpoint(path_template="/api/carts/{id}"))]
