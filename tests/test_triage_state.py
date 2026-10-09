@@ -9,7 +9,6 @@ from pentestai.report.triage_state import STATUSES, TriageStore
 from pentestai.webui.app import WebApp
 from pentestai.webui.scan_manager import ScanManager, ScanOutcome, ScanRunner
 
-
 # --- Store birim testleri ---
 
 def test_set_and_load_roundtrip(tmp_path):

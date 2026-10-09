@@ -9,8 +9,6 @@ etkilendiği assert edilir. Ağsız, LLM'siz (sahte client).
 """
 from __future__ import annotations
 
-import httpx
-
 from pentestai.bench.twins import IdorTwin
 from pentestai.enrich import FindingEnricher
 from pentestai.llm.client import LLMClient

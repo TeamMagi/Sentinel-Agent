@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 from pentestai.llm.prompts import (
-    DATA_CLOSE, DATA_OPEN, MAX_UNTRUSTED_CHARS, PromptBuilder, wrap_untrusted,
+    DATA_CLOSE,
+    DATA_OPEN,
+    MAX_UNTRUSTED_CHARS,
+    PromptBuilder,
+    wrap_untrusted,
 )
 
 

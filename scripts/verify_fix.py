@@ -8,6 +8,7 @@ Ağsız (iki findings.json'ı okur; taramaları operatör düzeltme öncesi ve s
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import pathlib
 import sys
@@ -25,10 +26,8 @@ def _load(path: str) -> list[Finding]:
 
 def main(argv=None) -> int:
     for s in (sys.stdout, sys.stderr):   # Windows cp1254 emoji güvenliği
-        try:
+        with contextlib.suppress(AttributeError, ValueError):
             s.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
-        except (AttributeError, ValueError):
-            pass
     p = argparse.ArgumentParser(prog="verify_fix",
                                 description="Remediation doğrulama (fix-verification) — Y2")
     p.add_argument("before", help="düzeltme ÖNCESİ findings.json")

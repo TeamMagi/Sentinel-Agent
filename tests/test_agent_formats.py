@@ -8,9 +8,7 @@ from __future__ import annotations
 import json
 
 from pentestai.agentadapter import (
-    LangChainTraceAdapter,
     McpLogTraceAdapter,
-    OpenAIAssistantsTraceAdapter,
     from_langchain,
     from_mcp_log,
     from_openai_assistants,
@@ -19,7 +17,6 @@ from pentestai.models import Scope
 from pentestai.oracle.base import CONFIRMED
 from pentestai.oracle.untrusted_to_action import UntrustedToActionOracle
 from pentestai.policy import PolicyEngine
-
 
 # --- LangChain ---
 

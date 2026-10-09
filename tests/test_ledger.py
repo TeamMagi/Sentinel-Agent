@@ -4,11 +4,10 @@ from __future__ import annotations
 import json
 
 from pentestai.evidence.ledger import GENESIS, IntegrityLedger
-from pentestai.evidence.proof import build_proof, proof_hash
+from pentestai.evidence.proof import proof_hash
 from pentestai.evidence.store import EvidenceStore
 from pentestai.models import CapturedRequest, Evidence, Finding, NormalizedResponse
 from scripts import integrity
-
 
 # --- Defter birim testleri ---
 

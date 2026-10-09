@@ -15,6 +15,7 @@ koşuma dokunmaz. Ağ/LLM yok. Çıkış kodu: tahrif/eksik → 1, temiz → 0."
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import pathlib
 import shutil
@@ -29,10 +30,8 @@ from pentestai.evidence.ledger import IntegrityLedger  # noqa: E402
 def _reconfigure_stdio() -> None:
     # Windows konsolu (cp1254) emoji basınca çökmesin (Linux/CI'da no-op).
     for s in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(AttributeError, ValueError):
             s.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
-        except (AttributeError, ValueError):
-            pass
 
 
 def _proof_dir(run: pathlib.Path) -> pathlib.Path:

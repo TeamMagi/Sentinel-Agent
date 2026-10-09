@@ -6,7 +6,10 @@ yer-gerçeği ile katalog arasındaki sürüklenmeyi (drift) yakalar.
 from __future__ import annotations
 
 from pentestai.bench.eval import (
-    check_consistency, default_cases, load_labeled, run_cases,
+    check_consistency,
+    default_cases,
+    load_labeled,
+    run_cases,
 )
 
 

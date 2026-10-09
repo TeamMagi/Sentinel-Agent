@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from pentestai.evidence.proof import (
-    build_proof, is_stale, response_fingerprint,
+    build_proof,
+    is_stale,
+    response_fingerprint,
 )
 from pentestai.models import CapturedRequest, Evidence, Finding, NormalizedResponse
 
