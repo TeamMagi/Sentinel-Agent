@@ -359,6 +359,7 @@ sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek sef
 | `--scan-mode quick\|standard\|deep` | bütçeyi + tarama genişliğini ölçekler (`quick`≈40 istek/300s; `deep`=geniş bütçe+enümerasyon); verilmezse scope.yaml'daki budget aynen kalır |
 | `--dry-run` | istekleri authorize'dan geçir ama **gönderme** (plan önizlemesi) |
 | `--enumerate` | wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme) |
+| `--enumerate-ids` | komşu-id enumerasyonu: sıralı-int id'de config'te olmayan objelere erişip başkasının PII'sini ara → **LIKELY** (recall artışı; CONFIRMED barını gevşetmez — tek-aktörle yetkisizlik kanıtlanamaz, insan doğrular) |
 | `--login-url / --register-url / --logout-url` | brute-force/default-creds · zayıf şifre · session-lifecycle taramalarını tetikler |
 | `--no-exposure-scan / --no-info-leak-scan / --no-rate-limit-scan / --no-cve-scan` | ilgili dedektör ailesini atla |
 | `--dom-xss [--dom-xss-headed]` | TIER_C.md C1: gerçek (headless) Chromium'da DOM XSS — payload'ın yansımasını değil, JS olarak **çalıştığını** kanıtlar; opt-in (Playwright gerektirir, maliyetli — varsayılan kapalı), `-headed` görünür tarayıcıyla debug için |
