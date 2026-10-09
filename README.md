@@ -588,6 +588,25 @@ python -m scripts.replay runs/<run-id> --key "$SENTINEL_PROOF_KEY"   # imzayı d
 
 Hash doğrulanır ve kanıt yeniden-ispatlanırsa `PROVEN`; fixture kurcalanırsa (hash uyuşmaz) `FAILED`.
 
+#### 🔗 Hash-zincirli kanıt defteri + `integrity verify` + tamper-drill (B)
+
+Tekil bundle hash'lerinin üstüne, her koşum bir **append-only, blok-zinciri tarzı defter** yazar
+(`runs/<id>/proof/ledger.jsonl`): her kaydın hash'i bir öncekinin hash'ini içerir (`prev_hash`),
+böylece tek bir kanıtın (ya da sırasının) sessizce değiştirilmesi **tüm sonraki zinciri kırar** →
+tahrif *saklanamaz*. Çevrimdışı doğrulama zinciri yeniden yürür **ve** her proof dosyasını yeniden
+hash'leyip deftere karşı karşılaştırır:
+
+```bash
+python -m scripts.integrity runs/<run-id>           # zincir + proof hash'leri
+python -m scripts.integrity runs/<run-id> --drill   # canlı tamper-drill
+```
+
+`--drill`, gerçek koşumun bir **kopyası** üzerinde bir kanıtı kasten kurcalar (leaked-marker'ı
+siler — kanıtı "gizlemeye" çalışır) ve bütünlük kontrolünün bunu **yakaladığını** gösterir; orijinal
+koşuma dokunmaz (TRACE X'in "değeri boz, entegrite yakalasın" demosunun karşılığı). Değişmez: defter
+verdict'i **etkilemez** (CLAUDE.md §5.2) — yalnızca kanıtın tahrif edilmediğini ispatlar; yalnızca
+hash + `finding_id` tutar (ham içerik değil, zaten redakte proof'un hash'i).
+
 ### 🧩 Topluluk template ekosistemi (RK-12)
 
 Dedektör ailesi bir **YAML template formatına** açıktır — topluluk yeni imza/misconfig ekler,

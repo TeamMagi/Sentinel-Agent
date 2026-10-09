@@ -371,7 +371,7 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 ## Toplu "Yapılacaklar" (biriken — her repo sonrası güncellenir)
 
 - [ ] (A) Verifier self-eval harness — planted TP/FP → yayınlanan FP/recall sayısı  · *kaynak: TRACE X* · 🔴
-- [ ] (B) Hash-zincirli evidence + integrity verify + tamper-drill · *kaynak: TRACE X* · 🔴
+- [x] (B) Hash-zincirli evidence + integrity verify + tamper-drill · *kaynak: TRACE X* · 🔴 — `evidence/ledger.py` (append-only, prev_hash zincirli defter) + `EvidenceStore` her koşumda `proof/ledger.jsonl` yazar + `scripts/integrity.py` (`verify` zinciri+proof'ları yeniden hash'ler, `--drill` canlı tamper-drill); `tests/test_ledger.py` (8). Verdict'i etkilemez.
 - [x] (C) Dürüst benchmark metrik tablosu (README) · *kaynak: TRACE X* · 🔴 — README §"Çok-hedefli benchmark"te zaten var (precision/recall/FP-rate + "neyi kaçırıyoruz")
 - [x] (D) Açık "Kısıtlar" bölümü (README/DESIGN) · *kaynak: TRACE X* · 🟡 — README'ye "⚠️ Kısıtlar (dürüst sınırlar)" bölümü eklendi
 - [ ] (E) Exculpatory adımını açık kontrol aşaması yap · *kaynak: TRACE X* · 🟡
