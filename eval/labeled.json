@@ -9,6 +9,10 @@
     {"name": "idor-public-by-design:vulnerable",   "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
     {"name": "idor-public-by-design:near-miss",    "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"},
     {"name": "idor-session-scoped:vulnerable",     "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
-    {"name": "idor-session-scoped:near-miss",      "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"}
+    {"name": "idor-session-scoped:near-miss",      "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"},
+    {"name": "idor-query-param:vulnerable",        "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-query-param:hardened",          "vuln_type": "idor", "category": "negative",  "expected": "not:CONFIRMED"},
+    {"name": "idor-empty-result:vulnerable",       "vuln_type": "idor", "category": "positive",  "expected": "CONFIRMED"},
+    {"name": "idor-empty-result:near-miss",        "vuln_type": "idor", "category": "near_miss", "expected": "not:CONFIRMED"}
   ]
 }

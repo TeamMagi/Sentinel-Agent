@@ -1,10 +1,10 @@
 {
   "counts": {
-    "tp": 4,
+    "tp": 6,
     "fp": 0,
     "fn": 0,
-    "tn": 4,
-    "total": 8
+    "tn": 6,
+    "total": 12
   },
   "precision": 1.0,
   "recall": 1.0,
@@ -74,6 +74,38 @@
       "category": "near_miss",
       "expected": "not:CONFIRMED",
       "verdict": "INCONCLUSIVE",
+      "passed": true
+    },
+    {
+      "name": "idor-query-param:vulnerable",
+      "vuln_type": "idor",
+      "category": "positive",
+      "expected": "CONFIRMED",
+      "verdict": "CONFIRMED",
+      "passed": true
+    },
+    {
+      "name": "idor-query-param:hardened",
+      "vuln_type": "idor",
+      "category": "negative",
+      "expected": "not:CONFIRMED",
+      "verdict": "REJECTED",
+      "passed": true
+    },
+    {
+      "name": "idor-empty-result:vulnerable",
+      "vuln_type": "idor",
+      "category": "positive",
+      "expected": "CONFIRMED",
+      "verdict": "CONFIRMED",
+      "passed": true
+    },
+    {
+      "name": "idor-empty-result:near-miss",
+      "vuln_type": "idor",
+      "category": "near_miss",
+      "expected": "not:CONFIRMED",
+      "verdict": "LIKELY",
       "passed": true
     }
   ]
