@@ -26,7 +26,12 @@ deterministik kanıt varsa `CONFIRMED` işaretler.
 
 > **Neden önemli?** Broken Object Level Authorization (BOLA/IDOR), yıllardır **OWASP API Security
 > Top 10'da 1 numara** — ama klasik tarayıcıların (ZAP/Burp) en zayıf olduğu yer, çünkü "kimin nesi
-> kimde" sorusunu anlamazlar. Sentinel-Agent tam da bu boşluğu doldurur.
+> kimde" sorusunu anlamazlar. Etkisi de teoriden ibaret değil: tek bir kaçmış object-id kontrolü,
+> `/{id}`'yi değiştirerek **tüm kullanıcıların** siparişlerini/mesajlarını/PII'sini dökebilir, başka
+> hesaplar adına işlem yaptırabilir (account takeover) — kimlik doğrulaması *çalışırken* bile.
+> Kod-incelemesinde ve imza-tabanlı taramada gözden kaçar çünkü "istek geçerli, ama **bu kullanıcı
+> için değil**" ayrımı ancak iki gerçek hesabı yan yana koyunca görülür. Sentinel-Agent tam da bu
+> boşluğu doldurur: farkı **kanıtlar**, tahmin etmez.
 
 <div align="center">
 
@@ -49,6 +54,11 @@ yok, false-positive riski yüksek. Sentinel-Agent'ın mimarisi bunun tersini gar
 Bu ayrım sayesinde aracın çıktısına güvenilebilir: aynı taramayı iki kez koş, aynı sonucu al; her
 `CONFIRMED` bulgunun altında bir güvenlik ekibinin elle doğrulayabileceği kanıt vardır. Üstelik LLM
 **zorunlu değildir** — araç deterministik kural-tabanlı hipotezlerle tek başına da kanıtlı bulgu üretir.
+
+Sonuç: **güvenlik kararında sıfır halüsinasyon (zero hallucination).** Karar classifier'ın güvenine
+değil, kodun gördüğü kanıta bağlıdır; model belirsizse verdict `INCONCLUSIVE` kalır, asla şişmez.
+Aynı ilke iki cephede birden geçerlidir — **klasik API yetkilendirmesi** (IDOR/BOLA/BFLA) *ve*
+**ajan-çağı yetkilendirmesi** (tool-use eden LLM ajanları): ikisini de deterministik olarak kanıtlarız.
 
 ### 🔒 İhlal edilemez güvenlik değişmezleri
 
@@ -73,6 +83,12 @@ Her bulgu dört karardan biriyle etiketlenir — belirsizlik **gizlenmez**, aç�
 | 🟡 **LIKELY** | Güçlü belirti var ama kesin kanıt (leaked-marker) doğrulanamadı |
 | ⛔ **REJECTED** | Yetki kontrolü çalışıyor — açık yok |
 | ❔ **INCONCLUSIVE** | Kontroller geçmedi / oracle emin olamadı — sessizce yanlış yargı vermez, çekimser kalır |
+
+> **"Güvenli" demeyiz — kanıt raporlarız.** `INCONCLUSIVE` bir başarısızlık değil, bir **disiplindir**:
+> yetersiz kanıt asla `CONFIRMED`'e (ya da "temiz"e) şişmez. Bu, precision'ı korumanın bedelidir ve
+> bilinçli bir tercihtir — çekimser kalmak, yanlış alarmdan (false-positive) *ve* asılsız güvenceden
+> (false-negative'i "güvenli" diye sunmaktan) iyidir. `REJECTED` = "bu spesifik testte yetki kontrolü
+> çalıştı", `INCONCLUSIVE` = "kanıtlayamadım" — ikisi de "sistem güvenli" anlamına gelmez.
 
 ---
 
@@ -144,12 +160,19 @@ deterministik disiplinle kanıtlarız: girdi, ajandan toplanan **gözlenmiş too
 IEEE sponsorluğundaki Kaggle *AI Agent Security* kıyasından uyarlandı
 (bkz. [agent-security raporu](docs/rakip-analizi-agent-security-2026-09.md)).
 
+Bu beş predicate, projenin **isimli, birinci-sınıf güvenlik kontratıdır** — her biri deterministik
+bir kanıt tanımına bağlıdır ve verdict'i (klasik oracle'larda olduğu gibi) yalnızca **kod** verir,
+LLM oy kullanmaz. Yani hem **klasik API yetkilendirmesini** (IDOR/BOLA/BFLA) hem **ajan-çağı
+yetkilendirmesini** (confused-deputy, destructive-write, exfiltration, untrusted→action, manifest
+sapması) *aynı disiplinle kanıtlarız*.
+
 | Predicate | Oracle | Deterministik kanıt |
 |---|---|---|
 | **CONFUSED_DEPUTY** | `ConfusedDeputyOracle` | Kullanıcının **açık niyeti olmadan** yan-etkili çağrı (`email.send`…) başarıyla yapıldı |
 | **DESTRUCTIVE_WRITE** | `DestructiveWriteOracle` | `fs.write`/`fs.delete` **korumalı** kaynağı hedefledi (`destructive_tests` kapısı arkasında) |
 | **EXFILTRATION** | `ExfiltrationOracle` | Sentetik **canary sır** dışarı giden çağrıda göründü — **base64/hex/url/ters** kodlamalar dahil |
-| **UNTRUSTED_TO_ACTION** | *(yol haritasında)* | Güvenilmez içerik (`web`/`email`) ayrıcalıklı aksiyonu tetikledi |
+| **UNTRUSTED_TO_ACTION** | `UntrustedToActionOracle` | Güvenilmez içerik (`web`/`email`) çıktısı ile sonraki ayrıcalıklı çağrının argümanları arasında **en-uzun-ortak-alt-dize** (kaynak-izleme) örtüşmesi — kullanıcı aynı aksiyonu açıkça istediyse REJECTED |
+| **MANIFEST_DEVIATION** | `ManifestDeviationOracle` | Gözlemlenen tool-call akışı ajanın **beyan ettiği** manifest'ten saptı (beyan yoksa asla CONFIRMED değil, INCONCLUSIVE) |
 
 Yanlış-pozitif kapanları birinci sınıf vatandaş: kullanıcı aksiyonu **açıkça istediyse** confused
 deputy **REJECTED**; canary kullanıcının kendi girdisinden geliyorsa sızıntı **sayılmaz**. Canary
@@ -633,6 +656,35 @@ Sentinel-Agent/
   [docs/sozluk.md](docs/sozluk.md).
 
 ---
+
+## ⚠️ Kısıtlar (dürüst sınırlar)
+
+Dürüstlük, "sıfır false-positive" iddiasının parçasıdır — bir aracın neyi **yapmadığını** açıkça
+söylemesi, yaptığı iddiaya güveni artırır. Sentinel-Agent'ın bilinen sınırları:
+
+- **Recall tamlık değildir.** Çok-hedefli benchmark'ta precision %100 / FP-rate %0, ama recall
+  **%61.5**. Kaçırılanlar (FN) çoğunlukla read-only (GET/HEAD) kapsamın ulaşamadığı yazma-metodu
+  (POST/PUT mass-assignment) veya id-taşımayan endpoint'lerdir — mimarinin dürüst sınırı. "Bulduğumuz
+  kanıtlıdır" deriz; "her açığı buluruz" **demeyiz**.
+- **Benchmark küçüktür.** 3 hedef, 31 etiketli vaka. Kontrollü, yazar-doğrulamalı bir kalibrasyon
+  setidir — istatistiksel "gerçek-dünya doğruluğu" değil. Etiketler araç çıktısından değil doğrudan
+  HTTP davranışından konur (döngüsellik yok), ama küçük N bir sınırdır.
+- **Tamper-evident ≠ tamper-proof.** Kanıt-paketi SHA-256 (+ opsiyonel HMAC) ile **kurcalanmayı
+  gösterir**; deponuza yazma erişimi olan birinin kanıtı ve manifesti birlikte yeniden üretmesini
+  engellemez. Değişikliği *saklanamaz* kılar, *imkânsız* değil.
+- **İki gerçek hesap gerekir.** Erişim-kontrolü testi tanımı gereği kimlik ister (kurban + saldırgan);
+  bu bir "sıfır-config tak-çalıştır" tarayıcısı değildir. Auth'suz pasif on-ramp yalnızca imza-tabanlı
+  dedektörleri (exposure/info-leak/CVE/header) kapsar, differential oracle'ları değil.
+- **Ajan-güvenliği gözleme dayanır.** Predicate'ler hedeften toplanan `AgentTrace`'i (MCP/SDK/log)
+  değerlendirir; her ajan çerçevesi için hazır adapter yoktur ve trace eksik/yanlışsa sonuç ancak
+  o kadar iyidir. Trajektori analizi başına-adım imza aramasıdır; nedensel `triggered_by` soy-ağacı
+  henüz birinci-sınıf değildir (yol haritası).
+- **LLM karar vermez ama sınırlıdır.** LLM opsiyoneldir ve yalnızca hipotez kapsamını + açıklama
+  kalitesini artırır; verdict'i asla belirlemez. LLM kapalıyken kapsam kural-tabanlı hipotezlerle
+  sınırlıdır.
+- **Bazı motorlar opt-in ve maliyetlidir.** DOM XSS (Playwright), smuggling/race (yalnızca
+  `destructive_tests=true`) gibi testler kasıtlı olarak varsayılan kapalıdır ve hedefte yan-etki
+  riski taşıyabilir — operatör bilinçli açar.
 
 ## ⚖️ Etik / kapsam uyarısı
 

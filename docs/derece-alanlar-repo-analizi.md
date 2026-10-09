@@ -372,8 +372,8 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 
 - [ ] (A) Verifier self-eval harness — planted TP/FP → yayınlanan FP/recall sayısı  · *kaynak: TRACE X* · 🔴
 - [ ] (B) Hash-zincirli evidence + integrity verify + tamper-drill · *kaynak: TRACE X* · 🔴
-- [ ] (C) Dürüst benchmark metrik tablosu (README) · *kaynak: TRACE X* · 🔴
-- [ ] (D) Açık "Kısıtlar" bölümü (README/DESIGN) · *kaynak: TRACE X* · 🟡
+- [x] (C) Dürüst benchmark metrik tablosu (README) · *kaynak: TRACE X* · 🔴 — README §"Çok-hedefli benchmark"te zaten var (precision/recall/FP-rate + "neyi kaçırıyoruz")
+- [x] (D) Açık "Kısıtlar" bölümü (README/DESIGN) · *kaynak: TRACE X* · 🟡 — README'ye "⚠️ Kısıtlar (dürüst sınırlar)" bölümü eklendi
 - [ ] (E) Exculpatory adımını açık kontrol aşaması yap · *kaynak: TRACE X* · 🟡
 - [ ] (F) Tek komut `make prove` · *kaynak: TRACE X* · 🟡
 - [ ] (G) Verdict-invariance testi — LLM ne dönerse dönsün verdict aynı · *kaynak: NoScam* · 🔴
@@ -384,15 +384,15 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [ ] (K) GitHub Action + exit-code gating (SARIF'i CI kapısına bağla) · *kaynak: SlopGuard* · 🔴
 - [ ] (L) Bulgu-başına remediation ipucu (raporda "nasıl düzeltilir") · *kaynak: SlopGuard* · 🟡
 - [ ] (M) Çalıştırılabilir eval artefaktı `eval/labeled.json`+`evaluate.py` (A+C+J'yi somutlaştırır) · *kaynak: SlopGuard* · 🔴
-- [ ] (N) `INCONCLUSIVE` disiplinini belgele/çerçevele ("güvenli demeyiz") · *kaynak: SlopGuard* · 🟢
+- [x] (N) `INCONCLUSIVE` disiplinini belgele/çerçevele ("güvenli demeyiz") · *kaynak: SlopGuard* · 🟢 — README verdict merdivenine "Güvenli demeyiz, kanıt raporlarız" çerçevesi eklendi
 
 - [ ] (O) Trajectory-level exfiltration + nedensel lineage (`triggered_by`) · *kaynak: ChainBreak* · 🔴
 - [ ] (P) Counterfactual dual-track kanıt (baseline vs kontrollü, yan yana) · *kaynak: ChainBreak* · 🔴
-- [ ] (Q) Ajan invariant'larını isimlendir/belgele + anlatıyı yeniden çerçevele · *kaynak: ChainBreak (+eski galeri)* · 🔴
+- [~] (Q) Ajan invariant'larını isimlendir/belgele + anlatıyı yeniden çerçevele · *kaynak: ChainBreak (+eski galeri)* · 🔴 — README'de 5 predicate "isimli, birinci-sınıf güvenlik kontratı" olarak çerçevelendi, bayat predicate tablosu düzeltildi (UNTRUSTED_TO_ACTION artık "implemented"), "zero hallucination" + "klasik API + ajan-çağı yetki, ikisini de KANITLA" dili eklendi. **Kalan:** deck/video/Devpost anlatısı
 - [ ] (R) "Near-miss" benchmark kategorisi (saldırı-benzeri-ama-masum) · *kaynak: ChainBreak* · 🟡
 - [ ] (S) Bağlamsal sonuç/impact skoru (blast-radius/veri-hassasiyeti) · *kaynak: CyberShield* · 🟡
-- [ ] (T) Taksonomi eşleme (OWASP API Top 10 / CWE / MITRE) raporda · *kaynak: CyberShield* · 🟡
-- [ ] (U) IMPACT anlatısı (access-control neden önemli) deck/README/video · *kaynak: CyberShield* · 🟡
+- [~] (T) Taksonomi eşleme (OWASP API Top 10 / CWE / MITRE) raporda · *kaynak: CyberShield* · 🟡 — CWE+OWASP `classify.py`'de **tam** (motor+SARIF). **Kalan:** MITRE ATT&CK eşlemesi + rapor vitrini
+- [~] (U) IMPACT anlatısı (access-control neden önemli) deck/README/video · *kaynak: CyberShield* · 🟡 — README "Neden önemli?" bloğu güçlendirildi (mass-PII/account-takeover, "kanıtlar, tahmin etmez"). **Kalan:** deck/video
 
 **Tekrarlayan sinyaller (birden çok repoda):**
 - **Anlatıyı ajan-çağı yetkiye de çevir** (Q) — ChainBreak *tek başına bunu yapıp* dereceye girdi;
@@ -473,8 +473,22 @@ kaybettirmiş:
 3. **P (counterfactual kanıt sunumu):** Var olan control/replay'i görsel, ikna edici kanıta çevir.
 
 ## Doğrulanacaklar (koda bakılmadan varsayım yapmadım — bunları teyit et)
-- [ ] EXFILTRATION/agent predicate'i **per-action mı, birikimli-trajectory mi?** (`world_model.py`,
-  `agent/exfiltration.py`) → O maddesinin gerçek-boşluk mu yoksa sadece-vitrin mi olduğunu belirler.
-- [ ] Bulgular **OWASP API Top 10 / CWE** ile eşleniyor mu? (`classify.py`) → T'nin kapsamı.
-- [ ] `EvidenceStore` hash-**chain** tutuyor mu yoksa tekil hash mi? (`evidence/store.py`) → B'nin işi.
-- [ ] Benchmark'ta **near-miss** (saldırı-benzeri-ama-masum) vaka var mı? (`bench/`) → R.
+- [x] EXFILTRATION/agent predicate'i **per-action mı, birikimli-trajectory mi?** (`world_model.py`,
+  `agent/exfiltration.py`) → **Trace-seviyesi** (tüm `AgentTrace`'i tarar) ama **nedensel
+  `triggered_by` soy-ağacı YOK**: `ToolCall`'da yalnızca `step`+`source` var, causal graph yok.
+  → **O gerçek (kısmi) boşluk**: model zaten trajectory-level; eksik olan lineage grafiği.
+- [x] Bulgular **OWASP API Top 10 / CWE** ile eşleniyor mu? (`classify.py`) → **EVET, tam.**
+  `TYPE_META` her türü CWE+OWASP'a eşler, `assign()` yazar, SARIF `properties`'e taşır.
+  → **T motor seviyesinde BİTMİŞ**; kalan sadece MITRE ATT&CK eşlemesi + rapor vitrini (küçük).
+- [x] `EvidenceStore` hash-**chain** tutuyor mu yoksa tekil hash mi? (`evidence/store.py`) →
+  **Bulgu-başına tekil SHA-256 (+opsiyonel HMAC) proof bundle** (`proof.py`). Append-only
+  **zincir / `integrity verify` / tamper-drill YOK**. → **B gerçek boşluk.**
+- [x] Benchmark'ta **near-miss** (saldırı-benzeri-ama-masum) vaka var mı? (`bench/`) → **HAYIR**
+  (yalnız analiz belgesinde geçiyor). `bench/twins.py` vulnerable↔hardened ikizleri var ama
+  "saldırıya-benzer-ama-masum" ayrı kategori değil. → **R gerçek boşluk.**
+
+> **Ek tespitler (bu tur):** `K` (GitHub Action) büyük ölçüde **var** — `.github/workflows/
+> sentinel.yml` SARIF yükler + `--fail-on` ile exit-code kapısı yapar; eksik olan yalnızca başka
+> repoların `uses:` ile çağırabileceği tekrar-kullanılabilir **composite `action.yml`**.
+> `C` (dürüst metrik tablosu) README'de **zaten var**. `F` (`make prove`) ve `M` (`eval/`
+> artefaktı) **yok**. `G` (verdict-invariance testi) ayrı test olarak **yok**.
