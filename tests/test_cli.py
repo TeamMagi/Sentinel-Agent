@@ -421,6 +421,54 @@ async def test_run_without_nuclei_jsonl_passes_no_extra_hypotheses(tmp_path, mon
     assert _FakeScanner.instances[-1].extra_hypotheses == ()
 
 
+# --------------------------- --immunity-memory (GOREVLER #15) ---------------------------
+
+def _write_immunity_memory(path, *, endpoint="/x/{id}", type_="idor", method="GET", count=1):
+    path.write_text(json.dumps([{
+        "pattern": f"{type_}:{method}:{endpoint}", "type": type_, "method": method,
+        "path_template": endpoint, "confirmed_count": count,
+        "first_seen": "2026-01-01T00:00:00+00:00", "last_seen": "2026-01-01T00:00:00+00:00",
+    }]), encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_run_immunity_memory_boosts_matching_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)   # endpoints.yaml: GET /x/{id}
+    mem = tmp_path / "immunity.json"
+    _write_immunity_memory(mem, endpoint="/x/{id}", count=5)
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"), immunity_memory=str(mem))
+    await cli._run(args)
+    fs = _FakeScanner.instances[-1]
+    assert len(fs.extra_hypotheses) == 1
+    assert fs.extra_hypotheses[0].type == "idor"
+    assert "5 kez" in fs.extra_hypotheses[0].rationale
+
+
+@pytest.mark.asyncio
+async def test_run_immunity_memory_records_confirmed_findings_after_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    mem = tmp_path / "immunity.json"   # henüz yok — bu koşum oluşturmalı
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"), immunity_memory=str(mem))
+    await cli._run(args)   # _FakeScanner.findings_to_return = [CONFIRMED idor /x/{id}]
+    assert mem.exists()
+    learned = json.loads(mem.read_text(encoding="utf-8"))
+    assert learned and learned[0]["type"] == "idor" and learned[0]["path_template"] == "/x/{id}"
+
+
+@pytest.mark.asyncio
+async def test_run_without_immunity_memory_flag_does_not_write_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"))
+    await cli._run(args)
+    assert not (tmp_path / "immunity.json").exists()
+
+
 @pytest.mark.asyncio
 async def test_run_fail_on_triggers_exit_code_2(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "Scanner", _FakeScanner)
