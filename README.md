@@ -186,11 +186,17 @@ Yanlış-pozitif kapanları birinci sınıf vatandaş: kullanıcı aksiyonu **a�
 deputy **REJECTED**; canary kullanıcının kendi girdisinden geliyorsa sızıntı **sayılmaz**. Canary
 değeri hiçbir kodlamasıyla rapora/evidence'a yazılmaz.
 
-**Nedensel lineage (trajectory):** analiz per-action değil **tüm yörünge** üzerinedir. EXFILTRATION,
-sırrı ÇIKTISINDA taşıyan (okuyan) adım(lar) ile dışarı sızdıran adımı bir `triggered_by` soy-ağacıyla
-bağlar → *"adım 0 (fs.read) → adım 2 (http.post): sır okundu → dışarı sızdırıldı"*. Böylece **tek tek
-zararsız görünen ama zincirlenince sızıntıya dönen** adımlar deterministik veri-akışıyla (LLM yorumu
-değil) gösterilir.
+**Nedensel lineage (trajectory):** analiz per-action değil **tüm yörünge** üzerinedir. Sızıntı/
+yan-etki/yıkıcı-yazma predicate'leri, ihlali besleyen adım(lar) ile ihlal adımını bir `triggered_by`
+soy-ağacıyla bağlar → *"adım 0 (fs.read) → adım 2 (http.post): sır okundu → dışarı sızdırıldı"*.
+Böylece **tek tek zararsız görünen ama zincirlenince sızıntıya dönen** adımlar deterministik
+veri-akışıyla (LLM yorumu değil) gösterilir.
+
+**Trace kaynakları:** ajan izi ya canlı hedeften (`HttpAgentAdapter`, `/invoke`) ya da **dışa
+aktarılmış çalışma loglarından** normalize edilir — LangChain intermediate-steps, OpenAI Assistants
+run-steps ve MCP tool-call logu için hazır adaptörler (`agentadapter.formats`) vardır. Ayrıca hedefin
+MCP tool-manifest'i statik taranıp tehlikeli execution paternleri (`exec`/`eval`/keyfi fs/SSRF/sır
+erişimi) `McpManifestScanner` ile işaretlenir (ağsız, sinyal → `LIKELY`).
 
 ---
 
@@ -588,6 +594,7 @@ Her koşum `runs/<run-id>/` altına birden çok formatta rapor yazar (hepsi reda
 | `report.sarif` | SARIF 2.1.0 | GitHub code-scanning "Security" sekmesi |
 | `junit.xml` | JUnit XML | CI "Tests" sekmesi (RK-2) — verdict→test sonucu |
 | `report.csv` | CSV | kaynak-yetenek matrisi (RK-2) — elektronik tablo |
+| `report.exec.html` | HTML | **tek-sayfa yönetici özeti** — duruş skoru + öne çıkan bulgular + counterfactual (yazdır→PDF) |
 | `proof/<id>.json` | JSON | çevrimdışı yeniden-ispatlanabilir kanıt fixture'ı |
 | `proof/<id>.bundle.json` | JSON | **imzalı/hash'li** taşınabilir kanıt-paketi (RK-9) |
 

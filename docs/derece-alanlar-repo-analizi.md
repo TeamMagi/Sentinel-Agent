@@ -301,8 +301,8 @@ tezimize aykırı ya da başka domain → scope-creep.
 - [x] **#3 eval korpusunu büyüt** — query-param BOLA (id_location=query) + empty-result near-miss → 12 vaka, FP-rate %0 korundu. *(commit: eval genişletme)*
 - [x] **#2 access-control derinliği** — İnceleme: query-BOLA'yı IdorOracle+planner ZATEN test ediyor, write/second-order IDOR `StateChangingOracle`'da mevcut → yeni oracle redundant. Gerçek boşluk otomatik keşifti: `OpenApiRecon` artık kullanıcı-kapsamlı query param'larını query-BOLA adayı işaretliyor.
 - [x] **#1 mid-scan re-auth** — token süresi dolunca (401) opt-in yeniden yetkilenme (`Session.refresh_auth` + `Replayer.replay(reauth_on_401=True)`); varsayılan kapalı (401/403 oracle bulgusu olduğu için).
-- [ ] **#4 Gerçek ajan adaptörleri** (MCP-client / LangChain / OpenAI Assistants trace toplayıcı) — predicate'leri gerçek ajanlarda çalıştırır. 🔴 gizli gücü gerçek yapar.
-- [ ] **#5 `triggered_by` lineage'ı tüm ajan predicate'lerine yay** (şu an sadece EXFILTRATION). 🟡
-- [ ] **#6 Hedefin MCP tool-manifest taraması** (tehlikeli execution paternleri) — GOREVLER #11. 🟡
-- [ ] **#7 Property-based (metamorfik) oracle testi** (`hypothesis`): "leaked-marker yoksa asla CONFIRMED yok" invariant'ını binlerce rastgele girdide kanıtla. 🟡
-- [ ] **#8 Paylaşılabilir exec-özet raporu** (tek-sayfa PDF/HTML: posture + top bulgular + counterfactual). 🟢
+- [x] **#4 Gerçek ajan adaptörleri** — `agentadapter/formats.py`: LangChain / OpenAI Assistants / MCP log → AgentTrace (ağsız). Uçtan-uca: MCP logu → UntrustedToActionOracle CONFIRMED.
+- [x] **#5 `triggered_by` lineage tüm predicate'lerde** — `lineage_marker()` ConfusedDeputy + DestructiveWrite CONFIRMED'lerine de nedensel zincir ekliyor.
+- [x] **#6 Hedef MCP tool-manifest taraması** — `detector/mcp_manifest.py` `McpManifestScanner` (statik, ağsız): exec/eval/keyfi-fs/SSRF/sır paternleri → LIKELY + severity.
+- [x] **#7 Property-based oracle testi** — `tests/test_property_oracle.py` (hypothesis): CONFIRMED ⟹ marker gerçekten attack yanıtında; marker yoksa asla CONFIRMED. dev dep + CI.
+- [x] **#8 Yönetici özeti raporu** — `report/render_exec.py` `ExecSummaryReporter`: tek-sayfa bağımsız HTML (duruş + öne çıkan bulgular + counterfactual, yazdır→PDF); her koşumda `report.exec.html`.
