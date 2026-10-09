@@ -381,7 +381,7 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [ ] (I) Prompt-injection sertleştirmesi — yanıt içeriği LLM'e label+truncate · *kaynak: NoScam* · 🟡
 - [ ] (J) Benign-app negative-control regresyonu (0 CONFIRMED ispatı) · *kaynak: NoScam* · 🟡
 
-- [ ] (K) GitHub Action + exit-code gating (SARIF'i CI kapısına bağla) · *kaynak: SlopGuard* · 🔴
+- [x] (K) GitHub Action + exit-code gating (SARIF'i CI kapısına bağla) · *kaynak: SlopGuard* · 🔴 — workflow zaten SARIF+`--fail-on` yapıyordu; eksik olan tekrar-kullanılabilir composite `.github/actions/sentinel-scan/action.yml` eklendi (başka repolar `uses:` ile çağırır, `sentinel scan` CLI'ıyla). README'de örnek kullanım.
 - [ ] (L) Bulgu-başına remediation ipucu (raporda "nasıl düzeltilir") · *kaynak: SlopGuard* · 🟡
 - [x] (M) Çalıştırılabilir eval artefaktı `eval/labeled.json`+`evaluate.py` (A+C+J'yi somutlaştırır) · *kaynak: SlopGuard* · 🔴 — `eval/` (labeled.json + evaluate.py + results.{json,md}) + `src/pentestai/bench/eval.py` + `tests/test_eval.py`; 8 vaka, GERÇEK oracle, ağsız → precision %100 / recall %100 / **FP-rate %0**; A(self-eval)+C(metrik)+J(benign)+R(near-miss) tek artefaktta
 - [x] (N) `INCONCLUSIVE` disiplinini belgele/çerçevele ("güvenli demeyiz") · *kaynak: SlopGuard* · 🟢 — README verdict merdivenine "Güvenli demeyiz, kanıt raporlarız" çerçevesi eklendi

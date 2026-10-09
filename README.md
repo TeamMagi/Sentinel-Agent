@@ -650,6 +650,25 @@ metriklerin *kalibrasyon* metrikleri olduğunu ve genellemenin **ölçülmediği
 hardened ikizde tek bir yanlış CONFIRMED çıkarsa kırmızıya döner → kendi pipeline'ında
 "FP hâlâ 0 mı?" sorusunu belirlenimci yanıtlarsın (CI'da `bench-guard` işi).
 
+### 🔁 CI'ya tek adımda düşür — tekrar-kullanılabilir GitHub Action (K)
+
+SARIF çıktısı + `--fail-on` exit-code kapısı, **başka bir repoda** `uses:` ile tek adımda kullanılabilen
+bir **composite Action**'a (`.github/actions/sentinel-scan`) sarıldı — en düşük-friction adoption yolu:
+
+```yaml
+- uses: Hybrid-Translation-Project/Sentinel-Agent/.github/actions/sentinel-scan@main
+  with:
+    scope: config/scope.yaml
+    actors: config/actors.yaml            # en az 2 hesap (secrets'tan)
+    endpoints: config/endpoints.yaml
+    fail-on: high                         # bu eşik+üstü CONFIRMED → PR bloklanır (exit 2)
+- uses: github/codeql-action/upload-sarif@v3
+  with: { sarif_file: ${{ steps.<id>.outputs.sarif }} }   # bulgular Security sekmesinde
+```
+
+Bu repoda ayrıca hazır bir workflow (`.github/workflows/sentinel.yml`) Juice Shop'a karşı tarayıp
+SARIF'i her PR'da code-scanning'e yükler + yeni bulguları PR yorumuyla özetler.
+
 ---
 
 ## 🐳 Neden WSL2 + Docker (takım için)
