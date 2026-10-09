@@ -36,6 +36,26 @@ def test_scanner_init_with_enum_users_registers_detector():
     assert "user_enumeration" in scanner.detectors
 
 
+# --- run_security_headers_scan (GOREVLER #14: hafif URL on-ramp'ın parçası) ---
+
+@pytest.mark.asyncio
+async def test_run_security_headers_scan_is_actor_independent_and_direct():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000])
+    scanner = Scanner(BASE, scope, BudgetConfig(max_rps_per_host=1000))
+
+    def handler(request):
+        # X-Frame-Options/CSP/HSTS hepsi eksik → en az bir bulgu üretmeli.
+        return httpx.Response(200, headers={"content-type": "text/html"}, text="<html></html>")
+
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(handler))
+    anon = store.create(Actor(name="anonymous", role="anonymous"))
+    root = Endpoint(method="GET", path_template="/", id_param="id")
+    findings = await scanner.run_security_headers_scan(anon, root)
+    types = {f.type for f in findings}
+    assert types == {"clickjacking", "security_headers"}   # dedektör her zaman ikisini de döner
+    await store.aclose_all()
+
+
 # --- extra_hypotheses (GOREVLER #13: dış araç/nuclei adayları) ---
 
 @pytest.mark.asyncio
