@@ -321,9 +321,9 @@ koruma alanı. Biz hedef API/ajanın yetki açığını kanıtlarız, tarayıcı
 - [x] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢 — README 'Neyle farklı?'ya 'prover değil guard' + 'evidence-first, model gets no vote' bloğu eklendi (test_verdict_invariance referanslı)
 - [x] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢 — `report/triage_state.py` (runs/<id>/triage.json) + web UI GET/POST /api/runs/<id>/triage (traversal-korumalı); `tests/test_triage_state.py` (8)
 - [x] (X1) CI'da eval/benchmark artefaktı + trend (FP-rate/recall gidişi) · *kaynak: Talos* · 🟢 — sentinel.yml test job'ı self-eval'i koşup `eval/results.json`'ı 90 gün saklanan artefakt olarak yüklüyor
-- [ ] (Y1) Proof-bundle **staleness** (hedef değişince input-hash → "re-prove gerek") · *kaynak: Crucible (+GOREVLER #6)* · 🟡
-- [ ] (Y2) **Fix-verification + functional-regression** ("failed-repair" kanıtı, verdict merdivenini gevşetmeden) · *kaynak: Crucible (+GOREVLER #7/#8)* · 🟡
-- [ ] (Y3) Trap-taksonomi untrusted-content senaryoları (UNTRUSTED_TO_ACTION çeşitliliği) · *kaynak: TrapScan (DeepMind)* · 🟢
+- [x] (Y1) Proof-bundle **staleness** (hedef değişince input-hash → "re-prove gerek") · *kaynak: Crucible (+GOREVLER #6)* · 🟡 — proof'a `input_fingerprint` + `is_stale()` (status+gövde hash'i); tests/test_staleness.py (5)
+- [x] (Y2) **Fix-verification** ("failed-repair" kanıtı, verdict merdivenini gevşetmeden) · *kaynak: Crucible (+GOREVLER #7/#8)* · 🟡 — `report/remediation_verify.py` (fixed/failed-repair/regressed diff, fingerprint_of key) + `scripts/verify_fix.py`; tests(6). Fonksiyonel-regresyon hedefin işlevsel testini gerektirir → kapsam dışı (dürüstçe not).
+- [x] (Y3) Trap-taksonomi untrusted-content senaryoları (UNTRUSTED_TO_ACTION çeşitliliği) · *kaynak: TrapScan (DeepMind)* · 🟢 — tests/test_agent_traps.py: content-injection/jailbreak/cognitive-urgency trap'ları CONFIRMED, kullanıcı açıkça isterse REJECTED (FP kapanı)
 
 **Tekrarlayan sinyaller:**
 - **Guard vs Prover (4 ajan-güvenlik repo):** ChainBreak + VaxGuard + Talos + TrapScan hepsi ajanı
