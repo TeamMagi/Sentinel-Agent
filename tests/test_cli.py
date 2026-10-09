@@ -282,10 +282,12 @@ class _FakeScanner:
 
     instances: list = []
 
-    def __init__(self, target, scope, budget_cfg, out_dir="runs/", *, llm=None, templates_dir=None, **kw):
+    def __init__(self, target, scope, budget_cfg, out_dir="runs/", *, llm=None, templates_dir=None,
+                extra_hypotheses=(), **kw):
         self.target = target
         self.out_dir = Path(out_dir)
         self.llm = llm
+        self.extra_hypotheses = extra_hypotheses
         self.anon = _FakeSession("anonymous")
         self.executor = object()
         self.planner = object()
@@ -388,6 +390,35 @@ async def test_run_standard_active_mode_saves_and_prints_done(tmp_path, monkeypa
     assert fs.closed is True
     out = capsys.readouterr().out
     assert "[done]" in out and "CONFIRMED" in out
+
+
+@pytest.mark.asyncio
+async def test_run_nuclei_jsonl_feeds_extra_hypotheses_into_scanner(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    nuclei_out = tmp_path / "nuclei.jsonl"
+    nuclei_out.write_text(json.dumps({
+        "template-id": "exposed-idor", "info": {"name": "x", "severity": "high", "tags": ["idor"]},
+        "matched-at": "http://localhost:3000/api/nuclei-hit/42",
+    }), encoding="utf-8")
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"), nuclei_jsonl=str(nuclei_out))
+    rc = await cli._run(args)
+    assert rc == 0
+    fs = _FakeScanner.instances[-1]
+    assert len(fs.extra_hypotheses) == 1
+    assert fs.extra_hypotheses[0].type == "idor"
+    assert fs.extra_hypotheses[0].endpoint.path_template == "/api/nuclei-hit/{id}"
+
+
+@pytest.mark.asyncio
+async def test_run_without_nuclei_jsonl_passes_no_extra_hypotheses(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "Scanner", _FakeScanner)
+    _FakeScanner.instances.clear()
+    scope, actors, endpoints = _write_min_config(tmp_path)
+    args = _full_args(scope, actors, endpoints, out=str(tmp_path / "out"))
+    await cli._run(args)
+    assert _FakeScanner.instances[-1].extra_hypotheses == ()
 
 
 @pytest.mark.asyncio

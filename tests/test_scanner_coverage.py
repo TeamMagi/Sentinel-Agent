@@ -36,6 +36,33 @@ def test_scanner_init_with_enum_users_registers_detector():
     assert "user_enumeration" in scanner.detectors
 
 
+# --- extra_hypotheses (GOREVLER #13: dış araç/nuclei adayları) ---
+
+@pytest.mark.asyncio
+async def test_run_recon_scan_tests_extra_hypotheses_from_external_tool():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000])
+    # id'siz endpoint → run_hypotheses tek oturumla (victim==attacker, BOPLA öz-testi) çalışır.
+    nuclei_ep = Endpoint(method="GET", path_template="/api/nuclei-found", id_param="id")
+    extra = [Hypothesis(type="excessive_data_exposure", endpoint=nuclei_ep,
+                        rationale="nuclei ingestion testi", source="deterministic")]
+    scanner = Scanner(BASE, scope, BudgetConfig(max_rps_per_host=1000), extra_hypotheses=extra)
+
+    def handler(request):
+        if request.url.path == "/api/nuclei-found":
+            return httpx.Response(200, json={"id": "1"})
+        return httpx.Response(404, json={})
+
+    store = SessionStore(base_url=BASE, transport=httpx.MockTransport(handler))
+    A = store.create(Actor(name="user_A", role="user", auth=AuthState(headers={"Authorization": "Bearer A"})))
+    findings = await scanner.run_recon_scan(
+        [A], [],   # ana recon envanteri boş — hipotez SADECE extra_hypotheses'ten gelmeli
+        bootstrap=False, exposure_scan=False, info_leak_scan=False,
+        rate_limit_scan=False, cve_scan=False, template_scan=False,
+    )
+    assert any(f.endpoint == "/api/nuclei-found" for f in findings)
+    await store.aclose_all()
+
+
 # --- discover_more + _run_graphql_bola (RK-3/RK-8 uçtan uca) ---
 
 GQL_SCHEMA = {
