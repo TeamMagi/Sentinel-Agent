@@ -290,3 +290,19 @@ tezimize aykırı ya da başka domain → scope-creep.
 1. **V3 (anlatı)** — kod yok, en yüksek getiri, 3 repo doğruladı.
 2. **X1 (CI eval artefaktı)** — neredeyse bedava, ölçülmüşlük vitrinini güçlendirir.
 > V1/W1 demo cilası isteğe bağlı; çekirdek zaten güçlü.
+
+---
+
+# 🛠️ Ek: kendi geliştirme fikirlerimiz (repo-türevi değil)
+
+> Kaynak: 2. tur sonrası "projeyi daha ne geliştirir?" beyin fırtınası. Repolardan değil, kod
+> incelemesinden çıktı. İlk 3'ü uygulandı; kalanı backlog.
+
+- [x] **#3 eval korpusunu büyüt** — query-param BOLA (id_location=query) + empty-result near-miss → 12 vaka, FP-rate %0 korundu. *(commit: eval genişletme)*
+- [x] **#2 access-control derinliği** — İnceleme: query-BOLA'yı IdorOracle+planner ZATEN test ediyor, write/second-order IDOR `StateChangingOracle`'da mevcut → yeni oracle redundant. Gerçek boşluk otomatik keşifti: `OpenApiRecon` artık kullanıcı-kapsamlı query param'larını query-BOLA adayı işaretliyor.
+- [x] **#1 mid-scan re-auth** — token süresi dolunca (401) opt-in yeniden yetkilenme (`Session.refresh_auth` + `Replayer.replay(reauth_on_401=True)`); varsayılan kapalı (401/403 oracle bulgusu olduğu için).
+- [ ] **#4 Gerçek ajan adaptörleri** (MCP-client / LangChain / OpenAI Assistants trace toplayıcı) — predicate'leri gerçek ajanlarda çalıştırır. 🔴 gizli gücü gerçek yapar.
+- [ ] **#5 `triggered_by` lineage'ı tüm ajan predicate'lerine yay** (şu an sadece EXFILTRATION). 🟡
+- [ ] **#6 Hedefin MCP tool-manifest taraması** (tehlikeli execution paternleri) — GOREVLER #11. 🟡
+- [ ] **#7 Property-based (metamorfik) oracle testi** (`hypothesis`): "leaked-marker yoksa asla CONFIRMED yok" invariant'ını binlerce rastgele girdide kanıtla. 🟡
+- [ ] **#8 Paylaşılabilir exec-özet raporu** (tek-sayfa PDF/HTML: posture + top bulgular + counterfactual). 🟢
