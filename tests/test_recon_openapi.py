@@ -67,3 +67,19 @@ def test_no_duplicate_endpoints():
     eps = OpenApiRecon().parse(SPEC_QUERY)
     keys = [(e.method, e.path_template, e.id_param, e.id_location) for e in eps]
     assert len(keys) == len(set(keys))                             # dedupe çalışıyor
+
+
+SPEC_HEADER = {
+    "paths": {
+        "/api/account": {"get": {"parameters": [
+            {"name": "X-Account-Id", "in": "header"},               # kullanıcı-kapsamlı → header-BOLA
+            {"name": "Accept", "in": "header"}]}},                  # generic → aday değil
+    }
+}
+
+
+def test_user_scoped_header_becomes_header_bola_candidate():
+    eps = OpenApiRecon().parse(SPEC_HEADER)
+    quads = {(e.method, e.path_template, e.id_param, e.id_location) for e in eps}
+    assert ("GET", "/api/account", "X-Account-Id", "header") in quads
+    assert not any(e.id_param == "Accept" for e in eps)            # generic header aday değil
