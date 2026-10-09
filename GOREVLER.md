@@ -98,15 +98,19 @@ Commit mesajları, `CLAUDE.md`, `DESIGN.md` Türkçe kalır — bunlar jüriye g
 `docs/gelistirme-ortami.md`'ye taşı (**dosya henüz yok, oluşturulacak**); OneDrive tuzağı notu da
 oraya. Doğru bilgi ama okuyana "bu araç zor" diyor.
 
-### [ ] 12. `cp config/*.example.yaml` adımlarını demo yolundan kaldır · *(Serhat · ~2.5s)*
-`make demo` **kendi config'ini üretmeli**; kullanıcı hiçbir dosya kopyalamamalı. (Kod işi.)
+### [x] 12. `cp config/*.example.yaml` adımlarını demo yolundan kaldır · *(Serhat · ~2.5s)*
+**Durum:** `make demo` zaten `scripts/bootstrap_demo.py` ile kendi config'ini
+(`runs/demo/config/{scope,actors,endpoints}.yaml`) üretiyor — kullanıcı hiçbir dosya kopyalamıyor.
+"🚀 Tek komutla demo" bölümünde de `cp` adımı yok. Doğrulandı (gerçek `make demo` koşumuyla).
 
 ### [x] 13. Web panelini ön kapı yap, CLI'ı ikinci bölüme al · *(Görkem · ~1s)*
 Şu an tersi. README yapısıyla birlikte (madde 6/10) yapılır.
 
-### [ ] 14. Panel ilk açılışta örnek scope üretsin · *(Serhat · ~2s)*
-Scope dosyası yokken **503 dönmesi demo akışını kırıyor**. İlk açılışta örnek scope'u kendisi
-oluşturmalı. (Kod işi — `webui/`.)
+### [x] 14. Panel ilk açılışta örnek scope üretsin · *(Serhat · ~2s)*
+`scripts/serve_ui.py`'a `_bootstrap_example_scope` eklendi: `--scope` dosyası yokken yanındaki
+`*.example.yaml`'ı kopyalayıp örnek scope'u kendisi oluşturur (var olan bir scope'u asla ezmez).
+Uçtan uca doğrulandı: boş `config/`'ta panel açılıp `/api/scan` artık 503 değil 400 (geçersiz
+istek) dönüyor — scope kilitli. `tests/test_serve_ui.py` eklendi.
 
 ### [ ] 15. Jürinin hiçbir şey kurmadan görebileceği bir şey bırak · *(Serhat · ~1.5s)*
 Barındırılmış panel olmasa bile **tek dosyalık `report.html`'i repoya koymak yeter** — jüri indirip
@@ -198,14 +202,19 @@ korunsun.
 
 ## G) Teknik öncelik sırası (48 saat) — kaynak dosyanın EK NOT'u
 
-### [ ] T1. Dikey dilim · *(Serhat · ~6s)* — **kritik yol**
+### [x] T1. Dikey dilim · *(Serhat · ~6s)* — **kritik yol**
 İki aktör oturumu → scope/policy kapısı → **tek replay noktası** → `IdorOracle` → leaked-marker
 verdict → evidence + tek rapor.
 **Kabul:** Juice Shop'ta **tek bir gerçek CONFIRMED** çıkarsa proje ayakta.
+**Doğrulandı:** gerçek `make demo` koşumu — `27 bulgu · 4 CONFIRMED`, `runs/run-20260918-100903-64fa82/`.
 
-### [ ] T2. Hardened ikiz · *(Serhat · ~2s)* — **ilk günün işi**
+### [x] T2. Hardened ikiz · *(Serhat · ~2s)* — **ilk günün işi**
 Aynı oracle'ın, yetkilendirmesi düzgün bir endpoint'te **REJECTED** demesi.
 **Kabul:** aynı oracle, aynı koşum, iki hedef → biri CONFIRMED biri REJECTED.
+**Doğrulandı:** `python -m scripts.bench_guard` — `[idor-basket] idor: vulnerable=CONFIRMED
+hardened=REJECTED · 0-FP OK · recall OK` (+ `idor-public-trap`, `bfla-admin`). Ayrıca bu koşumda
+Windows konsolunda (`cp125x`) `✅` karakteri yüzünden çöken bir encoding hatası bulunup düzeltildi
+(`scripts/bench_guard.py`).
 
 ### [x] T3. LLM'siz hipotez üretimi (kapsam genişletme) · *(Görkem · ~5s)*
 - path şablonundan çıkarım (`{id}`, `{uid}` segmentleri)
