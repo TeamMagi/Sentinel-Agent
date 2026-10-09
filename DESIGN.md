@@ -158,7 +158,10 @@ pentest-ai/
 │   │   ├── normalize.py   # volatile alanları temizle
 │   │   └── session_store.py
 │   ├── policy/            # scope.py, authorize.py
-│   ├── oracle/            # base.py, markers.py, idor.py, bfla.py
+│   ├── oracle/            # base.py, markers.py, idor.py, bfla.py, dom_xss.py
+│   ├── browser/           # driver.py (BrowserDriver — TIER_C.md C1, gerçek Chromium yürütme motoru)
+│   ├── netscan/           # tls.py (TlsInspector — TIER_C.md C2, ham TLS handshake yürütme motoru)
+│   ├── rawsocket/         # http_client.py (RawHttpClient — TIER_C.md C3, ham TCP + zamanlama yürütme motoru)
 │   ├── recon/             # openapi.py, har.py, crawl.py            (Stage 1)
 │   ├── llm/               # client.py, prompts.py, actions.py       (Stage 1)
 │   ├── orchestrator/      # pipeline.py                             (Stage 2)

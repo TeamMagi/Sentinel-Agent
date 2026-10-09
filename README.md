@@ -97,7 +97,10 @@ Araç iki tür denetleyici kullanır: **Oracle'lar** (çok-aktörlü, karşıla�
 | `FileUploadOracle` | **Güvensiz dosya yükleme** | tehlikeli tür/uzantı kabul edilip sunuluyor mu |
 | `StoredXssOracle` | **Depolanan (stored) XSS** | store→retrieve: enjekte edilen script başka aktöre kodlanmadan dönüyor mu |
 | `InjectionOracle` | **XSS · SQLi · NoSQLi · SSTI · Path Traversal** | yansıma / hata-diferansiyeli / şablon değerlendirme imzası |
+| `DomXssOracle` | **DOM XSS** (TIER_C.md C1) | gerçek headless tarayıcıda (`BrowserDriver`) payload'ın metin olarak yansımadığını, JS olarak **İCRA EDİLDİĞİNİ** gözler — query **ve** sunucuya hiç gitmeyen URL fragment (hash) üzerinden; `--dom-xss` ile opt-in (Playwright gerektirir, varsayılan kapalı) |
 | `TimingOracle` | **Zamanlama-tabanlı kör enjeksiyon** | ölçülü gecikme farkı (blind SQLi/komut) |
+| `SmugglingOracle` | **HTTP Request Smuggling** (TIER_C.md C3) | ham TCP (`RawHttpClient`, `Replayer`'ı bypass eder) — CL.TE/TE.CL zamanlama probu: taban hızlıyken prob zaman aşımına uğrarsa/belirgin yavaşsa CONFIRMED; `--smuggling-scan` ile opt-in, yalnızca `destructive_tests=true` iken çalışır |
+| `RaceConditionOracle` | **Race Condition / TOCTOU** (TIER_C.md C4) | `RaceHarness` (`asyncio.Barrier` — GERÇEK eşzamanlı N istek, `RateLimiter`'ı bypass eder) ile operatörün `--race-endpoint` ile belirttiği limitli aksiyona eşzamanlı saldırı: 1 başarılı → REJECTED, >1 başarılı → CONFIRMED |
 
 ### 🤖 Agent-security oracle'ları — hedef bir LLM-ajan/MCP olduğunda (AS-1..AS-4)
 
@@ -128,7 +131,9 @@ kapısından geçer; scope-dışı çağrılar kanıt sayılmadan reddedilir ve 
 | `JwtDetector` | JWT zayıf/`none` algoritma, imza/`exp` sorunları |
 | `SsrfDetector` · `XxeDetector` · `RfiDetector` | Server-side istek/ayrıştırma: SSRF/XXE/RFI — in-band **ve** blind (OOB toplayıcı ile) |
 | `PrototypePollutionDetector` · `CacheDetector` | İleri server-side: prototype pollution + web cache poisoning |
+| `TlsDetector` | **TLS/SSL misconfiguration + certificate misconfiguration** (TIER_C.md C2, A02:2021): ham TLS handshake (`TlsInspector`, `Replayer`'ı bypass eder) — OpenSSL'in kendi zincir-doğrulama kararı (expired/self-signed/untrusted-issuer/hostname-mismatch) + zayıf protokol/cipher gözlemi; varsayılan açık, `--no-tls-scan` ile kapatılır |
 | `UserEnumDetector` | Kullanıcı enümerasyonu (geçerli/geçersiz hesap yanıt farkı) |
+| `HostHeaderInjectionDetector` | **Password reset poisoning** (TIER_C.md C5, A07:2021): `Host`/`X-Forwarded-Host` enjeksiyonu — marker-domain cevapta/`Location`'da yansırsa CONFIRMED; planner "reset"/"forgot" path'lerinde otomatik tetikler |
 | `WordlistRecon` · `GraphQLRecon` | Endpoint enümerasyonu + GraphQL introspection ifşası |
 
 ### 🤖 Agent-security predicate'leri — tool kullanan LLM ajanları
@@ -305,6 +310,10 @@ sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek sef
 | `--enumerate` | wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme) |
 | `--login-url / --register-url / --logout-url` | brute-force/default-creds · zayıf şifre · session-lifecycle taramalarını tetikler |
 | `--no-exposure-scan / --no-info-leak-scan / --no-rate-limit-scan / --no-cve-scan` | ilgili dedektör ailesini atla |
+| `--dom-xss [--dom-xss-headed]` | TIER_C.md C1: gerçek (headless) Chromium'da DOM XSS — payload'ın yansımasını değil, JS olarak **çalıştığını** kanıtlar; opt-in (Playwright gerektirir, maliyetli — varsayılan kapalı), `-headed` görünür tarayıcıyla debug için |
+| `--no-tls-scan` | TIER_C.md C2: ham TLS handshake taramasını (protokol/cipher/sertifika-güven) atla — varsayılan **açık** (ucuz/salt-okunur, yeni bağımlılık gerektirmez) |
+| `--smuggling-scan` | TIER_C.md C3: HTTP Request Smuggling (CL.TE/TE.CL) zamanlama probu — ham TCP, saf tespit (istismar değil); yalnızca `destructive_tests=true` iken çalışır, hedefte geçici askıda-kalma riski taşır — opt-in, varsayılan **kapalı** |
+| `--race-endpoint 'METHOD:/path/{id}/action' [--race-resource-key <ad>] [--race-concurrency N]` | TIER_C.md C4: Race Condition (TOCTOU) probu — operatörün AÇIKÇA belirttiği tek kullanımlık/limitli bir aksiyona `N` eşzamanlı istek; verilmezse race testi tamamen atlanır |
 | `--loop` | self-improving orchestrator: CONFIRMED bulgudan pivot hipotezler türet |
 | `--agent [--scouts N]` | agentic reasoning döngüsü; `--scouts>1` ile paralel scout'lar (tek bütçe/policy paylaşır) |
 | `--llm none\|gemini\|ollama\|anthropic` | hipotez/triyaj LLM'i (varsayılan `none` — **LLM'siz de çalışır**) |
@@ -590,13 +599,16 @@ Sentinel-Agent/
 ├── Makefile               # `make demo` / `make test`
 ├── config/                # scope / actors / endpoints / llm — *.example.yaml (gerçekler git-ignore)
 ├── docs/                  # rapor + web-ui ekran görüntüleri, AI-kullanımı, Devpost taslağı, video senaryosu
-├── src/pentestai/         # models · policy · net · oracle · detector · auth · recon · llm · orchestrator · evidence · report · webui
-│   ├── oracle/            # idor · state_change · bfla · bopla · injection · timing · unauthorized · method_bypass · csrf · mass_assignment · file_upload · stored_xss
-│   ├── detector/          # exposure · info_leak · rate_limit · cve · default_creds · session_lifecycle · response_inspect · auth_probes · oob_probes · server_side
+├── src/pentestai/         # models · policy · net · oracle · detector · auth · browser · netscan · rawsocket · recon · llm · orchestrator · evidence · report · webui
+│   ├── oracle/            # idor · state_change · bfla · bopla · injection · timing · unauthorized · method_bypass · csrf · mass_assignment · file_upload · stored_xss · dom_xss · smuggling · race_condition
+│   ├── browser/           # BrowserDriver — TIER_C.md C1: gerçek Chromium'da JS-çalıştırma kanıtı (DomXssOracle DI'ı)
+│   ├── netscan/           # TlsInspector — TIER_C.md C2: ham TLS handshake, protokol/cipher/sertifika-güven kanıtı (TlsDetector DI'ı)
+│   ├── rawsocket/         # RawHttpClient — TIER_C.md C3: ham TCP + zamanlama, HTTP Request Smuggling kanıtı (SmugglingOracle DI'ı)
+│   ├── detector/          # exposure · info_leak · rate_limit · cve · default_creds · session_lifecycle · response_inspect · auth_probes · oob_probes · server_side · tls · host_header
 │   ├── orchestrator/      # pipeline (--loop) · agent (--agent) · parallel (--scouts)
 │   ├── report/            # JSON + Markdown + HTML (statik viewer) reporter'ları
 │   └── webui/             # stdlib sunucu · saf yönlendirici · tarama yöneticisi · çözüm kataloğu · SPA
-├── tests/                 # network'süz birim testleri (276 test)
+├── tests/                 # network'süz birim testleri (816 test)
 ├── runs/                  # tarama çıktıları: findings.json + report.{md,html,json} (git-ignore)
 └── scripts/
     ├── run_scan.py        # CLI tarayıcı
