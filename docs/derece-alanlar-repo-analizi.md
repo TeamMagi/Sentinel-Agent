@@ -223,6 +223,97 @@ açığını **kanıtlarız**, trafiği filtrelemeyiz (ChainBreak/VaxGuard için
 
 ---
 
+## Repo 4 — `Undiluted7027/crucible` = **Crucible** ⭐ (felsefe olarak en yakınımız)
+
+**Link:** https://github.com/Undiluted7027/crucible
+**Tür:** npm audit uyarılarını **tekrar-üretilebilir güvenlik deneyine** çevirir — advisory'yi izole
+container'da replay eder, **3-revizyon** (vulnerable / broken-regresyon / fixed) yan yana karşılaştırır;
+"bu advisory beni gerçekten etkiliyor mu VE önerilen fix işe yarıyor mu" sorusunu deterministik kanıtlar.
+**Yığın:** TypeScript · Node 24 · Docker (Dockside) · özel CLI · **LLM YOK** (kural-tabanlı karar).
+
+### 4.1 Ne yapıyor (kısaca)
+Audit raporunu içeri alır, statik ES-module call-site analiziyle (kod ÇALIŞTIRMADAN) etkilenen yeri
+bulur, üç revizyonu container'da replay eder, JSON kanıt yakalar (**input-hash ile bayatlama/staleness
+tespiti**), Markdown rapor üretir. Karar deterministik: gözlem → "security violation | functional
+regression | passing". Felsefe **birebir bizim tezimiz:** deterministik, tekrar-üretilebilir kanıt.
+
+### 4.2 Öne çıkanlar
+1. **Tekrar-üretilebilir replay + kanıt** — bizim `Replayer`+proof-bundle felsefemizin npm-audit karşılığı.
+2. **3-revizyon fix-verification + regresyon** — fix açığı KAPATIYOR mu *ve* işlevi BOZUYOR mu, yan yana.
+3. **Input-hash STALENESS** — izlenen girdiler (checker kaynağı, fixture/patch, bağımlılık, config)
+   değişince kanıt "bayat → yeniden-ispat gerek" işaretine geçer.
+4. **Aşırı dürüst limitations** — "deadline-sized prototip; yalnızca 1 advisory (lodash GHSA); web
+   workspace / otonom onarım / keyfi-repo reprodüksiyon / auto-fix PR HARİÇ."
+5. **FP disiplini** — "call-site tespiti sözdizimseldir; exploitability KANITLAMAZ, uyarıyı reddetmeyi
+   meşrulaştırmaz." + "verify Docker'a bağlanmaz, tahrifi engellemez" (kapsam dürüstlüğü).
+
+### 4.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan — değerli)
+- ❌ **Proof-bundle STALENESS yok.** SHA-256 kanıtın İÇERİĞİNİ mühürlüyor (tahrif) ama **HEDEF
+  değişince** ("aynı endpoint artık farklı yanıt veriyor") kanıtın *bayatladığını* söyleyen bir
+  input-hash + "re-prove gerek" işareti yok. *(İlk turdaki GOREVLER #6 — hâlâ açık; Crucible doğruluyor.)*
+- ❌ **Fix-verification + functional-regression yok.** Önerilen düzeltmeyi uygulayıp yeniden tarayınca
+  açık kapanıyor mu (+ işlev bozulmuyor mu) — "failed-repair" durumu. *(GOREVLER #7/#8 — açık.)*
+- ✅ **Tekrar güçlenen:** deterministik-karar + reproducible-replay + dürüst-limitations (bizde var).
+
+### 4.4 Sentinel'e nasıl eklenir — mimariye uyumlu
+| # | Öneri | Nereye | Not | Öncelik |
+|---|---|---|---|---|
+| Y1 | **Proof-bundle staleness**: evidence'a hedef-yanıt input-hash'i ekle; `integrity`/`replay` hedefi yeniden çekince hash değiştiyse "STALE → re-prove" işaretle | `evidence/proof.py` + `evidence/ledger.py` + `scripts/integrity.py` | Verdict'e dokunmaz; kanıtın GÜNCELLİĞİni ölçer (hash-chain'in tamamlayıcısı) | 🟡 Orta |
+| Y2 | **Fix-verification + functional-regression**: remediation uygula → yeniden koş → açık kapandı mı **VE** işlev çalışıyor mu; "failed-repair" kanıtı | yeni `oracle`/`report` katmanı | ⛔ verdict merdivenini GEVŞETMEDEN yeni kanıt (yeni bulgu ≠ kısayol) | 🟡 Orta |
+
+### 4.5 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+npm-audit ingestion, Docker/Dockside container-replay altyapısı, ES-module call-site statik analizi —
+Crucible'ın tedarik-zinciri/paket domain'ine ait. Biz HTTP access-control replay'i yapıyoruz; container
+reprodüksiyon modelini almayız. *Fikirleri* (Y1 staleness, Y2 fix-verify) alırız, altyapısını değil.
+
+### 4.6 Tek cümlelik ders
+> Crucible, bizim "deterministik + tekrar-üretilebilir kanıt" tezimizin npm-audit dünyasındaki
+> ikizi; en değerli iki fikri — **staleness** (hedef değişti → kanıt bayat) ve **fix-verification**
+> (düzeltme gerçekten kapattı mı + işlevi bozdu mu) — ilk turdaki GOREVLER #6/#7/#8'i bağımsız doğruluyor.
+
+---
+
+## Repo 5 — `PuneetKumar1790/TrapScan` = **TrapScan**
+
+**Link:** https://github.com/PuneetKumar1790/TrapScan
+**Tür:** Chrome MV3 eklentisi — web'de gezen **AI ajanlarını "AI Agent Traps"tan koruyan** guard
+(içerik enjeksiyonu, semantik manipülasyon, bilişsel-durum saldırıları). Google DeepMind makalesine
+(Franklin vd. 2025) dayanıyor. *(Guard domain'i; biz prover.)*
+**Yığın:** JS/React · Chrome MV3 · Gemma 4 · Vercel. LLM sınıflandırır/açıklar, **karar vermez.**
+
+### 5.1 Ne yapıyor (kısaca)
+3 katman: (1) content-script — 6 **deterministik** yerel algoritma (DOM/CSS/regex/JSON-LD) şüpheli
+parça bulur, veri dışarı çıkmaz; (2) service-worker — şüpheli parçayı Gemma'ya gönderir (sınıflandırma
++ düz-metin açıklama, **verdict değil**); (3) popup — tehdit kartları + 1–10 risk skoru + indirilebilir
+HTML rapor. Deterministik-önce, LLM-açıklar — bizim ilkemiz.
+
+### 5.2 Öne çıkanlar / dersler
+1. **Deterministik-önce, LLM-yalnızca-açıklar** — tezimizi bir kez daha doğruluyor.
+2. **"AI Agent Traps" taksonomisi** (DeepMind) — adversarial-web-içeriğinin zengin sınıflandırması;
+   bizim UNTRUSTED_TO_ACTION senaryolarımızı **çeşitlendirmek** için ilham (referans).
+3. **Karşıt ders (rigor):** test/metrik/limitations/OWASP-CWE-eşleme **yok** → ölçülmüşlük farkımız.
+4. **Guard vs Prover (4. kez):** ChainBreak+VaxGuard+Talos+TrapScan hepsi ajanı *koruyan*; biz *kanıtlayan*.
+
+### 5.3 Bizde EKSİK (yeni, küçük)
+- ⚠️ Ajan-güvenliği test **senaryo çeşitliliği**: TrapScan'in trap taksonomisi (visual-camouflage,
+  cognitive-state, JSON-LD cognitive) UNTRUSTED_TO_ACTION için ek untrusted-content vakaları üretebilir.
+  (Yeni motor değil, senaryo/fixture zenginleştirme.)
+
+### 5.4 Sentinel'e nasıl eklenir
+| # | Öneri | Nereye | Not | Öncelik |
+|---|---|---|---|---|
+| Y3 | **Trap-taksonomi test senaryoları**: DeepMind trap tiplerini untrusted-content fixture'larına ekle | `tests`/`eval` (agent trace fixture'ları) | Yeni motor yok; UNTRUSTED_TO_ACTION recall/güven senaryosu | 🟢 Düşük |
+
+### 5.5 ALMAYACAKLARIMIZ
+Browser-extension guard rolü, Gemma bağımlılığı, web-content-trap enforcement domain'i — TrapScan'in
+koruma alanı. Biz hedef API/ajanın yetki açığını kanıtlarız, tarayıcıda içerik bloklamayız.
+
+### 5.6 Tek cümlelik ders
+> TrapScan bir agent-koruma guard'ı daha (guard-vs-prover 4. kez); alacağımız tek şey DeepMind "AI
+> Agent Traps" taksonomisini untrusted-content senaryolarımıza ilham — enforcement rolünü değil.
+
+---
+
 ## Toplu "Yapılacaklar" (yeni tur — her repo sonrası güncellenir)
 
 - [x] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard (+CyberSentinel)* · 🟡 — scanner `on_phase` callback (opsiyonel, verdict'i etkilemez) → ScannerRunner her faz bitince '[faz] N bulgu · M CONFIRMED' akıtıyor; scan-status progress'te canlı görünür
@@ -230,10 +321,15 @@ açığını **kanıtlarız**, trafiği filtrelemeyiz (ChainBreak/VaxGuard için
 - [x] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢 — README 'Neyle farklı?'ya 'prover değil guard' + 'evidence-first, model gets no vote' bloğu eklendi (test_verdict_invariance referanslı)
 - [x] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢 — `report/triage_state.py` (runs/<id>/triage.json) + web UI GET/POST /api/runs/<id>/triage (traversal-korumalı); `tests/test_triage_state.py` (8)
 - [x] (X1) CI'da eval/benchmark artefaktı + trend (FP-rate/recall gidişi) · *kaynak: Talos* · 🟢 — sentinel.yml test job'ı self-eval'i koşup `eval/results.json`'ı 90 gün saklanan artefakt olarak yüklüyor
+- [ ] (Y1) Proof-bundle **staleness** (hedef değişince input-hash → "re-prove gerek") · *kaynak: Crucible (+GOREVLER #6)* · 🟡
+- [ ] (Y2) **Fix-verification + functional-regression** ("failed-repair" kanıtı, verdict merdivenini gevşetmeden) · *kaynak: Crucible (+GOREVLER #7/#8)* · 🟡
+- [ ] (Y3) Trap-taksonomi untrusted-content senaryoları (UNTRUSTED_TO_ACTION çeşitliliği) · *kaynak: TrapScan (DeepMind)* · 🟢
 
 **Tekrarlayan sinyaller:**
-- **Guard vs Prover (3/3 ajan-güvenlik repo):** ChainBreak + VaxGuard + Talos hepsi ajanı *koruyan*
-  runtime guard/proxy; Sentinel farkı hedefin **açık olduğunu kanıtlamak** → en net konumlandırma kartı.
+- **Guard vs Prover (4 ajan-güvenlik repo):** ChainBreak + VaxGuard + Talos + TrapScan hepsi ajanı
+  *koruyan* runtime guard/proxy/eklenti; Sentinel farkı hedefin **açık olduğunu kanıtlamak** → en net kart.
+- **Deterministik-karar + reproducible + dürüst-limitations** — Crucible (LLM'siz, replay, aşırı dürüst
+  scope) bunu 5. kez doğruladı; "deterministik + ölçülmüş + kararı kod verir" üçlüsü hâlâ ayrıştırıcımız.
 - **Erişilebilirlik/çok-yüzey + canlı pano** (CLI/API/CI/dashboard) — her repoda çıktı; bizde
   CLI/MCP/web UI + composite Action var, eksik olan **canlı telemetri** (V1).
 - **Dürüst limitations + yayınlanmış/ölçülmüş metrik** — "olmazsa-olmaz"; bizde `eval/` + Kısıtlar
