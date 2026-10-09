@@ -68,6 +68,13 @@ def test_ip_pin_allows_loopback():
     assert isinstance(d, Allow)
 
 
+def test_ip_pin_allows_ipv6_loopback():
+    # '::1' Python'da is_reserved=True döner ama loopback'tir; çift-yığın host'larda 'localhost'
+    # önce '::1'e çözülür — reddedilirse localhost taraması tümden kırılır (gerileme kapanı).
+    d = _authz("http://localhost:3000/api/x", pin_map={"localhost": "::1"})
+    assert isinstance(d, Allow)
+
+
 def test_deny_payload_too_large():
     d = _authz("http://localhost:3000/api/x", scope=_scope(max_payload_bytes=4),
                method="HEAD", body=b"x" * 10)
