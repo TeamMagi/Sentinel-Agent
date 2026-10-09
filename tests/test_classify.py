@@ -22,9 +22,11 @@ PRODUCED_TYPES = [
     "idor", "excessive_data_exposure", "unauthorized_access", "method_bypass", "bfla",
     "injection", "sqli", "nosqli", "ssti", "path_traversal",
     "timing", "blind_sqli", "command_injection",
-    "state_change_authz", "csrf", "mass_assignment", "stored_xss", "file_upload",
+    "state_change_authz", "csrf", "mass_assignment", "stored_xss", "dom_xss", "file_upload",
     "open_redirect", "cors", "clickjacking", "jwt", "user_enumeration",
     "ssrf", "rfi", "xxe", "cache_poisoning", "prototype_pollution",
+    "tls_misconfiguration", "certificate_misconfiguration", "http_request_smuggling",
+    "race_condition", "host_header_injection",
     "info_leak", "exposure", "default_credentials", "vulnerable_component",
     "rate_limit", "session_lifecycle", "graphql_introspection", "graphql_bola",
     # Dalga 5 — agent-security predicate'leri (agent/*.py + oracle/untrusted_to_action.py)

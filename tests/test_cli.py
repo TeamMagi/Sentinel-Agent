@@ -54,7 +54,7 @@ def test_no_scan_mode_keeps_scope_yaml_budget_unchanged():
     out, breadth = _apply_scan_profile(budget, _args())
     assert out.max_total_requests == 2000 and out.max_wall_clock_sec == 900
     assert breadth == {"exposure_scan": True, "info_leak_scan": True, "rate_limit_scan": True,
-                        "cve_scan": True, "enumerate_more": False}
+                        "cve_scan": True, "enumerate_more": False, "tls_scan": True}
 
 
 def test_quick_mode_scales_down_budget_and_breadth():
