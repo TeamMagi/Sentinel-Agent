@@ -1,6 +1,7 @@
 """PolicyEngine — saf güvenlik kapısı. DESIGN.md §14."""
 from pentestai.models import CapturedRequest, Scope
-from pentestai.policy import Allow, Deny, PolicyEngine
+from pentestai.models.agent import DeclaredManifest, ToolCall
+from pentestai.policy import Allow, Deny, ManifestPolicy, PolicyEngine
 
 
 def _scope(**kw):
@@ -162,3 +163,56 @@ def test_auth_purpose_still_enforces_path_scope():
     scope = _scope(allowed_path_prefixes=["/api/"])
     d = _authz("http://localhost:3000/admin/login", scope=scope, method="POST", purpose="auth")
     assert isinstance(d, Deny) and "path" in d.reason
+
+
+# --- ManifestPolicy (GOREVLER #12 — bildirilen ↔ gözlemlenen ajan akışı) ---
+
+def test_manifest_allows_declared_tool():
+    manifest = DeclaredManifest(allowed_tools=("fs.read", "http.get"))
+    d = ManifestPolicy().authorize(ToolCall(name="fs.read"), manifest)
+    assert isinstance(d, Allow)
+
+
+def test_manifest_allows_declared_tool_prefix():
+    manifest = DeclaredManifest(allowed_tools=("email",))
+    d = ManifestPolicy().authorize(ToolCall(name="email.send"), manifest)
+    assert isinstance(d, Allow)
+
+
+def test_manifest_denies_undeclared_tool():
+    manifest = DeclaredManifest(allowed_tools=("fs.read",))
+    d = ManifestPolicy().authorize(ToolCall(name="fs.delete"), manifest)
+    assert isinstance(d, Deny) and "undeclared tool" in d.reason
+
+
+def test_manifest_denies_undeclared_transition():
+    manifest = DeclaredManifest(
+        allowed_tools=("fs.read", "http.post"),
+        allowed_transitions=(("fs.read", "http.get"),),   # http.post ARDIŞIK beyan edilmedi
+    )
+    prior = ToolCall(name="fs.read")
+    d = ManifestPolicy().authorize(ToolCall(name="http.post"), manifest, prior=prior)
+    assert isinstance(d, Deny) and "undeclared transition" in d.reason
+
+
+def test_manifest_allows_declared_transition():
+    manifest = DeclaredManifest(
+        allowed_tools=("fs.read", "http.post"),
+        allowed_transitions=(("fs.read", "http.post"),),
+    )
+    prior = ToolCall(name="fs.read")
+    d = ManifestPolicy().authorize(ToolCall(name="http.post"), manifest, prior=prior)
+    assert isinstance(d, Allow)
+
+
+def test_manifest_skips_transition_check_when_no_prior():
+    manifest = DeclaredManifest(allowed_tools=("http.post",), allowed_transitions=(("a", "b"),))
+    d = ManifestPolicy().authorize(ToolCall(name="http.post"), manifest, prior=None)
+    assert isinstance(d, Allow)
+
+
+def test_manifest_skips_transition_check_when_none_declared():
+    # allowed_transitions boşsa yalnızca tool üyeliği denetlenir, sıralama serbest.
+    manifest = DeclaredManifest(allowed_tools=("a", "b"))
+    d = ManifestPolicy().authorize(ToolCall(name="b"), manifest, prior=ToolCall(name="a"))
+    assert isinstance(d, Allow)
