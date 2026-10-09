@@ -178,6 +178,12 @@ Yanlış-pozitif kapanları birinci sınıf vatandaş: kullanıcı aksiyonu **a�
 deputy **REJECTED**; canary kullanıcının kendi girdisinden geliyorsa sızıntı **sayılmaz**. Canary
 değeri hiçbir kodlamasıyla rapora/evidence'a yazılmaz.
 
+**Nedensel lineage (trajectory):** analiz per-action değil **tüm yörünge** üzerinedir. EXFILTRATION,
+sırrı ÇIKTISINDA taşıyan (okuyan) adım(lar) ile dışarı sızdıran adımı bir `triggered_by` soy-ağacıyla
+bağlar → *"adım 0 (fs.read) → adım 2 (http.post): sır okundu → dışarı sızdırıldı"*. Böylece **tek tek
+zararsız görünen ama zincirlenince sızıntıya dönen** adımlar deterministik veri-akışıyla (LLM yorumu
+değil) gösterilir.
+
 ---
 
 ## 🖥️ Web arayüzü (kontrol paneli)
@@ -722,8 +728,9 @@ söylemesi, yaptığı iddiaya güveni artırır. Sentinel-Agent'ın bilinen sı
   dedektörleri (exposure/info-leak/CVE/header) kapsar, differential oracle'ları değil.
 - **Ajan-güvenliği gözleme dayanır.** Predicate'ler hedeften toplanan `AgentTrace`'i (MCP/SDK/log)
   değerlendirir; her ajan çerçevesi için hazır adapter yoktur ve trace eksik/yanlışsa sonuç ancak
-  o kadar iyidir. Trajektori analizi başına-adım imza aramasıdır; nedensel `triggered_by` soy-ağacı
-  henüz birinci-sınıf değildir (yol haritası).
+  o kadar iyidir. Analiz trajectory-seviyesidir (tüm izi tarar) ve EXFILTRATION için nedensel
+  `triggered_by` soy-ağacı üretilir (sır okundu → dışarı sızdırıldı); bu lineage'ın **tüm**
+  predicate'lere yayılması sürüyor.
 - **LLM karar vermez ama sınırlıdır.** LLM opsiyoneldir ve yalnızca hipotez kapsamını + açıklama
   kalitesini artırır; verdict'i asla belirlemez. LLM kapalıyken kapsam kural-tabanlı hipotezlerle
   sınırlıdır.
