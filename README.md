@@ -340,7 +340,7 @@ sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek sef
 | Flag | Açıklama |
 |---|---|
 | `--scope / --actors / --endpoints` | config YAML dosyaları (zorunlu: scope + actors; endpoint kaynağı) |
-| `--openapi <spec>` / `--har <file>` | endpoint'leri OpenAPI spec'inden veya tarayıcı HAR export'undan keşfet |
+| `--openapi <spec>` / `--har <file>` | endpoint'leri OpenAPI spec'inden veya tarayıcı HAR export'undan keşfet — **kullanıcı-kapsamlı query param'ları** (`userId`/`owner`/`account_id`…) otomatik **query-BOLA** adayı işaretlenir |
 | `--mode passive\|active` | `passive`: yalnızca listele · `active`: gerçek differential test |
 | `--scan-mode quick\|standard\|deep` | bütçeyi + tarama genişliğini ölçekler (`quick`≈40 istek/300s; `deep`=geniş bütçe+enümerasyon); verilmezse scope.yaml'daki budget aynen kalır |
 | `--dry-run` | istekleri authorize'dan geçir ama **gönderme** (plan önizlemesi) |
