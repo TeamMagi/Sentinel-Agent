@@ -19,6 +19,37 @@ Mimarinin tamamı için **[DESIGN.md](DESIGN.md)**. Bu dosya "nasıl çalışır
 - Gövde (opsiyonel) Türkçe; **neden**i açıkla, sadece **ne**yi değil.
 - Küçük, tek konulu commit'ler. Test kırıkken commit atma.
 
+### 1.1 Commit öncesi remote kontrolü (ZORUNLU)
+
+Commit atmadan **önce** uzak deponun durumunu doğrula; yerelde biriken iş, uzakta ilerlemiş bir
+dalın üstüne körlemesine yazılmasın:
+
+```bash
+# 1) uzak adres doğru mu (depo taşınmış olabilir) — kimlik bilgisi MASKELENEREK yazdır
+git remote get-url origin | sed -E 's#://[^@/]*@#://<REDACTED>@#'
+git fetch origin                       # 2) uzak ilerledi mi
+git status -sb                         # 3) ahead/behind durumu
+git log --oneline HEAD..origin/develop # 4) uzakta olup bizde olmayan commit'ler
+```
+
+> ⚠️ **`git remote -v`'yi çıplak koşma.** Uzak URL'ye gömülü bir token varsa terminale, kayıtlara
+> ve ekran paylaşımına ham basar. Yukarıdaki maskeli biçimi kullan.
+
+- **Uzak ilerlediyse** önce `git pull --rebase`, sonra commit/push. Rebase'i push anında değil
+  **öncesinde** yap — çakışma push'un ortasında değil, sakin kafayla çözülsün.
+- **`git push` "This repository moved" derse** uzak adres eskimiştir: yönlendirme sayesinde push
+  çalışsa bile `git remote set-url origin <yeni-adres>` ile düzelt.
+- **Token/parola remote URL'sinde TUTULMAZ** (§8 ile aynı ilke: sırlar depoya/config'e gömülmez).
+  `.git/config` içindeki `https://<kullanıcı>:<token>@...` biçimi sırrı diske yazar ve her
+  `git remote -v`'de sızdırır. Yerine **credential helper** (`git config --global credential.helper
+  store|manager`) veya **SSH anahtarı** kullan. Böyle bir URL bulursan: önce token'ı **iptal et**
+  (GitHub → Settings → Developer settings → Tokens), sonra adresi kimlik bilgisiz hâline çevir.
+- **Takım arkadaşının işi geldiyse yazdığın metni yeniden doğrula.** Doküman/görev dosyalarındaki
+  "şu dosya yok", "şu madde bitmedi", "test sayısı N" gibi **durum notları** onun commit'leriyle
+  eskimiş olabilir; rebase sonrası bu iddiaları tek tek kontrol et.
+- Rebase sonrası `pytest -q`'yu **tekrar** koş (§6): birleşen iki tarafın ayrı ayrı yeşil olması,
+  birleşiminin yeşil olduğu anlamına gelmez.
+
 ## 2. Dil kuralları
 
 - **Kod tanımlayıcıları (değişken/fonksiyon/sınıf): İngilizce.** (`PolicyEngine`, `replay`, `victim`)

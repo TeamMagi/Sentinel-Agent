@@ -19,7 +19,7 @@ bench-guard:
 
 # AS-9: ruff (E,W,F,I,UP,B,SIM — bkz. pyproject.toml [tool.ruff]). Ağsız, hedefsiz.
 lint:
-	ruff check .
+	$(PYTHON) -m ruff check .
 
 # AS-7: sürüm bütünlüğü — manifest hash · ast-parse · JSON · rapor aritmetiği · yerel linkler.
 # Ağsız, import'suz, yalnız stdlib. Kasıtlı değişiklikten sonra: make verify ARGS=--update

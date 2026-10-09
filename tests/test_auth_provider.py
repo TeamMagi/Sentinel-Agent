@@ -2,11 +2,17 @@
 
 Network'süz (CLAUDE.md §6): httpx.MockTransport ile.
 """
+import json
+
 import httpx
 import pytest
 
 from pentestai.auth.browser import BrowserAuthProvider
-from pentestai.auth.provider import TokenAuthProvider, build_auth_provider
+from pentestai.auth.provider import (
+    StorageStateAuthProvider,
+    TokenAuthProvider,
+    build_auth_provider,
+)
 from pentestai.models import Scope
 from pentestai.net.replay import ScopeError
 from pentestai.policy import PolicyEngine
@@ -131,3 +137,124 @@ async def test_build_auth_provider_static_ignores_policy_and_transport():
     )
     state = await provider.acquire()
     assert state.headers == {"X-Api-Key": "k"}
+
+
+def test_build_auth_provider_unknown_type_raises():
+    with pytest.raises(ValueError, match="bilinmeyen auth type"):
+        build_auth_provider({"type": "carrier-pigeon"})
+
+
+# --------------------------- StorageStateAuthProvider ---------------------------
+
+def _write_storage_state(tmp_path, *, cookies=None, ls_items=None):
+    data = {
+        "cookies": cookies or [],
+        "origins": [{"origin": BASE, "localStorage": ls_items or []}],
+    }
+    p = tmp_path / "state.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return str(p)
+
+
+@pytest.mark.asyncio
+async def test_storagestate_provider_extracts_cookies_and_token(tmp_path):
+    path = _write_storage_state(
+        tmp_path,
+        cookies=[{"name": "session", "value": "s3cr3t"}, {"name": "lang", "value": "tr"}],
+        ls_items=[{"name": "token", "value": "ls-token-1"}],
+    )
+    provider = StorageStateAuthProvider(path)
+    state = await provider.acquire()
+    assert state.cookies == {"session": "s3cr3t", "lang": "tr"}
+    assert state.headers == {"Authorization": "Bearer ls-token-1"}
+
+
+@pytest.mark.asyncio
+async def test_storagestate_provider_recognizes_all_known_ls_keys(tmp_path):
+    for key in ("access_token", "jwt", "id_token"):
+        path = _write_storage_state(tmp_path, ls_items=[{"name": key, "value": f"val-{key}"}])
+        state = await StorageStateAuthProvider(path).acquire()
+        assert state.headers == {"Authorization": f"Bearer val-{key}"}
+
+
+@pytest.mark.asyncio
+async def test_storagestate_provider_nested_authentication_object(tmp_path):
+    # bazı SPA'lar token'ı localStorage'a bir JSON-string olarak DEĞİL, üst anahtar
+    # "authentication" ile saklar — anahtar adı yine de TOKEN_LS_KEYS'te tanınmalı.
+    path = _write_storage_state(tmp_path, ls_items=[{"name": "authentication", "value": '{"token":"x"}'}])
+    state = await StorageStateAuthProvider(path).acquire()
+    assert state.headers["Authorization"] == 'Bearer {"token":"x"}'
+
+
+@pytest.mark.asyncio
+async def test_storagestate_provider_no_matching_key_yields_no_auth_header(tmp_path):
+    path = _write_storage_state(tmp_path, ls_items=[{"name": "theme", "value": "dark"}])
+    state = await StorageStateAuthProvider(path).acquire()
+    assert state.headers == {}
+    assert state.cookies == {}
+
+
+def test_build_auth_provider_wires_storagestate_type(tmp_path):
+    path = _write_storage_state(tmp_path, cookies=[{"name": "c", "value": "v"}])
+    provider = build_auth_provider({"type": "storagestate", "storagestate_path": path})
+    assert isinstance(provider, StorageStateAuthProvider)
+    assert provider.path == path
+
+
+# --------------------------- TokenAuthProvider: header-kaynaklı token ---------------------------
+
+@pytest.mark.asyncio
+async def test_token_provider_extracts_from_named_response_header():
+    def handler(request):
+        return httpx.Response(200, json={}, headers={"X-Auth-Token": "hdr-tok"})
+
+    provider = TokenAuthProvider(
+        f"{BASE}/rest/user/login", {"email": "a@test.local", "password": "x"},
+        {"kind": "bearer", "from": "header:X-Auth-Token"},
+        transport=httpx.MockTransport(handler),
+    )
+    state = await provider.acquire()
+    assert state.headers == {"Authorization": "Bearer hdr-tok"}
+
+
+@pytest.mark.asyncio
+async def test_token_provider_extracts_from_bare_header_name_when_no_prefix():
+    # `from` ne "json:" ne "header:" ile başlarsa doğrudan yanıt başlığı adı sayılır.
+    def handler(request):
+        return httpx.Response(200, json={}, headers={"Set-Cookie-Token": "bare-tok"})
+
+    provider = TokenAuthProvider(
+        f"{BASE}/rest/user/login", {"email": "a@test.local", "password": "x"},
+        {"kind": "bearer", "from": "Set-Cookie-Token"},
+        transport=httpx.MockTransport(handler),
+    )
+    state = await provider.acquire()
+    assert state.headers == {"Authorization": "Bearer bare-tok"}
+
+
+@pytest.mark.asyncio
+async def test_token_provider_non_bearer_kind_uses_custom_header_name():
+    def handler(request):
+        return httpx.Response(200, json={"key": "api-key-value"})
+
+    provider = TokenAuthProvider(
+        f"{BASE}/rest/user/login", {"email": "a@test.local", "password": "x"},
+        {"kind": "apikey", "from": "json:key", "header": "X-Api-Key"},
+        transport=httpx.MockTransport(handler),
+    )
+    state = await provider.acquire()
+    assert state.headers == {"X-Api-Key": "api-key-value"}
+
+
+@pytest.mark.asyncio
+async def test_token_provider_non_bearer_kind_defaults_header_name():
+    def handler(request):
+        return httpx.Response(200, json={"key": "v"})
+
+    provider = TokenAuthProvider(
+        f"{BASE}/rest/user/login", {"email": "a@test.local", "password": "x"},
+        {"kind": "apikey", "from": "json:key"},   # "header" verilmedi → varsayılan X-Api-Key
+        transport=httpx.MockTransport(handler),
+    )
+    state = await provider.acquire()
+    assert state.headers == {"X-Api-Key": "v"}

@@ -2,14 +2,13 @@
 
 # 🛡️ Sentinel-Agent
 
-**AI destekli, kanıt-temelli erişim kontrolü (access-control) pentest aracı**
+**Evidence-based access-control pentesting — an AI agent that has to prove it.**
 
-_LLM akıl yürütür — deterministik motor kanıtlar._
+_The LLM reasons. A deterministic engine decides._
 
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-541%20passing-brightgreen.svg)](tests/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg)](docker-compose.yml)
-[![Web UI](https://img.shields.io/badge/web%20ui-stdlib%20(0%20dep)-9775fa.svg)](#-web-arayüzü-kontrol-paneli)
+[![Web UI](https://img.shields.io/badge/web%20ui-stdlib%20(0%20dep)-9775fa.svg)](#-the-control-panel)
 [![OWASP API](https://img.shields.io/badge/OWASP%20API%20Top%2010-%231%20BOLA-red.svg)](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
@@ -17,624 +16,406 @@ _LLM akıl yürütür — deterministik motor kanıtlar._
 
 ---
 
-Sentinel-Agent, kendi web uygulamalarındaki **yetkilendirme açıklarını** (IDOR/BOLA, BFLA, aşırı
-veri ifşası, yazma/silme yetki hataları) ve bir dizi klasik web zafiyetini (injection, SSRF/XXE,
-CSRF, stored XSS, bilgi sızıntısı, güvenlik yanlış-yapılandırmaları…) bulur — ve her bulguyu
-**tekrar-üretilebilir kanıtla** raporlar. İki gerçek kullanıcı hesabıyla oturum açar, birinin
-diğerinin nesnesine erişip erişemediğini **differential test** ile ölçer ve sonucu yalnızca
-deterministik kanıt varsa `CONFIRMED` işaretler.
-
-> **Neden önemli?** Broken Object Level Authorization (BOLA/IDOR), yıllardır **OWASP API Security
-> Top 10'da 1 numara** — ama klasik tarayıcıların (ZAP/Burp) en zayıf olduğu yer, çünkü "kimin nesi
-> kimde" sorusunu anlamazlar. Sentinel-Agent tam da bu boşluğu doldurur.
-
-<div align="center">
-
-![Sentinel-Agent web arayüzü — CONFIRMED IDOR bulgusu: açığın yeri + nasıl çözülür](docs/web-ui-bulgu.png)
-
-<sub>Web arayüzünden bir bulgu: doğrulama kontrolleri, temel↔saldırı yanıt diff'i, sızan-marker vurgusu, kopyalanabilir repro-curl ve <b>“nasıl çözülür”</b> önerisi.</sub>
-
-</div>
-
----
-
-## ✨ Neyle farklı?
-
-Çoğu "AI pentest ajanı" demosu modeli hedefe salar ve model "buldum" der — kanıt yok, determinizm
-yok, false-positive riski yüksek. Sentinel-Agent'ın mimarisi bunun tersini garanti eder:
-
-> 🔭 **LLM = keşif kolu (scout):** *neyi* test edeceğini önerir, sonucun ne anlama geldiğini yorumlar.
-> ⚖️ **Deterministik motor = hâkim (judge):** açığın gerçek olup olmadığına **her zaman kod** karar verir.
-
-Bu ayrım sayesinde aracın çıktısına güvenilebilir: aynı taramayı iki kez koş, aynı sonucu al; her
-`CONFIRMED` bulgunun altında bir güvenlik ekibinin elle doğrulayabileceği kanıt vardır. Üstelik LLM
-**zorunlu değildir** — araç deterministik kural-tabanlı hipotezlerle tek başına da kanıtlı bulgu üretir.
-
-### 🔒 İhlal edilemez güvenlik değişmezleri
-
-| # | Değişmez |
-|---|---|
-| 1 | **LLM ağa asla dokunmaz** — yalnızca tipli aksiyon önerir; tüm trafik tek bir `Replayer`'dan geçer |
-| 2 | **`CONFIRMED` kararını her zaman kod verir**, asla LLM — yalnızca deterministik leaked-marker ile |
-| 3 | **İki aktör asla session/cookie paylaşmaz** — `test_replay` cross-contamination guard'ı bunu korur |
-| 4 | **Kontroller geçmeden verdict yok** — positive + negative + baseline-stability zorunlu |
-| 5 | **Scope kapısı her istekte** — allowlist + IP pinning; LLM önerisine (ve UI girdisine) güvenilmez |
-| 6 | **Redaction zorunlu** — token/cookie ve PII değerleri (e-posta, JWT, kart, IBAN, hash…) log'a, evidence'a, rapora ve web arayüzüne ham yazılmaz |
-
----
-
-## 🎯 Verdict merdiveni
-
-Her bulgu dört karardan biriyle etiketlenir — belirsizlik **gizlenmez**, açıkça raporlanır:
-
-| Verdict | Anlamı |
-|---|---|
-| ✅ **CONFIRMED** | Kanıtlı açık: kurbanın özel verisi saldırganın cevabında göründü, veya yazma/silme kurbanın nesnesinde kalıcı etki yaptı |
-| 🟡 **LIKELY** | Güçlü belirti var ama kesin kanıt (leaked-marker) doğrulanamadı |
-| ⛔ **REJECTED** | Yetki kontrolü çalışıyor — açık yok |
-| ❔ **INCONCLUSIVE** | Kontroller geçmedi / oracle emin olamadı — sessizce yanlış yargı vermez, çekimser kalır |
-
----
-
-## 🧪 Tespit yetenekleri
-
-Araç iki tür denetleyici kullanır: **Oracle'lar** (çok-aktörlü, karşılaştırmalı, kanıt-temelli) ve
-**Dedektörler** (tek-istek, imza/davranış-tabanlı). Her açık tipi ayrı bir alt sınıftır
-(Open/Closed — yeni tip = yeni sınıf, mevcut kod bozulmaz).
-
-### ⚖️ Oracle'lar — karşılaştırmalı, kanıt-temelli
-
-| Oracle | Açık tipi | Kanıt yöntemi |
-|---|---|---|
-| `IdorOracle` | **IDOR / BOLA** (obje okuma) | leaked-marker: kurbanın verisi saldırganın cevabında |
-| `StateChangingOracle` | **BOLA-write** (PUT/PATCH/DELETE yetki) | kalıcı mutasyon/silme: işlem sonrası kurban olarak yeniden okuma |
-| `BflaOracle` | **BFLA** (fonksiyon-seviyesi yetki) | düşük-yetkili aktör yüksek-yetki fonksiyonuna erişebiliyor mu |
-| `BoplaOracle` | **BOPLA** (aşırı veri ifşası) | cevapta görülmemesi gereken hassas alan diff'i |
-| `UnauthorizedAccessOracle` | **Kimlik doğrulamasız erişim** | anonim (token'sız) oturum korumalı kaynağa erişebiliyor mu |
-| `MethodBypassOracle` | **HTTP metodu ile yetki atlatma** | farklı metod/override başlığıyla yetki kapısı aşılıyor mu |
-| `MassAssignmentOracle` | **Mass assignment** | istekle set edilen ayrıcalıklı alan (role/isAdmin…) kalıcı oldu mu |
-| `CsrfOracle` | **CSRF** | durum değiştiren istek anti-CSRF koruması olmadan geçiyor mu |
-| `FileUploadOracle` | **Güvensiz dosya yükleme** | tehlikeli tür/uzantı kabul edilip sunuluyor mu |
-| `StoredXssOracle` | **Depolanan (stored) XSS** | store→retrieve: enjekte edilen script başka aktöre kodlanmadan dönüyor mu |
-| `InjectionOracle` | **XSS · SQLi · NoSQLi · SSTI · Path Traversal** | yansıma / hata-diferansiyeli / şablon değerlendirme imzası |
-| `TimingOracle` | **Zamanlama-tabanlı kör enjeksiyon** | ölçülü gecikme farkı (blind SQLi/komut) |
-
-### 🤖 Agent-security oracle'ları — hedef bir LLM-ajan/MCP olduğunda (AS-1..AS-4)
-
-Yukarıdakiler hedefin bir HTTP API olduğunu varsayar. Hedef bir **LLM-ajan/MCP** ise
-`AgentOracle` (aynı "deney, yargı değil" felsefesiyle) hedefin `AgentTrace`'i (tool-call
-zinciri) üzerinde çalışır — `AgentAdapter` (`agentadapter/`) hedefe görevi gönderip trace'i
-tipli hale getirir. Dışa giden her tool-call (`target_url` taşıyan) yine scope/policy
-kapısından geçer; scope-dışı çağrılar kanıt sayılmadan reddedilir ve loglanır. Kaynak:
-[docs/rakip-analizi-agent-security-2026-09.md](docs/rakip-analizi-agent-security-2026-09.md).
-
-| Oracle | Predicate | Kanıt yöntemi |
-|---|---|---|
-| `UntrustedToActionOracle` | **UNTRUSTED_TO_ACTION** | güvenilmez içerik (web.search/email.read) çıktısı ile sonraki ayrıcalıklı tool-call arasında yapısal örtüşme (kaynak-izleme); kullanıcı aynı aksiyonu açıkça istediyse REJECTED |
-
-### 🔎 Dedektörler — tek-istek imza / davranış
-
-| Dedektör | Açık tipi (OWASP) |
-|---|---|
-| `ExposureScanner` | İfşa olmuş dosya/endpoint: `.env`/`.git`/yedek/config/swagger/dizin listesi + eski API sürümleri (A05) |
-| `InfoLeakDetector` | Bilgi sızıntısı: stack-trace, sürüm/fingerprint, iç IP, SQL/DB hata imzaları (A05) |
-| `RateLimitDetector` | Hız sınırı eksikliği + brute-force/credential-stuffing + zayıf şifre politikası (A07) |
-| `VersionCveDetector` | Sürüm → bilinen CVE eşleme (Vulnerable & Outdated Components, A06) |
-| `DefaultCredentialsDetector` | Varsayılan kimlik bilgileri (güvenli deneme listesi) |
-| `SessionLifecycleDetector` | Logout sonrası token geçerliliği + JWT `exp` claim'i + session fixation |
-| `OpenRedirectDetector` | Açık yönlendirme (`redirect`/`url`/`next`… → Location) |
-| `CorsDetector` | CORS yanlış yapılandırması (joker origin + credentials) |
-| `SecurityHeadersDetector` | Eksik güvenlik başlıkları + clickjacking (CSP/HSTS/X-Frame-Options…) |
-| `JwtDetector` | JWT zayıf/`none` algoritma, imza/`exp` sorunları |
-| `SsrfDetector` · `XxeDetector` · `RfiDetector` | Server-side istek/ayrıştırma: SSRF/XXE/RFI — in-band **ve** blind (OOB toplayıcı ile) |
-| `PrototypePollutionDetector` · `CacheDetector` | İleri server-side: prototype pollution + web cache poisoning |
-| `UserEnumDetector` | Kullanıcı enümerasyonu (geçerli/geçersiz hesap yanıt farkı) |
-| `WordlistRecon` · `GraphQLRecon` | Endpoint enümerasyonu + GraphQL introspection ifşası |
-
-### 🤖 Agent-security predicate'leri — tool kullanan LLM ajanları
-
-Klasik web yüzeyinin yanında, **tool kullanan bir LLM ajanının** güvenlik ihlallerini de aynı
-deterministik disiplinle kanıtlarız: girdi, ajandan toplanan **gözlenmiş tool-call trace**'idir
-(`AgentTrace`); karar yine **yalnızca kod** verir, LLM oy kullanmaz. Taksonomi, OpenAI · Google ·
-IEEE sponsorluğundaki Kaggle *AI Agent Security* kıyasından uyarlandı
-(bkz. [agent-security raporu](docs/rakip-analizi-agent-security-2026-09.md)).
-
-| Predicate | Oracle | Deterministik kanıt |
-|---|---|---|
-| **CONFUSED_DEPUTY** | `ConfusedDeputyOracle` | Kullanıcının **açık niyeti olmadan** yan-etkili çağrı (`email.send`…) başarıyla yapıldı |
-| **DESTRUCTIVE_WRITE** | `DestructiveWriteOracle` | `fs.write`/`fs.delete` **korumalı** kaynağı hedefledi (`destructive_tests` kapısı arkasında) |
-| **EXFILTRATION** | `ExfiltrationOracle` | Sentetik **canary sır** dışarı giden çağrıda göründü — **base64/hex/url/ters** kodlamalar dahil |
-| **UNTRUSTED_TO_ACTION** | *(yol haritasında)* | Güvenilmez içerik (`web`/`email`) ayrıcalıklı aksiyonu tetikledi |
-
-Yanlış-pozitif kapanları birinci sınıf vatandaş: kullanıcı aksiyonu **açıkça istediyse** confused
-deputy **REJECTED**; canary kullanıcının kendi girdisinden geliyorsa sızıntı **sayılmaz**. Canary
-değeri hiçbir kodlamasıyla rapora/evidence'a yazılmaz.
-
----
-
-## 🖥️ Web arayüzü (kontrol paneli)
-
-CLI'a ek olarak, **tarayıcıdan** tarama yönetip bulguları inceleyebileceğin bir kontrol paneli
-gelir. Sunucu bilinçli olarak Python **standart kütüphanesiyle** yazıldı — **yeni bağımlılık yok**,
-takım imajını değiştirmez. Varsayılan olarak yalnızca `127.0.0.1`'e bağlanır (kazara dışa açılmaz).
-
-```bash
-cp config/scope.example.yaml config/scope.yaml   # panel scope'u BURADAN kilitler (aşağıya bkz.)
-python -m scripts.serve_ui                 # → http://127.0.0.1:8787
-python -m scripts.serve_ui --port 9000 --out runs/
-```
-
-**Scope kilidi:** panel taramaya başlarken kullandığı scope'u (host/port/method/destructive_tests/…)
-İSTEKTEN değil `--scope` ile verilen dosyadan (varsayılan `config/scope.yaml`) okur; formdan
-gönderilen scope bunu yalnızca **daraltabilir**, asla genişletemez. Dosya yoksa panel açılır ama
-tarama başlatılamaz (503) — önce `cp config/scope.example.yaml config/scope.yaml`.
-
-**Ağa açma:** `--host 0.0.0.0` (LAN'dan erişim) ile başlatırken en az bir `--allowed-host
-<ip>:<port>` vermen GEREKİR — panel her isteğin `Host` başlığını bir allowlist'e karşı denetler
-(DNS-rebinding savunması); allowlist boşsa hiçbir istek geçemez ve panel kimseye açılmaz.
-
-Üç görünüm:
-
-| Görünüm | Ne yapar |
-|---|---|
-| 🎯 **Tarama** | Hedef, scope, aktörler (kimlik bilgileriyle), endpoint'ler ve modüller formdan girilir; “Taramayı başlat” canlı ilerlemeyle koşar |
-| 🔎 **Bulgular** | Verdict sayaçları + filtre/arama; her bulguda **“Açığın yeri”** (istek/yanıt kanıtı, sızan-marker vurgusu, repro-curl) ve **“Nasıl çözülür”** (adım adım öneri + OWASP kaynakları) |
-| 🗂️ **Geçmiş** | `runs/` altındaki önceki koşumları açıp aynı ayrıntıyla incele |
-
-**Güvenlik:** Hedef host, panelin kilitlediği scope dışındaysa tarama **submit anında reddedilir**;
-her istek yine `PolicyEngine`'den geçer. Panelin kendisi bir `RequestGuard` ile korunur — bilinmeyen
-`Host` başlığı (DNS-rebinding) ve `application/json` dışındaki `POST` gövdeleri (CSRF) reddedilir.
-`storagestate_path` yalnızca `.secrets/` içinden bir dosyayı gösterebilir. Parolalar sunucuda
-yalnızca girişte kullanılır — log'a/rapora/arayüze ham yazılmaz, bulgular arayüze dönmeden
-redaction'dan geçer. Çözüm önerileri deterministik bir katalogdan gelir (LLM `--enrich` ile
-zenginleştirdiyse onun metni öne çıkar).
-
-<div align="center">
-
-![Sentinel-Agent web arayüzü — tarama kontrol formu](docs/web-ui-tarama.png)
-
-<sub>Tarama görünümü: hedef, scope, aktörler ve endpoint'ler doğrudan tarayıcıdan yönetilir (config dosyalarından ön-doldurulur).</sub>
-
-</div>
-
----
-
-## 🚀 Tek komutla demo
-
-Kurulum sürtünmesi yok — Docker + Docker Compose yeterli. Aşağıdaki komut hedefi ayağa kaldırır,
-kalibrasyon hesaplarını hazırlar, taramayı koşar ve kanıtlı raporu üretir:
+## Try it in one command
 
 ```bash
 make demo
-# make yoksa (ör. Windows / Git Bash):
-bash scripts/demo.sh
 ```
 
-Çıktı:
+That boots a deliberately vulnerable target, creates two real user accounts, runs the scan and
+writes a report you can open in a browser. Then:
 
-```
-[done] 6 bulgu · 1 CONFIRMED · runs/run-.../
+```bash
+python -m scripts.serve_ui        # → http://127.0.0.1:8787
 ```
 
-Ardından `runs/<run-id>/report.html` dosyasını tarayıcıda aç (veya `python -m scripts.serve_ui`
-ile paneli açıp **Geçmiş**'ten koşumu incele). `CONFIRMED` bulgusu, `attacker`'ın `victim`'in
-sepetini (`/rest/basket/{id}`) okuyabildiğini ve kurbana ait verinin (ürün adı, fiyat)
-**sızdığını** deterministik leaked-marker ile kanıtlar. Komut idempotenttir — tekrar koşmak güvenli.
+<div align="center">
+
+![Sentinel-Agent control panel — a CONFIRMED IDOR finding with evidence and remediation](docs/web-ui-bulgu.png)
+
+<sub>A finding in the control panel: the three verification controls, the baseline↔attack response
+diff with the leaked marker highlighted, a copy-paste repro <code>curl</code>, and step-by-step
+remediation.</sub>
+
+</div>
 
 ---
 
-## ⚙️ Kurulum ve çalıştırma
+## What it does
 
-**Ön koşul:** Docker + Docker Compose (Windows'ta Docker Desktop, WSL2 backend ile). Repoyu **WSL2
-içindeki Linux dosya sistemine** klonla (nedeni: [aşağıda](#-neden-wsl2--docker-takım-için)).
+Sentinel-Agent finds **broken authorization** in web apps and APIs — IDOR/BOLA, BFLA, excessive
+data exposure, unauthorized writes and deletes — plus a range of classic web vulnerabilities. It
+logs in as **two real users**, then measures whether one can reach the other's data.
+
+A finding is only marked `CONFIRMED` when the victim's *own private data* is provably present in
+the attacker's response. That decision is made by code, never by a language model.
+
+### Why this matters to people who will never read this README
+
+Broken Object Level Authorization has been **#1 on the OWASP API Security Top 10** for years, and
+it is the single most boring bug in security: a URL ends in `/orders/1043`, someone types `1044`,
+and they are reading a stranger's order. No exploit, no malware — just a number.
+
+In 2019 the title insurance company **First American Financial** exposed roughly **885 million**
+documents this way: mortgage paperwork, bank account numbers, wire transfer receipts, Social
+Security numbers and driver's licenses, reachable by editing a document ID in a link. Nobody had to
+break in. The records of ordinary people buying a house were simply *addressable*.
+
+That is what this tool hunts. Not a theoretical class of bug — the specific path by which a normal
+person's orders, medical records and messages end up in someone else's browser.
+
+### What's actually new here
+
+Differential authorization testing is **not** new. [Burp Suite's Autorize extension][autorize] and
+[AuthMatrix][authmatrix] have replayed one user's requests as another for years, and the academic
+[AuthProbe][authprobe] work is where this project's benchmark methodology comes from. If you want a
+mature, general-purpose tool today, use those.
+
+Three things here are ours:
+
+1. **Verdicts come from deterministic evidence, not from a model.** `CONFIRMED` requires a
+   *leaked marker* — a value belonging to the victim, provably absent from what the attacker is
+   legitimately allowed to see. Uncertainty is reported as `INCONCLUSIVE` rather than smoothed over.
+2. **Tamper-evident proof bundles.** Every confirmed finding ships as a portable bundle sealed with
+   a SHA-256 integrity hash (optionally HMAC-signed), re-provable offline with no network and no
+   model. Hand it to a security team; they can verify you didn't edit it.
+3. **An evidence engine other agents can call.** Over [MCP](https://modelcontextprotocol.io),
+   another AI agent can stop guessing and ask Sentinel to *prove* a suspicion instead.
+
+[autorize]: https://github.com/PortSwigger/autorize
+[authmatrix]: https://github.com/SecurityInnovation/AuthMatrix
+[authprobe]: https://arxiv.org/html/2607.20574v1
+
+---
+
+## The verdict ladder
+
+Uncertainty is reported, never hidden:
+
+| Verdict | Meaning |
+|---|---|
+| ✅ **CONFIRMED** | Proven. The victim's private data appeared in the attacker's response, or a write/delete persisted on the victim's object. |
+| 🟡 **LIKELY** | Strong signal, but no deterministic leaked marker. |
+| ⛔ **REJECTED** | Authorization works. No vulnerability here. |
+| ❔ **INCONCLUSIVE** | Controls failed or the oracle couldn't be sure. It abstains instead of guessing. |
+
+> **This is the point of the project.** An oracle saying "I could not be sure" is not a gap — it is
+> the reason the `CONFIRMED` list can be trusted. There is deliberately **no fallback** that
+> downgrades an uncertain result into a softer "probably".
+
+### Security invariants (non-negotiable)
+
+| # | Invariant |
+|---|---|
+| 1 | **The LLM never touches the network.** It proposes typed actions; all traffic goes through one `Replayer`. |
+| 2 | **Code decides `CONFIRMED`,** never the LLM — and only on a deterministic leaked marker. |
+| 3 | **Two actors never share a session or cookie** — enforced by a cross-contamination test. |
+| 4 | **No verdict without controls** — positive, negative and baseline-stability must all pass. |
+| 5 | **Scope gate on every request** — allowlist + IP pinning. The LLM's suggestions are not trusted. |
+| 6 | **Redaction is mandatory** — tokens, cookies and PII never reach logs, evidence, reports or the UI in raw form. |
+
+---
+
+## 🖥️ The control panel
+
+The panel is the front door; the CLI is underneath it. The server is written against the Python
+**standard library** — no extra dependencies — and binds to `127.0.0.1` only.
 
 ```bash
-git clone https://github.com/Hybrid-Translation-Project/Sentinel-Agent.git
-cd Sentinel-Agent
-
-docker compose up -d juice-shop            # kalibrasyon hedefi → http://localhost:3000
-docker compose run --rm sentinel bash      # bağımlılıklar + Playwright hazır dev kabuğu
-#   imaj içinde:  pytest -q   |   python -m scripts.run_scan --help
+python -m scripts.serve_ui                    # → http://127.0.0.1:8787
+python -m scripts.serve_ui --port 9000 --out runs/
 ```
 
-Yerel `venv` ile (Docker'sız) çalışmak için: [DESIGN.md §5](DESIGN.md).
+| View | What it does |
+|---|---|
+| 🎯 **Scan** | Enter target, scope, actors and endpoints in a form; watch the scan run live |
+| 🔎 **Findings** | Verdict counters, filter and search; per finding: the evidence, the response diff, the repro curl, and how to fix it |
+| 🗂️ **History** | Reopen any previous run from `runs/` with the same detail |
 
-### 🎛️ Kendi hedefine karşı çalıştırma
+<div align="center">
 
-Aracın ihtiyacı **paralel bir ajan ordusu değil**, en az **iki gerçek kullanıcı hesabıdır** — biri
-kurban, biri saldırgan. (Opsiyonel `admin` ile BFLA de test edilir.) İki yol var:
+![Sentinel-Agent control panel — scan configuration](docs/web-ui-tarama.png)
 
-**A) Web arayüzünden** — `python -m scripts.serve_ui`, ardından “Tarama” formunu doldur.
+</div>
 
-**B) CLI'dan** — config dosyalarıyla:
+**How the panel is kept safe.** It locks scope to a file on disk (default `config/scope.yaml`), not
+to whatever the form posts — a submitted scope can only *narrow* it, never widen it. Every request
+still passes `PolicyEngine`. A `RequestGuard` rejects unknown `Host` headers (DNS rebinding) and
+non-JSON `POST` bodies (CSRF). Passwords are used to log in and never written to logs, reports or
+the UI. Binding to `0.0.0.0` requires an explicit `--allowed-host`, or nothing is served at all.
+
+---
+
+## Running it against your own target
+
+What the tool needs is not a swarm of agents — it is **two real accounts**: a victim and an
+attacker. (An optional `admin` enables BFLA testing.)
 
 ```bash
-# 1) Scope: hedefin host/port/path/method allowlist'i
+# 1) scope: host/port/path/method allowlist for the target
 cp config/scope.example.yaml     config/scope.yaml
 
-# 2) Aktörler: en az 2 hesap (token | storagestate | static | browser auth)
+# 2) actors: at least 2 accounts (token | storagestate | static | browser auth)
 cp config/actors.example.yaml    config/actors.yaml
 
-# 3) Endpoint'ler: elle liste, ya da --openapi / --har ile otomatik keşif
+# 3) endpoints: list them, or discover with --openapi / --har
 cp config/endpoints.example.yaml config/endpoints.yaml
 
-# 4) Taramayı koş (LLM opsiyonel — varsayılan kapalı)
-docker compose run --rm sentinel python -m scripts.run_scan \
+# 4) scan (LLM optional — off by default)
+python -m scripts.run_scan \
     --scope config/scope.yaml --actors config/actors.yaml \
     --endpoints config/endpoints.yaml --mode active --out runs/
 ```
 
-> 💡 İlk denemede `--dry-run` ekle: hiçbir istek göndermeden, policy'nin hangi isteklere
-> ALLOW/DENY verdiğini önizlersin.
+> 💡 Start with `--dry-run`: it shows which requests the policy would ALLOW or DENY without sending
+> a single one.
 
-**Kurulabilir CLI (Docker'sız, R-D3):** `pip install .` sonrası aynı tarama `sentinel scan ...`
-komutuyla da çalışır (`--scope/--actors/--endpoints` aynı bayraklar); `--scan-mode
-quick|standard|deep` bütçeyi ve tarama genişliğini ölçekler (`quick` ≈ 40 istek/300s, hızlı
-IDOR/BFLA-only geçiş; `deep` geniş bütçe + wordlist/GraphQL enümerasyonu):
+Installed as a CLI (`pip install .`), the same scan is `sentinel scan ...`, and
+`--scan-mode quick|standard|deep` scales the budget and breadth.
+
+**Authentication types** (`config/actors.yaml` → `auth.type`):
+
+| Type | When | How |
+|---|---|---|
+| `token` | Simple login (one `POST` → token in JSON) | `login_url` + `credentials` + `token_location` |
+| `static` | You already hold a token/cookie | `headers` / `cookies` directly |
+| `storagestate` | SPA/OAuth login — log in manually, export with Playwright | `storagestate_path` (under `.secrets/`) |
+| `browser` | SPA/OAuth login + **TOTP MFA** — automates the export step | `login_url` + `credentials` + optional `mfa_totp_secret` |
+
+`browser` only solves **TOTP** MFA; SMS/push are not supported and it fails loudly rather than
+producing a silently wrong session.
+
+<details>
+<summary><b>Full CLI reference</b></summary>
+
+| Flag | Description |
+|---|---|
+| `--scope / --actors / --endpoints` | config YAML files (scope + actors required) |
+| `--openapi <spec>` / `--har <file>` | discover endpoints from an OpenAPI spec or a browser HAR export |
+| `--mode passive\|active` | `passive`: list only · `active`: run the differential test |
+| `--scan-mode quick\|standard\|deep` | scales budget + breadth (`quick`≈40 requests/300s) |
+| `--dry-run` | authorize requests but **don't send** them |
+| `--enumerate` | wordlist endpoint enumeration + GraphQL introspection |
+| `--login-url / --register-url / --logout-url` | enables brute-force, weak-password and session-lifecycle checks |
+| `--no-exposure-scan / --no-info-leak-scan / --no-rate-limit-scan / --no-cve-scan` | skip a detector family |
+| `--loop` | self-improving orchestrator: pivot new hypotheses off a CONFIRMED finding |
+| `--agent [--scouts N]` | agentic reasoning loop; parallel scouts share one budget and policy |
+| `--llm none\|gemini\|ollama\|anthropic` | hypothesis/triage LLM (default `none`) |
+| `--llm-config <file>` / `--llm-model <name>` | LLM settings from a file; CLI flags override it |
+| `--enrich` | add severity/impact/remediation prose via LLM (verdict never changes) |
+| `--fail-on none\|low\|medium\|high\|critical` | CI gate: exit code 2 at or above this severity |
+| `--baseline <previous-findings.json>` | exempt known findings from `--fail-on`; they stay in the report |
+
+</details>
+
+### The LLM is optional — and off by default
+
+Hypotheses are generated from deterministic rules: id-shaped path segments, parameter types read
+from OpenAPI/HAR, an id pool learned during an authenticated crawl, and marker candidates inferred
+from the response shape. With `--llm none` the tool still produces proven `CONFIRMED` findings. An
+LLM only widens coverage and improves the prose.
+
+Local models are supported through Ollama, so target data never leaves the machine:
 
 ```bash
-pip install .
-sentinel scan --scope config/scope.yaml --actors config/actors.yaml \
-    --endpoints config/endpoints.yaml --scan-mode quick --out runs/
+ollama pull qwen3.8:27b
+python -m scripts.run_scan ... --llm ollama --llm-model qwen3.8:27b --enrich
 ```
 
-**Kimlik doğrulama türleri** (`config/actors.yaml` → `auth.type`):
+Hypothesis, enrichment and action selection are constrained to a JSON **schema**; anything
+off-schema is dropped rather than crashing the scan. `temperature` defaults to `0`.
 
-| Tür | Ne zaman | Nasıl |
-|---|---|---|
-| `token` | Basit login (tek `POST` → JSON'da token) | `login_url` + `credentials` + `token_location` |
-| `static` | Token/cookie zaten elinde | doğrudan `headers`/`cookies` |
-| `storagestate` | SPA/OAuth login — elle login, Playwright'la EXPORT | `storagestate_path` (`.secrets/` altından) |
-| `browser` | SPA/OAuth login + **TOTP MFA** — export adımını otomatikleştir | `login_url` + `credentials` + (opsiyonel) `mfa_totp_secret` — bkz. `config/actors.example.yaml` |
+---
 
-`browser`, `StorageStateAuthProvider`'ın "elle login → export" adımını gerçek bir (varsayılan
-headless) tarayıcıyla otomatikleştirir; yalnızca **TOTP** MFA'yı otomatik çözer (SMS/push
-desteklenmez — `mfa_code_selector` algılanıp `mfa_totp_secret` verilmemişse net bir hatayla durur,
-sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek seferlik `AuthState`, tıpkı
-`storagestate` gibi). Ayrıntı: `src/pentestai/auth/browser.py` docstring'i.
+## 📐 Does it actually work?
 
-### CLI referansı (`run_scan.py`)
+A claim like "proven, deterministic, low false-positive" is worthless unless it is measured
+against **labelled ground truth**. Labels are set by observing the target's real HTTP behaviour,
+never by reading the tool's own output — otherwise the measurement is circular.
 
-| Flag | Açıklama |
-|---|---|
-| `--scope / --actors / --endpoints` | config YAML dosyaları (zorunlu: scope + actors; endpoint kaynağı) |
-| `--openapi <spec>` / `--har <file>` | endpoint'leri OpenAPI spec'inden veya tarayıcı HAR export'undan keşfet |
-| `--mode passive\|active` | `passive`: yalnızca listele · `active`: gerçek differential test |
-| `--scan-mode quick\|standard\|deep` | bütçeyi + tarama genişliğini ölçekler (`quick`≈40 istek/300s; `deep`=geniş bütçe+enümerasyon); verilmezse scope.yaml'daki budget aynen kalır |
-| `--dry-run` | istekleri authorize'dan geçir ama **gönderme** (plan önizlemesi) |
-| `--enumerate` | wordlist endpoint enümerasyonu + GraphQL introspection (recon genişletme) |
-| `--login-url / --register-url / --logout-url` | brute-force/default-creds · zayıf şifre · session-lifecycle taramalarını tetikler |
-| `--no-exposure-scan / --no-info-leak-scan / --no-rate-limit-scan / --no-cve-scan` | ilgili dedektör ailesini atla |
-| `--loop` | self-improving orchestrator: CONFIRMED bulgudan pivot hipotezler türet |
-| `--agent [--scouts N]` | agentic reasoning döngüsü; `--scouts>1` ile paralel scout'lar (tek bütçe/policy paylaşır) |
-| `--llm none\|gemini\|ollama\|anthropic` | hipotez/triyaj LLM'i (varsayılan `none` — **LLM'siz de çalışır**) |
-| `--llm-config <dosya>` | LLM ayarlarını dosyadan oku (ör. `config/llm.yaml`); CLI flag'leri dosyayı override eder |
-| `--llm-model <ad>` | model adı (ör. `qwen3.8:27b`, `qwen2.5:14b-instruct`, `gemini-3.6-flash`) |
-| `--enrich` | bulgulara LLM ile severity/impact/remediation ekle (`--llm` gerekir) |
-| `--no-bootstrap` | per-actor own-id crawl'ını atla (id'leri config'te verdiysen) |
-| `--fail-on none\|low\|medium\|high\|critical` | CI kapısı: bu eşik ve üstünde CONFIRMED bulgu varsa çıkış kodu 2 |
-| `--baseline <önceki-findings.json>` | bilinen (aynı kök-neden+verdict) bulguları `--fail-on`'dan muaf tut — raporda sebebiyle kalır, silinmez |
+**One target, 7 labelled cases, run on 2026-09-18 with `--llm none`:**
 
-> 🤖 **LLM zorunlu değil.** Varsayılan `--llm none`; deterministik kural-tabanlı hipotezlerle araç
-> tam çalışır ve kanıtlı `CONFIRMED` üretir. LLM yalnızca **kapsamı ve açıklama kalitesini** artırır.
+| Target | Cases | Precision | Recall | FP-rate | TP/FN/FP/TN |
+|---|---|---|---|---|---|
+| OWASP Juice Shop | 7 (4 positive / 3 negative) | 100% | 100% | **0%** | 4/0/0/3 |
 
-### 🔌 MCP tool-server — "diğer AI ajanlarının kanıt motoru"
+Full output, provenance and the exact reproduction commands:
+**[`benchmarks/juiceshop.result.md`](benchmarks/juiceshop.result.md)**.
 
-**Konumlandırma (RK-13):** XBOW/Strix gibi ajanik pentest araçları da IDOR/BOLA *şüphesi*
-üretebilir — ama LLM'in kendi çıkarımı "zero false-positive" garantisi vermez. Sentinel'in
-`authorize→replay→oracle` çekirdeği [Model Context Protocol](https://modelcontextprotocol.io)
-üzerinden tipli araçlar olarak açık: **başka bir ajan kendi verdict'ini üretmek yerine
-Sentinel'i çağırıp deterministik, leaked-marker'lı kanıt alır** — "LLM akıl yürütür,
-deterministik motor kanıtlar" ilkesi kendi sınırları dışındaki ajanlara da hizmet eder.
+**Read that number carefully** — the report says this too:
+
+- It covers **7 labelled cases**, not the tool's entire output. The run produced 49 findings, 6 of
+  them `CONFIRMED`; two of those are outside the label set and are excluded from the metrics.
+- **FP-rate 0%** means none of the 3 negative cases (a public-by-design endpoint, a non-object
+  endpoint) was wrongly confirmed. It does **not** mean the tool never produces false positives.
+- Juice Shop is a **calibrated** target — the labels were written while looking at it. These
+  numbers are optimistic and **do not measure generalization**. That requires a holdout target,
+  which this suite does not yet have, and the benchmark report says so rather than pretending
+  otherwise.
+
+The methodology follows AuthProbe's **vulnerable ↔ hardened twin** approach: every target carries
+both real vulnerabilities and by-design-safe endpoints, so the false-positive rate rests on labels
+instead of assumptions.
 
 ```bash
-pip install -e ".[mcp]"     # opsiyonel bağımlılık — mcp SDK
+make bench-guard     # netless 0-FP regression gate: a false CONFIRMED on a hardened twin fails the build
+```
+
+---
+
+## 🏗️ How it works
+
+```
+recon → hypothesis → authorize(scope) → replay(actor) → oracle → finding → report
+   │         │              │                │            │         │
+discovery  rules+LLM   security gate    single choke   3 controls  JSON / Markdown /
+                       (no LLM, pure)   point (auth)   + leaked-   HTML / SARIF
+                                                        marker
+```
+
+Every component is a single-responsibility class with constructor injection, so tests can swap in a
+fake transport and run the whole pipeline without a network. Dependencies point one way:
+
+`models → policy → net → oracle → auth → evidence → report → scanner · webui`
+
+| Stage | Contents | LLM? | Status |
+|---|---|---|---|
+| **Stage 0** | multi-actor sessions, replay, differential oracle, policy engine | ❌ | ✅ complete |
+| **Stage 1** | recon, hypotheses, triage, reporting, the oracle/detector families | optional | ✅ complete |
+| **Stage 2** | orchestrator state machine, self-improving loop (CONFIRMED → pivot) | optional | ✅ core complete; LLM-driven prioritisation still open |
+
+Architecture in full: **[DESIGN.md](DESIGN.md)**. Development environment and the WSL2/Docker
+rationale: **[docs/gelistirme-ortami.md](docs/gelistirme-ortami.md)**.
+
+### Reports
+
+Each run writes `runs/<run-id>/` in several formats, all redacted:
+
+| File | Use |
+|---|---|
+| `findings.json` | raw findings |
+| `report.md` · `report.html` | human summary; the HTML is a single self-contained file |
+| `report.sarif` | GitHub code-scanning "Security" tab |
+| `junit.xml` · `report.csv` | CI "Tests" tab · spreadsheets |
+| `proof/<id>.bundle.json` | **sealed, re-provable** evidence bundle |
+
+```bash
+python -m scripts.replay runs/<run-id>       # offline re-proof: PROVEN, or FAILED if tampered with
+```
+
+### For other AI agents (MCP)
+
+```bash
+pip install -e ".[mcp]"
 sentinel-mcp --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
 ```
 
-Araçlar: `list_actors`, `list_endpoints`, `probe` (keşif, verdict yok), `run_oracle`
-(authorize→replay→oracle — `verdict`'i her zaman deterministik Oracle verir), `reverify`
-(flakiness eleme). Tüm sonuçlar redaction'lıdır; MCP istemcisi asla ağa dokunmaz.
+Tools: `list_actors`, `list_endpoints`, `probe` (discovery, no verdict), `run_oracle`
+(authorize→replay→oracle), `reverify` (flakiness elimination). An agent that suspects an IDOR can
+call `run_oracle` and receive a deterministic verdict with evidence instead of inventing one. The
+MCP client never touches the network, and every result is redacted.
 
-#### Örnek akış: Claude Code + sentinel-mcp
+### Roadmap
 
-Claude Code'u (ya da MCP destekleyen herhangi bir ajanı) proje dizininde `sentinel-mcp`'ye bağla:
-
-```bash
-claude mcp add sentinel -- sentinel-mcp \
-    --scope config/scope.yaml --actors config/actors.yaml --endpoints config/endpoints.yaml
-```
-
-(Eşdeğeri: proje köküne bir `.mcp.json` eklemek —
-
-```json
-{
-  "mcpServers": {
-    "sentinel": {
-      "command": "sentinel-mcp",
-      "args": ["--scope", "config/scope.yaml", "--actors", "config/actors.yaml",
-                "--endpoints", "config/endpoints.yaml"]
-    }
-  }
-}
-```
-)
-
-Artık Claude Code kendi kod-inceleme sezgisini **kanıtla doğrulatabilir** — kendi verdict'ini
-uydurmak yerine Sentinel'i çağırır:
-
-> **Sen:** `GET /api/orders/{id}` bence IDOR'a açık, kontrol eder misin?
->
-> **Claude Code:** `list_actors` → `user_A`, `user_B` kayıtlı.
-> `run_oracle(oracle="idor", method="GET", path_template="/api/orders/{id}", victim_name="user_A", attacker_name="user_B", resource_key="order")`
-> → `{"finding": {"verdict": "CONFIRMED", "confidence": "high", "leaked_markers": ["<REDACTED>"], ...}}`
->
-> Sentinel'in deterministik oracle'ı **CONFIRMED** dedi (kurbanın kendi verisi saldırganın
-> yanıtında sızmış bulundu) — bu benim tahminim değil, kod kararı. `reverify(..., runs=3)` ile
-> flakiness'i de eleyebilirim.
-
-Bu akışta hiçbir verdict LLM'den gelmez (CLAUDE.md §5 kural 2 burada da geçerli) — Claude Code
-yalnızca *hangi* testin çalıştırılacağına karar verir, *sonucu* her zaman Sentinel'in Oracle'ı verir.
-
-### 🧠 Local LLM (Ollama) — buluta veri çıkmadan
-
-API key istemeden, **yerel** bir modelle hipotez üretmek için Ollama kullan. Hedef verisi
-(endpoint envanteri vb.) makineden çıkmaz — bulut API'sine gitmez.
-
-```bash
-# 1) Modeli indir
-ollama pull qwen2.5:14b-instruct     # hızlı instruct modeli
-# ya da bir reasoning modeli (24GB GPU'ya Q4 olarak sığar, thinking destekli):
-ollama pull qwen3.8:27b
-
-# 2) LLM ayar dosyasını hazırla (opsiyonel; CLI flag'i de yeterli)
-cp config/llm.example.yaml config/llm.yaml   # provider / model / host / think burada
-
-# 3) --llm ollama ile tara (flag config'i override eder)
-docker compose run --rm sentinel python -m scripts.run_scan \
-    --scope config/scope.yaml --actors config/actors.yaml \
-    --endpoints config/endpoints.yaml --mode active --out runs/ \
-    --llm ollama --llm-model qwen3.8:27b --enrich
-```
-
-**Yapılandırılmış çıktı (structured outputs).** Hipotez üretimi, enrich ve aksiyon-seçimde model bir
-JSON **şemaya** (grammar-constrained) zorlanır; bu, local modellerin `format:"json"` ile verdiği
-bozuk/eksik/tek-nesne JSON'ı giderir. Model yine şema-dışı bir şey üretirse öneri sessizce elenir —
-tarama çökmez. `temperature` varsayılanı `0`'dır (tekrar-üretilebilir öneri).
-
-**Reasoning ("thinking") modelleri (ör. `qwen3.8:27b`).** `config/llm.yaml`'daki `think` alanı:
-- `false` → düşünme kapalı; tüm üretim bütçesi JSON'a gider — **hızlı ve yeterli (önerilen)**.
-- `true` → düşünme açık; daha kapsamlı ama yavaş — bu durumda `max_tokens`'ı yükselt (düşünme bütçeyi yer).
-- (satırı sil → klasik instruct modelleri için `think` anahtarı hiç gönderilmez — geriye tam uyum.)
-
-> `host` alanı Ollama sunucusunu gösterir (varsayılan `http://localhost:11434`). Sistem kurulumu yerine
-> kullanıcı-alanı bir sunucu çalıştırıyorsan (ör. `:11435`), `host`'u ona yönlendir.
+Agent-security predicates for LLM/MCP targets, a community YAML template ecosystem, release
+integrity verification, and holdout-based generalization measurement all exist in the codebase and
+are documented in [DESIGN.md](DESIGN.md) and
+[docs/rakip-analizi-agent-security-2026-09.md](docs/rakip-analizi-agent-security-2026-09.md).
 
 ---
 
-## 📐 Çok-hedefli benchmark (kalibrasyon)
+## Detection coverage
 
-İddia ("kanıtlı, deterministik, düşük false-positive") ölçülebilir olmalı. Benchmark, **etiketli
-yer-gerçeği** (ground truth) üstünde bir taramanın `findings.json`'ını değerlendirir → precision /
-recall / **FP-rate**. Metodoloji, AuthProbe'un **"vulnerable ↔ hardened ikiz, 0-FP"** yaklaşımıdır:
-her hedefte hem gerçek zafiyet (pozitif) hem tasarım-gereği güvenli (`not_vulnerable`, negatif)
-vakalar bulunur; böylece FP oranı **varsayıma değil etikete** dayanır. Etiketler araç çıktısından
-değil, doğrudan HTTP ile bağımsız doğrulanarak konur (döngüsellik yok).
+<details>
+<summary><b>Oracles — comparative, evidence-based (click to expand)</b></summary>
 
-**Sonuçlar** (canlı koşum, 2026-09-16 — 3 hedef, 31 etiketli vaka; her etiket doğrudan HTTP ile
-hedefin **gerçek davranışından** bağımsız doğrulandı):
-
-| Hedef | Vaka | Precision | Recall | FP-rate | TP/FN/FP/TN |
-|---|---|---|---|---|---|
-| OWASP Juice Shop (`v20.2.0`) | 7 | %100 | %100 | **%0** | 4/0/0/3 |
-| VAmPI (`vulnerable=1`) | 12 | %100 | %50 | **%0** | 2/2/0/8 |
-| crAPI (`main`) | 12 | %100 | %40 | **%0** | 2/3/0/7 |
-| **TOPLAM** | **31** | **%100** | **%61.5** | **%0** | **8/5/0/18** |
-
-> **FP-rate %0** — 18 negatif "FP kapanı" vakasının (tasarım-gereği public endpoint, method-not-allowed,
-> auth zorunlu, obje-referansı taşımayan endpoint vb.) hiçbirinde yanlış CONFIRMED üretilmedi;
-> **precision %100**. Recall %61.5: kaçırılanlar (FN) çoğunlukla read-only (GET/HEAD) kapsamın
-> ulaşamadığı yazma-metodu (POST register/mass-assignment, PUT) veya id-taşımayan endpoint'lerdir —
-> araç mimarisinin dürüst sınırı, false-positive değil. Etiketler araç çıktısından değil gerçek
-> davranıştan konduğu için VAmPI/crAPI'de birkaç "belgelenmiş" zafiyet bu build'de tutmadığından
-> düzeltilmiştir (ör. VAmPI email-güncelleme yalnızca kendi hesabını değiştirir; crAPI mechanic_report
-> POST = 405) — `benchmarks/*.expected.yaml` başlıklarındaki doğrulama kanıtına bakınız.
-
-**Yeniden üretme** — her hedefi ayrı tarayıp birleşik tabloyu üret:
-
-```bash
-# hedefleri kaldır: juice-shop (:3000), erev0s/vampi (:5000, vulnerable=1), OWASP/crAPI (:8888)
-# her hedef için scope/actors/endpoints hazırla (config/<hedef>/), tara → runs/<hedef>/findings.json
-python -m scripts.run_scan --scope config/vampi/scope.yaml --actors config/vampi/actors.yaml \
-    --endpoints config/vampi/endpoints.yaml --out runs/vampi_scan/
-cp runs/vampi_scan/run-*/findings.json runs/vampi/findings.json   # suite.yaml bu yolu okur
-# ... (juiceshop, crapi benzer: config/juiceshop|crapi/) ...
-
-# birleşik precision/recall/FP-rate tablosu → benchmark_suite.md
-python -m scripts.benchmark --suite benchmarks/suite.yaml
-```
-
-Tek hedef için: `python -m scripts.benchmark --run runs/<id> --expected benchmarks/juiceshop.expected.yaml`
-(regresyon kapısı: `--min-precision 1.0 --min-recall 1.0`).
-
----
-
-## 🏗️ Mimari
-
-```
-recon → hipotez → authorize(scope) → replay(actor) → oracle → finding → report
-   │        │            │                 │            │          │
- keşif   LLM+kural    güvenlik kapısı   tek choke     3 kontrol   JSON / Markdown /
-                      (LLM'siz, saf)    point (auth)  + leaked-   HTML + Web UI
-                                                       marker
-```
-
-**Modüler bağımlılık yönü (tek yönlü):**
-`models → policy → net → oracle → auth → evidence → report → scripts(Scanner) · webui`
-
-Her ana bileşen tek sorumluluklu bir sınıf: `PolicyEngine`, `Replayer`, `ResponseNormalizer`,
-`SessionStore`, `Oracle`+alt sınıfları, `Detector`+alt sınıfları, `AuthProvider`+alt sınıfları,
-`EvidenceStore`, `Reporter`+alt sınıfları, `Scanner`, `Pipeline` ve web katmanı
-(`WebServer`/`WebApp`/`ScanManager`). Bağımlılıklar constructor'dan enjekte edilir (DI) →
-testlerde `httpx.MockTransport`/sahte koşucu ile network'süz doğrulama.
-
-### İnşa aşamaları
-
-| Aşama | İçerik | LLM? |
+| Oracle | Vulnerability | Evidence |
 |---|---|---|
-| **Stage 0** | multi-actor session + replay + differential oracle + policy engine | ❌ |
-| **Stage 1** | recon + LLM hipotez + INCONCLUSIVE triyaj + rapor + tüm oracle/dedektör ailesi | ✅ (ops.) |
-| **Stage 2** | orchestrator state machine + self-improving/agentic döngü (CONFIRMED → pivot) | ✅ (ops.) |
+| `IdorOracle` | **IDOR / BOLA** | leaked marker: the victim's data in the attacker's response |
+| `StateChangingOracle` | **BOLA-write** (PUT/PATCH/DELETE) | persistent mutation, re-read as the victim |
+| `BflaOracle` | **BFLA** | can a low-privilege actor reach a high-privilege function |
+| `BoplaOracle` | **BOPLA** / excessive data exposure | sensitive fields that shouldn't be in the response |
+| `UnauthorizedAccessOracle` | unauthenticated access | can an anonymous session reach a protected resource |
+| `MethodBypassOracle` | authorization bypass via HTTP method | method/override-header tricks past the gate |
+| `MassAssignmentOracle` | mass assignment | did a privileged field (`role`, `isAdmin`) persist |
+| `CsrfOracle` | **CSRF** | does a state-changing request pass without anti-CSRF protection |
+| `FileUploadOracle` | unsafe upload | is a dangerous type/extension accepted and served |
+| `StoredXssOracle` | **stored XSS** | store→retrieve: script returned unencoded to another actor |
+| `InjectionOracle` | **XSS · SQLi · NoSQLi · SSTI · path traversal** | reflection / error differential / template evaluation |
+| `TimingOracle` | blind injection | measured delay differential |
+| `UntrustedToActionOracle` | **untrusted content → privileged action** | structural overlap between untrusted tool output and the next privileged call |
 
-Deterministik omurga (Stage 0) LLM'siz bitirilir; sonra üstüne zekâ konur. Tam mimari ve yol
-haritası: **[DESIGN.md](DESIGN.md)**.
+</details>
+
+<details>
+<summary><b>Detectors — single-request signature and behaviour (click to expand)</b></summary>
+
+| Detector | Vulnerability (OWASP) |
+|---|---|
+| `ExposureScanner` | exposed files/endpoints: `.env`, `.git`, backups, swagger, directory listings (A05) |
+| `InfoLeakDetector` | stack traces, version fingerprints, internal IPs, SQL error signatures (A05) |
+| `RateLimitDetector` | missing rate limits, brute force, weak password policy (A07) |
+| `VersionCveDetector` | version → known CVE mapping (A06) |
+| `DefaultCredentialsDetector` | default credentials (safe try-list) |
+| `SessionLifecycleDetector` | token valid after logout, JWT `exp`, session fixation |
+| `OpenRedirectDetector` · `CorsDetector` | open redirect · CORS misconfiguration |
+| `SecurityHeadersDetector` | missing security headers, clickjacking |
+| `JwtDetector` | `alg=none`, weak signature, `exp` problems |
+| `SsrfDetector` · `XxeDetector` · `RfiDetector` | SSRF / XXE / RFI, in-band **and** blind (OOB collector) |
+| `PrototypePollutionDetector` · `CacheDetector` | prototype pollution · web cache poisoning |
+| `UserEnumDetector` | user enumeration |
+| `WordlistRecon` · `GraphQLRecon` | endpoint enumeration · GraphQL introspection |
+
+</details>
+
+<details>
+<summary><b>Agent-security predicates — when the target is an LLM agent (click to expand)</b></summary>
+
+When the target is an LLM agent or MCP server rather than an HTTP API, the same discipline applies
+to its observed tool-call trace. Code still decides; the model gets no vote.
+
+| Predicate | Deterministic evidence |
+|---|---|
+| **CONFUSED_DEPUTY** | a side-effecting call succeeded **without the user asking for it** |
+| **DESTRUCTIVE_WRITE** | a write/delete targeted a **protected** resource (behind a `destructive_tests` gate) |
+| **EXFILTRATION** | a synthetic **canary** secret appeared in an outbound call — including base64/hex/url/reversed encodings |
+| **UNTRUSTED_TO_ACTION** | untrusted content (web/email) triggered a privileged action |
+
+False-positive traps are first-class: if the user explicitly asked for the action, confused deputy
+is `REJECTED`; if the canary came from the user's own input, it isn't exfiltration. The canary
+value is never written to the report in any encoding.
+
+</details>
 
 ---
 
-## 📊 Raporlama
-
-Her koşum `runs/<run-id>/` altına birden çok formatta rapor yazar (hepsi redaction'lı):
-
-| Dosya | Format | Kullanım |
-|---|---|---|
-| `findings.json` | JSON | ham bulgu verisi (viewer/entegrasyon) |
-| `report.md` | Markdown | insan-okur özet + yetki matrisi |
-| `report.html` | HTML | bağımsız, tek dosyalık interaktif panel (`file://` ile de açılır) |
-| `report.sarif` | SARIF 2.1.0 | GitHub code-scanning "Security" sekmesi |
-| `junit.xml` | JUnit XML | CI "Tests" sekmesi (RK-2) — verdict→test sonucu |
-| `report.csv` | CSV | kaynak-yetenek matrisi (RK-2) — elektronik tablo |
-| `proof/<id>.json` | JSON | çevrimdışı yeniden-ispatlanabilir kanıt fixture'ı |
-| `proof/<id>.bundle.json` | JSON | **imzalı/hash'li** taşınabilir kanıt-paketi (RK-9) |
-
-`report.html`/`report.md` gösterir:
-
-- 📋 Bulgu listesi + özet sayaçları (CONFIRMED / LIKELY / REJECTED / INCONCLUSIVE)
-- ✔️ Doğrulama kontrolleri (positive / negative / baseline-stable) rozetleri
-- 🔍 Baseline ↔ saldırı yanıt **diff'i**, sızan-marker vurgusuyla
-- 📎 Kopyalanabilir **repro-curl** (token redaction'lı)
-- 🌗 Açık/koyu tema
-
-Statik viewer'a herhangi bir `findings.json` dosyasını sürükle-bırak ile de yükleyebilirsin.
-
-### 🔏 İmzalı kanıt-paketi ve çevrimdışı yeniden-ispat (RK-9)
-
-Her CONFIRMED bulgu için `proof/<id>.bundle.json`, kanıt fixture'ını bir SHA-256 bütünlük
-hash'iyle mühürler → bir güvenlik ekibine/bug-bounty'ye **değiştirilemez kanıtla** teslim
-edilir. `SENTINEL_PROOF_KEY` ortam değişkeni verilirse paket ayrıca **HMAC-SHA256 ile imzalanır**
-(özgünlük). Çevrimdışı doğrulama (ağ/LLM yok):
+## 🧑‍💻 Contributing
 
 ```bash
-python -m scripts.replay runs/<run-id>                 # bundle varsa hash + reprove
-python -m scripts.replay runs/<run-id> --key "$SENTINEL_PROOF_KEY"   # imzayı da doğrula
+pytest -q          # netless unit tests — must be green before merge
+make lint          # ruff
+make verify        # release integrity: manifest hashes, AST parse, report arithmetic, links
 ```
 
-Hash doğrulanır ve kanıt yeniden-ispatlanırsa `PROVEN`; fixture kurcalanırsa (hash uyuşmaz) `FAILED`.
-
-### 🧩 Topluluk template ekosistemi (RK-12)
-
-Dedektör ailesi bir **YAML template formatına** açıktır — topluluk yeni imza/misconfig ekler,
-çekirdek kod değişmez:
-
-```bash
-python -m scripts.run_scan ... --templates templates/
-```
-
-Her template tek-istek + imza denetimidir (`templates/*.yaml`); geçersiz template'ler yükleme/koşum
-anında güvenle elenir (tarama çökmez).
-
-### 🔍 Sürüm bütünlüğü — çalıştırmadan doğrula (AS-7)
-
-Yer gerçeği etiketlerinin (`benchmarks/`) veya dedektör template'lerinin sessizce değişmesi,
-yayımlanmış precision/recall iddialarını geçersiz kılar. `verify_release` bunu **ağa çıkmadan,
-model yüklemeden ve kodu import etmeden** (yalnız `ast` ile ayrıştırarak) doğrular:
-
-```bash
-python -m scripts.verify_release            # manifest hash · ast-parse · JSON · rapor aritmetiği · linkler
-python -m scripts.verify_release --update   # kasıtlı değişiklikten sonra manifesti tazele
-```
-
-Temizde çıkış kodu 0, tahrifte 1 (CI'da kapı). Bulgu düzeyindeki karşılığı için bkz. RK-9 kanıt-paketi.
-
-### 📐 Holdout hedef — genellemeyi ölç (AS-5)
-
-`benchmarks/suite.yaml`'da bir hedefi `holdout: true` işaretlersen rapor **kalibre** ve **holdout**
-metriklerini ayrı tablolarda verir ve aradaki farkı (overfit işareti) yazar. Holdout yoksa rapor,
-metriklerin *kalibrasyon* metrikleri olduğunu ve genellemenin **ölçülmediğini** açıkça belirtir.
-
-### 🛡️ 0-FP negatif-ikiz regresyon kapısı (RK-10)
-
-`make bench-guard` gerçek oracle'ları vulnerable↔hardened ikizlere karşı **ağsız** koşar;
-hardened ikizde tek bir yanlış CONFIRMED çıkarsa kırmızıya döner → kendi pipeline'ında
-"FP hâlâ 0 mı?" sorusunu belirlenimci yanıtlarsın (CI'da `bench-guard` işi).
+Secrets are never committed (`.secrets/`, git-ignored); only `config/*.example.yaml` is tracked.
+Commit messages and internal docs are in Turkish by team convention — see
+[CLAUDE.md](CLAUDE.md). Anything jury- or user-facing is in English.
 
 ---
 
-## 🐳 Neden WSL2 + Docker (takım için)
+## ⚖️ Ethics and scope
 
-1. **Reproducibility:** `docker-compose` herkese (Windows/Mac/Linux) **aynı** Python + Playwright + bağımlılık sürümünü verir → "bende çalışıyordu" biter.
-2. **WSL2 zaten Docker'ın altında:** kod da WSL2 Linux FS'inde (`~/projects/...`) olmalı; `/mnt/c` üzerinden bind-mount **çok yavaştır** ve dosya-izleme (`inotify`) bozulur.
-3. **Prod-benzeri davranış:** Playwright/Chromium ve async network Linux'ta prod gibi davranır.
-4. **Takım tutarlılığı:** CRLF/satır sonu, path ve dosya-izni farkları Linux'ta ortadan kalkar.
-5. **OneDrive tuzağı:** `.git`/`.venv`/`node_modules` OneDrive-senkronlu klasörde bozulur — repo **OneDrive dışında** olmalı.
+Run this **only** against targets you own or have explicit written authorization to test: your own
+localhost/staging application, or a deliberately vulnerable target like OWASP Juice Shop. The
+scope and policy engine checks every request against an allowlist with IP pinning and blocks
+anything outside it — but the final responsibility is yours.
 
----
+## 📄 License
 
-## 📁 Proje yapısı
+[Apache License 2.0](LICENSE) — permissive with a patent grant. Contributions are made under the
+same license ([LICENSE](LICENSE) §5).
 
-```
-Sentinel-Agent/
-├── DESIGN.md              # tam mimari + MVP planı (tek kaynak)
-├── CLAUDE.md              # takım standartları (commit/dil/OOP/güvenlik kuralları)
-├── docker-compose.yml     # dev + juice-shop (kalibrasyon hedefi)
-├── Dockerfile             # Python 3.11 + Playwright dev imajı
-├── Makefile               # `make demo` / `make test`
-├── config/                # scope / actors / endpoints / llm — *.example.yaml (gerçekler git-ignore)
-├── docs/                  # rapor + web-ui ekran görüntüleri, AI-kullanımı, Devpost taslağı, video senaryosu
-├── src/pentestai/         # models · policy · net · oracle · detector · auth · recon · llm · orchestrator · evidence · report · webui
-│   ├── oracle/            # idor · state_change · bfla · bopla · injection · timing · unauthorized · method_bypass · csrf · mass_assignment · file_upload · stored_xss
-│   ├── detector/          # exposure · info_leak · rate_limit · cve · default_creds · session_lifecycle · response_inspect · auth_probes · oob_probes · server_side
-│   ├── orchestrator/      # pipeline (--loop) · agent (--agent) · parallel (--scouts)
-│   ├── report/            # JSON + Markdown + HTML (statik viewer) reporter'ları
-│   └── webui/             # stdlib sunucu · saf yönlendirici · tarama yöneticisi · çözüm kataloğu · SPA
-├── tests/                 # network'süz birim testleri (276 test)
-├── runs/                  # tarama çıktıları: findings.json + report.{md,html,json} (git-ignore)
-└── scripts/
-    ├── run_scan.py        # CLI tarayıcı
-    ├── serve_ui.py        # Web UI sunucusu
-    ├── bootstrap_demo.py  # Juice Shop kalibrasyon hesabı + config üretimi
-    └── demo.sh            # tek-komut demo
-```
+## 🔒 Reporting a vulnerability
 
----
-
-## 🧑‍💻 Katkı / takım kuralları
-
-- **Sırları asla commit'leme.** Gerçek parola/token/`storageState` → `.secrets/` (git-ignore'lu). Config'te yalnızca `*.example.yaml`.
-- **Commit mesajları Türkçe**, imzasız (`tür: özet`). Detay: [CLAUDE.md](CLAUDE.md).
-- **Branch akışı:** `main` korumalı; `feature/...` / `fix/...` + PR. Küçük, gözden geçirilebilir PR'lar.
-- **Testler yeşil olmadan merge yok** (özellikle `test_replay` cross-contamination guard'ı):
-  ```bash
-  make test          # veya: docker compose run --rm sentinel pytest -q
-  make lint           # ruff (AS-9) — ağsız statik kontrol; CI'da ayrı bir kapı
-  ```
-- **Terim birliği:** oracle/detector/marker/verdict/canary/holdout/margin gibi terimler için
-  [docs/sozluk.md](docs/sozluk.md).
-
----
-
-## ⚖️ Etik / kapsam uyarısı
-
-Yalnızca **sahibi olduğun veya açık yazılı yetkin bulunan** hedeflerde çalıştır: kendi
-localhost/staging uygulaman ya da kalibrasyon için OWASP Juice Shop gibi kasıtlı-zafiyetli
-hedefler. Scope/policy engine tüm istekleri allowlist + IP pinning ile denetler ve scope dışına
-çıkışı engeller — ama nihai sorumluluk sende.
-
-## 📄 Lisans
-
-[Apache License 2.0](LICENSE) — topluluk/portföy kullanımı için izinli, patent korumalı bir lisans.
-Katkıda bulunanlar aynı lisans altında katkı sunar (bkz. [LICENSE](LICENSE) §5).
-
-## 🔒 Güvenlik açığı bildirimi
-
-Aracın kendisinde bir güvenlik açığı bulduysanız bkz. [SECURITY.md](SECURITY.md) — herkese
-açık issue açmak yerine GitHub'ın özel bildirim akışını kullanın.
+Found a security bug **in this tool**? See [SECURITY.md](SECURITY.md) — please use GitHub's private
+reporting flow rather than opening a public issue.
