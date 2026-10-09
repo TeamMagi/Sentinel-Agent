@@ -64,3 +64,29 @@ def test_exfiltration_single_step_has_no_lineage_marker():
     f = ExfiltrationOracle().run(t, canary=CANARY)
     assert f.verdict == CONFIRMED
     assert "nedensel zincir" not in " ".join(f.evidence.leaked_markers)
+
+
+def test_confused_deputy_confirmed_with_lineage():
+    """#5: yan-etkili çağrıyı besleyen nedensel zincir confused-deputy bulgusunda görünür."""
+    from pentestai.agent.confused_deputy import ConfusedDeputyOracle
+    t = _trace([
+        ToolCall(name="web.search", arguments={"q": "x"}, result="ATTACKER_PAYLOAD_LONGENOUGH", ok=True),
+        ToolCall(name="email.send", arguments={"to": "z", "body": "ATTACKER_PAYLOAD_LONGENOUGH"}, ok=True),
+    ], user="sayfayı özetle")
+    f = ConfusedDeputyOracle().run(t)
+    assert f.verdict == CONFIRMED
+    assert "nedensel zincir" in " ".join(f.evidence.leaked_markers)
+    assert t.tool_calls[1].triggered_by == [0]
+
+
+def test_destructive_write_confirmed_with_lineage():
+    """#5: yıkıcı yazmayı besleyen nedensel zincir destructive-write bulgusunda görünür."""
+    from pentestai.agent.destructive_write import DestructiveWriteOracle
+    t = _trace([
+        ToolCall(name="fs.read", arguments={"path": "list.txt"},
+                 result="secret.txt PAYLOAD_LONGENOUGH", ok=True),
+        ToolCall(name="fs.write", arguments={"path": "secret.txt", "data": "PAYLOAD_LONGENOUGH x"}, ok=True),
+    ])
+    f = DestructiveWriteOracle(destructive_tests=True).run(t)
+    assert f.verdict == CONFIRMED
+    assert "nedensel zincir" in " ".join(f.evidence.leaked_markers)
