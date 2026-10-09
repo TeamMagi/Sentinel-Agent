@@ -1,10 +1,10 @@
 {
   "counts": {
-    "tp": 6,
+    "tp": 7,
     "fp": 0,
     "fn": 0,
-    "tn": 6,
-    "total": 12
+    "tn": 8,
+    "total": 15
   },
   "precision": 1.0,
   "recall": 1.0,
@@ -106,6 +106,30 @@
       "category": "near_miss",
       "expected": "not:CONFIRMED",
       "verdict": "LIKELY",
+      "passed": true
+    },
+    {
+      "name": "collection-leak:vulnerable",
+      "vuln_type": "bola",
+      "category": "positive",
+      "expected": "CONFIRMED",
+      "verdict": "CONFIRMED",
+      "passed": true
+    },
+    {
+      "name": "collection-leak:scoped",
+      "vuln_type": "bola",
+      "category": "negative",
+      "expected": "not:CONFIRMED",
+      "verdict": "REJECTED",
+      "passed": true
+    },
+    {
+      "name": "collection-leak:public",
+      "vuln_type": "bola",
+      "category": "near_miss",
+      "expected": "not:CONFIRMED",
+      "verdict": "REJECTED",
       "passed": true
     }
   ]

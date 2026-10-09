@@ -111,6 +111,7 @@ Araç iki tür denetleyici kullanır: **Oracle'lar** (çok-aktörlü, karşıla�
 | Oracle | Açık tipi | Kanıt yöntemi |
 |---|---|---|
 | `IdorOracle` | **IDOR / BOLA** (obje okuma) | leaked-marker: kurbanın verisi saldırganın cevabında |
+| `CollectionLeakOracle` | **Koleksiyon/liste BOLA** (çapraz-kiracı) | id-siz liste endpoint'inde bir aktörün owner-private objeleri diğerinin listesine sızıyor mu (public-katalog kapanı: aynı içerik → REJECTED) |
 | `StateChangingOracle` | **BOLA-write** (PUT/PATCH/DELETE yetki) | kalıcı mutasyon/silme: işlem sonrası kurban olarak yeniden okuma |
 | `BflaOracle` | **BFLA** (fonksiyon-seviyesi yetki) | düşük-yetkili aktör yüksek-yetki fonksiyonuna erişebiliyor mu |
 | `BoplaOracle` | **BOPLA** (aşırı veri ifşası) | cevapta görülmemesi gereken hassas alan diff'i |
@@ -539,8 +540,8 @@ make eval           # veya: python eval/evaluate.py
 | **negative** (design-safe) | Yetki kontrolü çalışan endpoint | `CONFIRMED değil` | FP kapanı — güvenli olanı flag'lemiyoruz |
 | **near-miss** (saldırıya-benzer-ama-masum) | Session-scoped id · public-by-design endpoint | `CONFIRMED değil` | **en sıkı disiplin** — IDOR tarayıcılarının klasik FP tuzaklarında bile çekimser kalıyoruz |
 
-Yayımlanan sonuç (`eval/results.md`, 12 vaka — path & **query-param** IDOR + BFLA + 3 near-miss):
-**precision %100 · recall %100 · FP-rate %0 · near-miss CONFIRMED = 0.** Etiketler `eval/labeled.json`'da yer-gerçeğidir; `evaluate.py` katalog ↔
+Yayımlanan sonuç (`eval/results.md`, 15 vaka — path & **query-param** IDOR + BFLA + **koleksiyon
+BOLA** + 4 near-miss): **precision %100 · recall %100 · FP-rate %0 · near-miss CONFIRMED = 0.** Etiketler `eval/labeled.json`'da yer-gerçeğidir; `evaluate.py` katalog ↔
 etiket sürüklenmesini (drift) yakalar ve **FP>0 ya da bir near-miss CONFIRMED olursa çıkış kodu ≠ 0**
 (CI kapısı). Recall < 1 dürüst bir sınırdır, kapıyı kırmaz — "bulduğumuz kanıtlıdır" deriz,
 "her şeyi buluruz" demeyiz.

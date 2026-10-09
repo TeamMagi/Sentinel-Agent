@@ -284,8 +284,15 @@ async def test_run_hypotheses_excessive_data_exposure_without_id_uses_single_tar
     hyp = Hypothesis(type="excessive_data_exposure", endpoint=ep, rationale="r")
     findings = await scanner.run_hypotheses([A, B], [hyp])
 
-    assert len(findings) == 1                 # id'siz koleksiyon → targets[:1], tek sefer yeter
-    assert findings[0].victim == "user_A"      # ilk aktörle test edildi
+    by_type: dict[str, list] = {}
+    for f in findings:
+        by_type.setdefault(f.type, []).append(f)
+    # bopla (excessive_data_exposure): id'siz koleksiyon → targets[:1], tek sefer yeter
+    assert len(by_type["excessive_data_exposure"]) == 1
+    assert by_type["excessive_data_exposure"][0].victim == "user_A"
+    # recall eklentisi: CollectionLeakOracle (bola) id'siz koleksiyonda çift yönlü koşar; iki aktör
+    # AYNI (public) listeyi gördüğü için public-katalog kapanı devreye girer → REJECTED (FP yok).
+    assert by_type["bola"] and all(f.verdict == "REJECTED" for f in by_type["bola"])
 
     await store.aclose_all()
 
