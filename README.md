@@ -335,6 +335,13 @@ desteklenmez — `mfa_code_selector` algılanıp `mfa_totp_secret` verilmemişse
 sessizce yanlış bir oturum üretmez). Refresh-token döngüsü yoktur (tek seferlik `AuthState`, tıpkı
 `storagestate` gibi). Ayrıntı: `src/pentestai/auth/browser.py` docstring'i.
 
+> **Uzun taramada oturum tazeleme (re-auth).** Token süresi tarama ortasında dolarsa (401) her
+> `Session`, aktörün **kendi** provider'ıyla bir kez yeniden yetkilenip isteği taze kimlikle
+> tekrarlayabilir (aktör izolasyonu korunur). Bu **bilinçli olarak opt-in**'dir
+> (`Replayer.replay(reauth_on_401=True)`): 401/403 birçok oracle için anlamlı bir **bulgudur**
+> (yetkisiz-erişim/BFLA), otomatik re-auth o semantiği bozardı — bu yüzden yalnızca "401 = süre
+> dolması" olan çağrılarda açılır, oracle karar hattında değil.
+
 ### CLI referansı (`run_scan.py`)
 
 | Flag | Açıklama |
