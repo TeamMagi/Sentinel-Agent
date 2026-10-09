@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -25,7 +26,10 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from pentestai.bench.eval import (  # noqa: E402
-    check_consistency, default_cases, load_labeled, run_cases,
+    check_consistency,
+    default_cases,
+    load_labeled,
+    run_cases,
 )
 
 _OUT_DIR = Path(__file__).resolve().parent
@@ -75,10 +79,8 @@ async def _main(argv: list[str] | None = None) -> int:
 def main(argv: list[str] | None = None) -> int:
     # Windows konsolu (cp1254) emoji basınca çökmesin — çıktıyı UTF-8'e sabitle (Linux/CI'da no-op).
     for stream in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(AttributeError, ValueError):
             stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
-        except (AttributeError, ValueError):
-            pass
     return asyncio.run(_main(argv))
 
 
