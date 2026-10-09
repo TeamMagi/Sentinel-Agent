@@ -156,21 +156,90 @@ modelini de almayız (bizde `runs/` + kanıt defteri var).
 
 ---
 
+## Repo 3 — `vimalspaceton618-afk/Talos` = **Talos / AgentGuard** ⭐ (bu turun bize en yakını)
+
+**Link:** https://github.com/vimalspaceton618-afk/Talos
+**Tür:** AI ajanları için **local-first güvenlik firewall proxy'si** — indirect prompt-injection
+(inbound) + veri sızıntısı (outbound DLP) tespiti, risk-tabanlı policy + karantina + HITL. *(Alan
+bize yakın: ajan-güvenliği; ama rol farkı kritik — ChainBreak/VaxGuard gibi bir **savunma/
+enforcement proxy'si**, biz **bulucu/kanıtlayıcı**yız.)*
+**Yığın:** Python 3.11+ · FastAPI (HITL API :8000) · Streamlit ops dashboard (:8501) · React+Vite
+command center (:3000) · SQLite · **LLM dokümanda belirtilmemiş** (kural/istatistik-tabanlı görünüyor).
+
+### 3.1 Ne yapıyor (kısaca)
+Ajanın önüne bir proxy koyar: gelen içerikte indirect prompt-injection tarar (`inbound_scanner`),
+giden veride DLP yapar (`outbound_dlp`), risk skoruna göre `policy_engine` ile karar verir, şüpheli
+istekleri **karantinaya** alır, insan (HITL) panodan inceler. Mock-agent test ortamı + red-team
+regresyon paketi + GitHub Actions CI (`security-regression.yml`).
+
+### 3.2 Öne çıkanlar
+1. **Deterministik, kural-tabanlı karar** (LLM'e yargı yok gibi) — bizim tezimizle **hizalı**
+   (VaxGuard'ın LLM-judge'una zıt; bu repo bizim tarafımızda).
+2. **CI'da red-team regresyon + deterministik yerel fixture'lar** (`security-regression.yml`,
+   benchmark JSON artefaktları **30 gün** saklanıyor) — bizim `bench-guard`/`eval` + CI desenimizin
+   birebir akrabası; artefakt-saklama/trend fikri güzel.
+3. **İki-yönlü ajan koruması**: inbound (injection) + outbound (DLP) — kavramsal olarak bizim
+   **UNTRUSTED_TO_ACTION** (inbound→action) + **EXFILTRATION** (outbound canary) predicate'lerimizle
+   birebir örtüşür.
+4. **HITL + karantina**: belirsizi insana bırakma — bizim INCONCLUSIVE/insan-doğrulaması ruhuyla aynı.
+5. **Çok-yüzey**: API + Streamlit + React + CLI script'leri + pip-installable.
+
+### 3.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan)
+- ⚠️ **CI'da eval/benchmark sonucunu artefakt olarak saklama/trend zayıf.** Bizim CI'ımız SARIF +
+  `runs/` yüklüyor ve `bench-guard`/`verify_release` koşuyor; ama `eval/results.json`'ı zamanla
+  saklanan bir **artefakt + basit trend** olarak yayınlamıyoruz. Talos benchmark JSON'ını 30 gün
+  saklıyor — "sayı zamanla nasıl gidiyor" görünür oluyor.
+- ✅ **Tekrar güçlenen / doğrulanan:** deterministik-karar (bizim tezimiz, VaxGuard'a zıt),
+  red-team regresyon + deterministik fixture (bizde `bench/twins` + `eval/`), inbound/outbound ajan
+  koruması (bizde predicate olarak **zaten var** — Talos bunları *korur*, biz *kanıtlarız*),
+  HITL/belirsizi-insana (bizde INCONCLUSIVE).
+
+### 3.4 KONUMLANDIRMA / KARŞIT DERS
+- ❗ **Guard vs Prover (3. kez):** ChainBreak + VaxGuard + Talos — hepsi ajanı **koruyan** runtime
+  guard/proxy. Sentinel farkı: hedef ajanın bu saldırılara **açık olup olmadığını KANITLAR**.
+  Anlatı kartı: *"AgentGuard ajanı korur; Sentinel hedefin indirect-injection/exfiltration'a açık
+  olduğunu deterministik kanıtla gösterir — biz savunmayı değil, açığı ispatlarız."*
+- ❗ **Deterministik ama ölçülmemiş:** Talos bizim gibi deterministik ama **yayınlanmış metrik /
+  FP disiplini / taksonomi eşlemesi yok**. Bizde `eval/` (FP-rate %0, near-miss) + CWE/OWASP/MITRE
+  var → aynı felsefede daha ölçülü olmak farkımız.
+
+### 3.5 Sentinel'e nasıl eklenir
+| # | Öneri | Nereye (modül/sınıf) | Not | Öncelik |
+|---|---|---|---|---|
+| X1 | **CI'da eval/benchmark artefaktı + trend**: `eval/results.json` + benchmark özetini saklanan artefakt olarak yayınla (zamanla FP-rate/recall gidişi) | `.github/workflows/sentinel.yml` (upload-artifact/retention) | Var olanı vitrine çıkarmak; kod ~yok | 🟢 Düşük |
+
+*(inbound/outbound ajan koruması bizde predicate olarak zaten var; guard/enforcement rolünü ALMAYIZ.)*
+
+### 3.6 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+Firewall/proxy enforcement rolü (araya girip blokla/karantinaya al), inbound/outbound **savunma**
+middleware'i, risk-skoru-ile-otomatik-blok — hepsi Talos'un *koruma* domain'ine ait. Biz hedefin
+açığını **kanıtlarız**, trafiği filtrelemeyiz (ChainBreak/VaxGuard için de aynı sınır).
+
+### 3.7 Tek cümlelik ders
+> Talos, bizim tarafımızda (deterministik) duran ama **koruyan** bir ajan-firewall'u; dersi üç katlı:
+> (1) "guard değil, prover'ız" konumlandırmasını 3. kez netleştir, (2) deterministik olup da
+> **ölçmemenin** eksikliğini bizim `eval/`+taksonomimiz kapatıyor, (3) tek somut alınacak **CI eval
+> artefaktı/trend** (X1).
+
+---
+
 ## Toplu "Yapılacaklar" (yeni tur — her repo sonrası güncellenir)
 
 - [ ] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard (+CyberSentinel)* · 🟡
 - [ ] (V2) Tek "duruş özeti" advisory rozeti (S ile birleşir) · *kaynak: VaxGuard* · 🟢
 - [ ] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢
 - [ ] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢
+- [ ] (X1) CI'da eval/benchmark artefaktı + trend (FP-rate/recall gidişi) · *kaynak: Talos* · 🟢
 
 **Tekrarlayan sinyaller:**
-- **Erişilebilirlik/çok-yüzey + canlı pano** (CLI/API/CI/dashboard) — 2 repoda da çıktı; bizde
+- **Guard vs Prover (3/3 ajan-güvenlik repo):** ChainBreak + VaxGuard + Talos hepsi ajanı *koruyan*
+  runtime guard/proxy; Sentinel farkı hedefin **açık olduğunu kanıtlamak** → en net konumlandırma kartı.
+- **Erişilebilirlik/çok-yüzey + canlı pano** (CLI/API/CI/dashboard) — her repoda çıktı; bizde
   CLI/MCP/web UI + composite Action var, eksik olan **canlı telemetri** (V1).
-- **Dürüst limitations + yayınlanmış metrik** — yine "olmazsa-olmaz"; bizde `eval/` + Kısıtlar var.
-- **MITRE ATT&CK eşlemesi** — 2 repoda görüldü; bizde T ile eklendi → doğru yolda.
-- **Karşıt ders (rigor + kararı kim verir):** VaxGuard LLM'e yargılatıyor, CyberSentinel test/metrik
-  içermiyor; ikisi de bizim **deterministik kanıt + ölçülmüş eval** farkımızı tersinden doğruluyor —
-  anlatının en net kartı.
+- **Dürüst limitations + yayınlanmış/ölçülmüş metrik** — "olmazsa-olmaz"; bizde `eval/` + Kısıtlar
+  var. Talos deterministik ama ölçmemiş; VaxGuard ölçmüş ama LLM'e yargılatmış; CyberSentinel ne test
+  ne metrik → **deterministik + ölçülmüş + kararı kod verir** üçlüsünü aynı anda yapan biziz.
+- **MITRE ATT&CK eşlemesi** — birden çok repoda; bizde T ile eklendi → doğru yolda.
 
 > **Sıradaki repolar:** gönderildikçe bu dosyaya Repo 2, Repo 3… olarak eklenecek ve sentez
 > güncellenecek.
