@@ -384,6 +384,9 @@ are documented in **[DESIGN.md](DESIGN.md)** (see §10.6 and §16).
 | `SecurityHeadersDetector` | missing security headers, clickjacking |
 | `JwtDetector` | `alg=none`, weak signature, `exp` problems |
 | `SsrfDetector` · `XxeDetector` · `RfiDetector` | SSRF / XXE / RFI, in-band **and** blind (OOB collector) |
+| `PathTraversalDetector` | path traversal / local file inclusion on file-name params (`file`, `path`, …) & id-less endpoints — `/etc/passwd` · `win.ini` signature (A01) |
+| `CrlfInjectionDetector` · `HostHeaderInjectionDetector` | CRLF response splitting · Host/X-Forwarded-Host poisoning |
+| `OAuthDetector` · `JwtConfusionDetector` | OAuth/OIDC loose `redirect_uri` + missing `state` · JWT algorithm confusion (RS256→HS256, `kid`) |
 | `PrototypePollutionDetector` · `CacheDetector` | prototype pollution · web cache poisoning |
 | `UserEnumDetector` | user enumeration |
 | `WordlistRecon` · `GraphQLRecon` | endpoint enumeration · GraphQL introspection |
