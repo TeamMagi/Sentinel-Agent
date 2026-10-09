@@ -377,12 +377,12 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [ ] (E) Exculpatory adımını açık kontrol aşaması yap · *kaynak: TRACE X* · 🟡
 - [x] (F) Tek komut `make prove` · *kaynak: TRACE X* · 🟡 — `make prove` = pytest + self-eval + bench-guard + verify_release (ağsız, ilk kırılan kapıda durur); `make eval` de eklendi
 - [x] (G) Verdict-invariance testi — LLM ne dönerse dönsün verdict aynı · *kaynak: NoScam* · 🔴 — `tests/test_verdict_invariance.py` (5): adversarial LLM (demote/escalate/injection/çöp/patlama) → verdict+severity SABİT, yalnızca severity_suggested/impact değişir; Hypothesis'te verdict alanı yok
-- [ ] (H) Policy truth-table (belge + test) · *kaynak: NoScam* · 🟡
+- [x] (H) Policy truth-table (belge + test) · *kaynak: NoScam* · 🟡 — `tests/test_authorize_truth_table.py` (12 satır + kapsama testi, parametrize) + DESIGN.md §10.5'e belgelenmiş truth-table (tek kaynak, drift koruması)
 - [x] (I) Prompt-injection sertleştirmesi — yanıt içeriği LLM'e label+truncate · *kaynak: NoScam* · 🟡 — `llm/prompts.py` `wrap_untrusted()`: fence-breakout nötrleme (içerikteki `<<UNTRUSTED_DATA>>`/rol etiketleri) + truncation (MAX 8000); 4 build_* metodu buradan geçer; `tests/test_prompt_hardening.py` (6). (Fence + "veri, talimat değil" zaten vardı; eksik olan kaçış+kırpma eklendi.)
 - [ ] (J) Benign-app negative-control regresyonu (0 CONFIRMED ispatı) · *kaynak: NoScam* · 🟡
 
 - [x] (K) GitHub Action + exit-code gating (SARIF'i CI kapısına bağla) · *kaynak: SlopGuard* · 🔴 — workflow zaten SARIF+`--fail-on` yapıyordu; eksik olan tekrar-kullanılabilir composite `.github/actions/sentinel-scan/action.yml` eklendi (başka repolar `uses:` ile çağırır, `sentinel scan` CLI'ıyla). README'de örnek kullanım.
-- [ ] (L) Bulgu-başına remediation ipucu (raporda "nasıl düzeltilir") · *kaynak: SlopGuard* · 🟡
+- [x] (L) Bulgu-başına remediation ipucu (raporda "nasıl düzeltilir") · *kaynak: SlopGuard* · 🟡 — remediation kataloğu `webui`→`report/remediation.py`'ye taşındı (tek kaynak, webui shim), markdown rapor her REJECTED-olmayan bulguya deterministik fix + OWASP linki iliştirir; `tests/test_report_remediation.py` (4)
 - [x] (M) Çalıştırılabilir eval artefaktı `eval/labeled.json`+`evaluate.py` (A+C+J'yi somutlaştırır) · *kaynak: SlopGuard* · 🔴 — `eval/` (labeled.json + evaluate.py + results.{json,md}) + `src/pentestai/bench/eval.py` + `tests/test_eval.py`; 8 vaka, GERÇEK oracle, ağsız → precision %100 / recall %100 / **FP-rate %0**; A(self-eval)+C(metrik)+J(benign)+R(near-miss) tek artefaktta
 - [x] (N) `INCONCLUSIVE` disiplinini belgele/çerçevele ("güvenli demeyiz") · *kaynak: SlopGuard* · 🟢 — README verdict merdivenine "Güvenli demeyiz, kanıt raporlarız" çerçevesi eklendi
 
@@ -390,8 +390,8 @@ Skorlama *fikrini* (S) alıyoruz, siber-fiziksel modelini değil.
 - [x] (P) Counterfactual dual-track kanıt (baseline vs kontrollü, yan yana) · *kaynak: ChainBreak* · 🔴 — `report/counterfactual.py`: "Yetkili (baseline) ↔ Kontrolsüz (saldırı)" yörüngeleri yan yana + nedensel lineage (sahip okur→saldırgan erişir→deterministik fark), REDAKTE; markdown rapora bağlandı (`render_md`). HTML/web UI zaten iki yörüngeyi payload'da taşıyor.
 - [~] (Q) Ajan invariant'larını isimlendir/belgele + anlatıyı yeniden çerçevele · *kaynak: ChainBreak (+eski galeri)* · 🔴 — README'de 5 predicate "isimli, birinci-sınıf güvenlik kontratı" olarak çerçevelendi, bayat predicate tablosu düzeltildi (UNTRUSTED_TO_ACTION artık "implemented"), "zero hallucination" + "klasik API + ajan-çağı yetki, ikisini de KANITLA" dili eklendi. **Kalan:** deck/video/Devpost anlatısı
 - [x] (R) "Near-miss" benchmark kategorisi (saldırı-benzeri-ama-masum) · *kaynak: ChainBreak* · 🟡 — M'ye dahil: session-scoped id + public-by-design near-miss vakaları (`SessionScopedIdorNearMiss` + `PublicEndpointTwin`), ikisi de doğru şekilde CONFIRMED DEĞİL
-- [ ] (S) Bağlamsal sonuç/impact skoru (blast-radius/veri-hassasiyeti) · *kaynak: CyberShield* · 🟡
-- [~] (T) Taksonomi eşleme (OWASP API Top 10 / CWE / MITRE) raporda · *kaynak: CyberShield* · 🟡 — CWE+OWASP `classify.py`'de **tam** (motor+SARIF). **Kalan:** MITRE ATT&CK eşlemesi + rapor vitrini
+- [x] (S) Bağlamsal sonuç/impact skoru (blast-radius/veri-hassasiyeti) · *kaynak: CyberShield* · 🟡 — `report/impact.py`: deterministik heuristik blast-radius (çapraz-kullanıcı/auth'suz) + operasyon (read/write-delete); markdown rapora 'Bağlamsal etki (heuristik)' satırı; severity'yi etkilemez; `tests/test_mitre_impact.py` (9)
+- [x] (T) Taksonomi eşleme (OWASP API Top 10 / CWE / MITRE) raporda · *kaynak: CyberShield* · 🟡 — CWE+OWASP zaten tam; MITRE ATT&CK eşlemesi (`classify.MITRE_ATTACK` + `Finding.mitre`, yaklaşık/dürüst) eklendi, markdown Classification satırında görünür
 - [~] (U) IMPACT anlatısı (access-control neden önemli) deck/README/video · *kaynak: CyberShield* · 🟡 — README "Neden önemli?" bloğu güçlendirildi (mass-PII/account-takeover, "kanıtlar, tahmin etmez"). **Kalan:** deck/video
 
 **Tekrarlayan sinyaller (birden çok repoda):**

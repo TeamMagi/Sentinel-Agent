@@ -364,6 +364,25 @@ def authorize(req, scope) -> Allow | Deny:
     if req.body_size > scope.max_payload_bytes:  return Deny("payload")
     return Allow(pinned_ip=ip)
 ```
+
+**Truth-table (belgelenmiş + çalıştırılabilir).** Kararın sırası fail-closed'dur; ilk eşleşen kural
+kazanır. Aşağıdaki tablo `tests/test_authorize_truth_table.py` ile birebir aynıdır (tek kaynak):
+
+| # | Koşul (sıra) | Sonuç | Gerekçe |
+|---|---|---|---|
+| 1 | host ∉ `allowed_hosts` | **Deny** | `host out of scope` |
+| 2 | pin_map var **ve** pinlenen IP scope-dışı/rebind | **Deny** | `ip out of scope / rebind` |
+| 3 | port ∉ `allowed_ports` | **Deny** | `port not allowed` |
+| 4 | *(purpose=test)* method ∉ `allowed_methods` | **Deny** | `method not allowed` |
+| 5 | *(purpose=test)* yıkıcı method **ve** `destructive_tests=false` | **Deny** | `destructive method blocked` |
+| 6 | path (wire **veya** decoded) önek-dışı **veya** deny-desenine uyuyor | **Deny** | `path out of scope` |
+| 7 | `no_secrets_in_query` **ve** query'de sır anahtarı | **Deny** | `secret in URL query` |
+| 8 | body > `max_payload_bytes` | **Deny** | `payload too large` |
+| 9 | (hepsi geçti) | **Allow** | `pinned_ip` |
+
+`purpose="auth"` yalnızca 4–5'i atlar (login/CSRF/logout); 1–3, 6–8 AYNEN uygulanır. Tablo değişirse
+test kırmızıya döner (drift koruması).
+
 - **Saflık:** `authorize()` yalnızca scope (host/port/method/path/payload) denetler → izole, network'süz test edilebilir. **budget/rate SAYIMI burada DEĞİL**; stateful `BudgetTracker`+rate-limiter replay içinde, authorize'dan sonra çalışır (§10.11). DNS-pin haritası da scan başında bir kez üretilip authorize'a enjekte edilir (`ip = pin_map[req.host]`); authorize canlı DNS yapmaz.
 - **Path normalizasyonu:** `path_allowed`, önek/deny kontrolünü RAM path yerine iki bağımsız normalize edilmiş forma (`net.policy.authorize._normalize_forms`) uygular: *wire* (httpx'in tel üzerinde GERÇEKTEN göndereceği — dot-segment çözülmüş, ardışık `/` birleşmiş hâl) ve *decoded* (bir hedef sunucunun ayrıca yüzde-çözüp/ters-eğik-çevirip/matrix-param kırpıp yorumlayabileceği permissif hâl). İkisi de geçmeli — aksi halde `/api/../rest/secret` gibi bir path önek kontrolünü `/api/` sanıp geçer ama tel üzerinde `/rest/secret` olarak gider (scope kaçışı).
 - **`purpose="test"|"auth"`:** `authorize(req, purpose=...)` — `"auth"` (login/CSRF fetch/logout gibi auth-altyapısı istekleri) yalnızca method/destructive kapısını atlar; host/port/pin/path/deny/secret/payload kontrolleri AYNEN uygulanır. Bu istekler de `TokenAuthProvider`/`CSRFProvider`/`SessionLifecycleDetector` üzerinden aynı kapıdan geçer — ayrı bir choke point değildir.
