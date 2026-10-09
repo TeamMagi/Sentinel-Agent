@@ -40,6 +40,7 @@ async def test_temperature_param_is_threaded_into_options():
 
 
 @pytest.mark.asyncio
+
 async def test_think_false_is_sent_and_keeps_format_json():
     # Reasoning modelinde düşünme kapatılınca payload'a think:false eklenir; JSON zorlaması korunur.
     cap: dict = {}

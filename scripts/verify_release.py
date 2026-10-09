@@ -31,6 +31,7 @@ import hashlib
 import json
 import pathlib
 import re
+import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "provenance" / "file_manifest.json"
@@ -217,6 +218,11 @@ def verify(quiet: bool = False) -> int:
 
 
 def main(argv=None) -> int:
+    # Windows konsolu (varsayılan cp125x) ✅ gibi karakterleri kodlayamayıp çöküyor;
+    # Docker/WSL2'de zaten UTF-8 olduğu için orada no-op (bkz. bench_guard.py aynı kalıp).
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     p = argparse.ArgumentParser(
         prog="verify_release",
         description="Sürüm bütünlüğü doğrulayıcı (AS-7) — ağsız, yalnız stdlib")

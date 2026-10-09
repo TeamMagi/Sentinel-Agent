@@ -150,3 +150,81 @@ async def test_inconclusive_when_oracle_blind():
     assert f.verdict == base.INCONCLUSIVE
     assert f.evidence.negative_control is False
     await store.aclose_all()
+
+
+# ---- public-by-design anon kapısı (DESIGN.md §12, bug düzeltmesi) ----
+
+USERS = {
+    "name1": {"username": "name1", "email": "mail1@test.local"},
+    "name2": {"username": "name2", "email": "mail2@test.local"},
+}
+
+
+def auth_required_idor_handler(request):
+    # Gerçek BOLA: geçerli token ZORUNLU (anon=401) ama sahiplik kontrolü YOK.
+    if not _actor_of(request):
+        return httpx.Response(401, json={"error": "unauthorized"})
+    oid = _id_of(request)
+    if oid not in DB:
+        return httpx.Response(404, json={"error": "not found"})
+    return httpx.Response(200, json=DB[oid])
+
+
+def public_email_handler(request):
+    # VAmPI /users/v1/{username} gibi: e-postayı kimlik doğrulamasız da döner (public-by-design).
+    oid = _id_of(request)
+    if oid not in USERS:
+        return httpx.Response(404, json={"error": "not found"})
+    return httpx.Response(200, json=USERS[oid])
+
+
+@pytest.mark.asyncio
+async def test_confirmed_when_anon_blocked_real_bola():
+    # anon=401 → sızan marker anonim erişilemez → gerçek yetki aşımı → CONFIRMED (anon kapısı yanlış indirme yapmamalı).
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"])
+    store = SessionStore(transport=httpx.MockTransport(auth_required_idor_handler))
+    A = Actor(name="user_A", auth=AuthState(headers={"Authorization": "Bearer TOKEN_A"}),
+              own_object_ids={"order": "A-100"})
+    B = Actor(name="user_B", auth=AuthState(headers={"Authorization": "Bearer TOKEN_B"}),
+              own_object_ids={"order": "B-200"})
+    anon = store.create(Actor(name="anonymous", role="anonymous"))   # boş AuthState
+    oracle = IdorOracle(Replayer(PolicyEngine(scope)), BASE)
+    f = await oracle.run(ENDPOINT, store.create(A), store.create(B), resource_key="order", anon=anon)
+    assert f.verdict == base.CONFIRMED
+    assert "alice@test.local" in f.evidence.leaked_markers
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_public_by_design_anon_rejects():
+    # Kurbanın e-postası anonim de dönüyorsa yetki sınırı yoktur → CONFIRMED değil, REJECTED.
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"])
+    store = SessionStore(transport=httpx.MockTransport(public_email_handler))
+    ep = Endpoint(method="GET", path_template="/users/{id}", id_param="id")
+    A = Actor(name="name1", auth=AuthState(headers={"Authorization": "Bearer TOKEN_A"}),
+              own_object_ids={"users": "name1"})
+    B = Actor(name="name2", auth=AuthState(headers={"Authorization": "Bearer TOKEN_B"}),
+              own_object_ids={"users": "name2"})
+    anon = store.create(Actor(name="anonymous", role="anonymous"))
+    oracle = IdorOracle(Replayer(PolicyEngine(scope)), BASE)
+    # victim=name2 (e-postası sızacak), attacker=name1
+    f = await oracle.run(ep, store.create(B), store.create(A), resource_key="users", anon=anon)
+    assert f.verdict == base.REJECTED
+    assert not f.evidence.leaked_markers
+    await store.aclose_all()
+
+
+@pytest.mark.asyncio
+async def test_public_by_design_confirmed_without_anon_session():
+    # anon verilmezse eski davranış korunur (geriye dönük uyum): public endpoint yine CONFIRMED olabilir.
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000], allowed_path_prefixes=["/"])
+    store = SessionStore(transport=httpx.MockTransport(public_email_handler))
+    ep = Endpoint(method="GET", path_template="/users/{id}", id_param="id")
+    A = Actor(name="name1", auth=AuthState(headers={"Authorization": "Bearer TOKEN_A"}),
+              own_object_ids={"users": "name1"})
+    B = Actor(name="name2", auth=AuthState(headers={"Authorization": "Bearer TOKEN_B"}),
+              own_object_ids={"users": "name2"})
+    oracle = IdorOracle(Replayer(PolicyEngine(scope)), BASE)
+    f = await oracle.run(ep, store.create(B), store.create(A), resource_key="users")   # anon=None
+    assert f.verdict == base.CONFIRMED   # anon kapısı olmadan sahibe-özel görünür → eski davranış
+    await store.aclose_all()

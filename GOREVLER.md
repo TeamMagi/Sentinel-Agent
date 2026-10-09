@@ -181,7 +181,7 @@ problem / çözüm / nasıl çalışıyor / teknoloji / kimin işine yarar.
 
 ### [ ] 26. AI kullanım beyanı · *(Serhat · ~1s)*
 **Zorunlu** — hangi araçlar, nasıl kullanıldı. Şart "katılımcı gönderdiği işi açıklayabilmeli" diyor;
-**jüri kod sorabilir**. (Mevcut `docs/ai-kullanimi.md` temel alınabilir.)
+**jüri kod sorabilir**. (Mevcut `docs/AI_DISCLOSURE.md` temel alınabilir.)
 
 ### [ ] 27. Jüriye link bırak · *(Serhat · ~0.5s)*
 GitHub reposu yeter; **canlı barındırma zorunlu değil**.

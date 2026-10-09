@@ -67,6 +67,14 @@ def test_ip_pin_allows_loopback():
     assert isinstance(d, Allow)
 
 
+def test_ip_pin_allows_ipv6_loopback():
+    # Python'ın ipaddress modülünde ::1 hem is_loopback hem is_reserved döner (RFC 4291 ::/8) —
+    # bazı CI runner'larında "localhost" IPv6'ya çözülür (getaddrinfo sırası), bu yüzden ::1
+    # yanlışlıkla reddedilmemeli (bkz. policy/authorize.py _ip_in_scope docstring).
+    d = _authz("http://localhost:3000/api/x", pin_map={"localhost": "::1"})
+    assert isinstance(d, Allow)
+
+
 def test_deny_payload_too_large():
     d = _authz("http://localhost:3000/api/x", scope=_scope(max_payload_bytes=4),
                method="HEAD", body=b"x" * 10)

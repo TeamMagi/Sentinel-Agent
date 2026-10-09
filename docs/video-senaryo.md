@@ -1,99 +1,106 @@
-# Demo Videosu — Senaryo (≤5 dakika)
+# Demo Video — Script (≤5 minutes)
 
-> Görev 11 taslağı. Çekim (Görev 12) bu senaryoya göre yapılır; süreler kabaca, kurguda ayarlanır.
-> Ekranda gösterilecek her adım gerçek, çalışan komuttur — `make demo` bugün itibariyle uçtan uca doğrulandı.
+> Task 11 draft. The recording (Task 12) follows this script; the timings are rough and are tuned
+> in editing. Every step shown on screen is a real, working command — `make demo` is verified end to
+> end as of today.
 
 ---
 
-## 0. Açılış kartı (0:00–0:10) — ~10 sn
+## 0. Title card (0:00–0:10) — ~10 s
 
-Ekranda: proje adı + tek cümlelik tanım.
+On screen: project name + one-sentence description.
 
-> **"Sentinel-Agent — AI destekli bir pentest ajanı ki her bulgusunu kanıtlıyor."**
+> **"Sentinel-Agent — an AI-assisted pentest agent that proves every finding."**
 
-Sunucu (voice-over): "Access control açıkları — IDOR, BOLA — OWASP API Top 10'da bir numara. Ama
-klasik tarayıcılar bunu bulamıyor çünkü 'kimin nesi kimde' sorusunu anlamıyor. Biz de bunu, LLM'in
-akıl yürüttüğü ama kararı asla LLM'in vermediği bir sistemle çözdük."
+Presenter (voice-over): "Access-control bugs — IDOR, BOLA — are number one in the OWASP API Top 10.
+But classic scanners can't find them, because they don't understand the question 'who owns what'. We
+solved that with a system where the LLM reasons but the decision is never made by the LLM."
 
-## 1. Problem (0:10–0:45) — ~35 sn
+## 1. Problem (0:10–0:45) — ~35 s
 
-Ekranda: OWASP API Security Top 10 listesi (statik görsel/slayt), #1 BOLA vurgulu.
+On screen: the OWASP API Security Top 10 list (static image/slide), with #1 BOLA highlighted.
 
-- BOLA/IDOR nedir, tek cümle örnek: "/api/orders/42 yerine /api/orders/43 dene, başkasının
-  siparişini gör."
-- Sorun: "AI pentest ajanı" demoların çoğu — model hedefe saldırıyor, sonra 'buldum' diyor. Kanıt
-  yok, tekrar-üretilebilirlik yok, false-positive riski yüksek.
+- What BOLA/IDOR is, a one-sentence example: "instead of /api/orders/42, try /api/orders/43 and see
+  someone else's order."
+- The problem: most "AI pentest agent" demos — the model attacks the target, then says "found it".
+  No proof, no reproducibility, high false-positive risk.
 
-## 2. Mimari (0:45–1:45) — ~60 sn
+## 2. Architecture (0:45–1:45) — ~60 s
 
-Ekranda: DESIGN.md'deki akış diyagramı (README'deki ASCII şemanın görsel versiyonu):
+On screen: the flow diagram from DESIGN.md (the visual version of the ASCII diagram in the README):
 
 ```
-recon → hipotez (LLM) → authorize(scope) → replay(actor) → oracle → finding → report
-                              │                  │             │
-                        güvenlik kapısı     tek choke point   3 kontrol + leaked-marker
+recon → hypothesis (LLM) → authorize(scope) → replay(actor) → oracle → finding → report
+                                │                  │             │
+                          security gate     single choke point   3 controls + leaked-marker
 ```
 
-Anlatım:
-- "LLM burada yalnızca *ne test edelim* sorusuna cevap veriyor — endpoint listesine bakıp 'bu id
-  parametresi obje-seviyesi yetki testi için aday' diyor."
-- "Ama saldırıyı LLM yapmıyor. Her istek `Replayer` denen tek noktadan geçiyor — kimlik enjeksiyonu,
-  scope kontrolü, rate limit hep orada."
-- "`CONFIRMED` kararını hep kod veriyor: positive control + negative control + baseline kararlılığı
-  geçmeden, ve kurbanın verisi saldırganın cevabında **gerçekten** görünmeden asla."
-- Kısa ekran: `PolicyEngine.authorize` kodundan bir kesit (scope reddi örneği) — "yıkıcı istekler
-  bile `destructive_tests` bayrağı açık olmadan asla gönderilmiyor."
+Narration:
+- "Here the LLM only answers the question *what should we test* — it looks at the endpoint list and
+  says 'this id parameter is a candidate for object-level authorization testing'."
+- "But the LLM does not carry out the attack. Every request passes through a single point called the
+  `Replayer` — identity injection, scope checks, rate limiting all happen there."
+- "The `CONFIRMED` decision is always made by code: never without the positive control + negative
+  control + baseline stability passing, and never without the victim's data **actually** appearing
+  in the attacker's response."
+- Brief screen: a snippet of `PolicyEngine.authorize` code (a scope-rejection example) — "even
+  destructive requests are never sent unless the `destructive_tests` flag is on."
 
-## 3. Canlı koşum (1:45–3:15) — ~90 sn
+## 3. Live run (1:45–3:15) — ~90 s
 
-Ekran kaydı, gerçek terminal:
+Screen recording, a real terminal:
 
 ```bash
 make demo
 ```
 
-- Terminalde akan loglar hızlandırılmış gösterilebilir (Juice Shop ayağa kalkıyor, kalibrasyon
-  hesapları oluşturuluyor, tarama koşuyor).
-- Çıktı satırına vurgu: `[done] 6 bulgu · 1 CONFIRMED · runs/run-.../`
-- Anlatım: "Tek komut: hedefi ayağa kaldırıyor, iki test hesabı açıyor, taramayı koşuyor. Sıfırdan
-  kanıtlı bulguya iki dakikadan kısa sürede."
+- The logs streaming in the terminal can be sped up (Juice Shop comes up, the calibration accounts
+  are created, the scan runs).
+- Highlight the output line: `[done] 6 findings · 1 CONFIRMED · runs/run-.../`
+- Narration: "One command: it brings up the target, creates two test accounts, runs the scan. From
+  zero to a proven finding in under two minutes."
 
-## 4. Dashboard'da bulgu gösterimi (3:15–4:15) — ~60 sn
+## 4. Showing a finding in the dashboard (3:15–4:15) — ~60 s
 
-Ekran: `report.html` tarayıcıda açık.
+Screen: `report.html` open in the browser.
 
-- Bulgu listesi → `CONFIRMED` IDOR'a tıkla.
-- Vurgulanacaklar:
-  - Positive/negative/baseline kontrol rozetleri (yeşil tik'ler).
-  - Request/response diff — kurbanın sepetindeki ürün bilgisinin saldırganın cevabında göründüğü
-    satır (leaked-marker vurgusu).
-  - Kopyalanabilir repro-curl (token'ın redaksiyonlu göründüğü nokta özellikle gösterilsin —
-    "gerçek token asla loga/rapora yazılmıyor").
-- Tek cümle: "Bu ekran, jürinin veya bir güvenlik ekibinin manuel doğrulayabileceği tam kanıt seti."
+- Findings list → click the `CONFIRMED` IDOR.
+- What to highlight:
+  - The positive/negative/baseline control badges (green checks).
+  - The request/response diff — the line where the item from the victim's basket appears in the
+    attacker's response (leaked-marker highlight).
+  - The copy-pasteable repro-curl (specifically show the point where the token appears redacted —
+    "the real token is never written to a log or report").
+- One sentence: "This screen is the full evidence set that a jury or a security team can verify
+  manually."
 
-*(Opsiyonel, süre izin verirse +15 sn: hackathon'da eklenen state-changing authz oracle'ın
-`INCONCLUSIVE→CONFIRMED` geçişini `destructive_tests` bayrağıyla göster — "yazma/silme yetkisini de
-aynı disiplinle test ediyoruz.")*
+*(Optional, if time allows +15 s: show the `INCONCLUSIVE→CONFIRMED` transition of the state-changing
+authz oracle added during the hackathon with the `destructive_tests` flag — "we test write/delete
+authorization with the same discipline.")*
 
-## 5. Etki (4:15–4:40) — ~25 sn
+## 5. Impact (4:15–4:40) — ~25 s
 
-- "Sıfır yanlış-pozitif hedefiyle tasarlandı: kanıt yoksa `CONFIRMED` yok."
-- "LLM tamamen kapatılsa (`--llm none`) bile araç deterministik olarak çalışmaya, kanıt üretmeye
-  devam ediyor — AI yalnızca kapsam ve açıklama kalitesini artırıyor, güvenliğin temeli değil."
+- "Designed with a zero-false-positive goal: no proof, no `CONFIRMED`."
+- "Even with the LLM fully turned off (`--llm none`), the tool keeps working deterministically and
+  keeps producing proof — the AI only widens coverage and improves the prose; it is not the
+  foundation of the security."
 
-## 6. Tech stack + kapanış (4:40–5:00) — ~20 sn
+## 6. Tech stack + closing (4:40–5:00) — ~20 s
 
-Ekranda: `Built with` şeridi (Python 3.11 · httpx · Pydantic · pytest · Gemini/Ollama/Anthropic ·
-Docker · OWASP Juice Shop).
+On screen: the `Built with` strip (Python 3.11 · httpx · Pydantic · pytest · Gemini/Ollama/Anthropic
+· Docker · OWASP Juice Shop).
 
-> Kapanış kartı: proje adı + repo/Devpost linki.
+> Closing card: project name + repo/Devpost link.
 
 ---
 
-## Çekim notları
+## Recording notes
 
-- Terminal yazı boyutu büyük tutulsun (screen-recording okunabilirlik).
-- `make demo` koşumu önceden bir kez "prova" edilsin (Docker image cache'lensin) ki kayıtta
-  Playwright/Chromium indirme süresi görünmesin — kurguda gerekirse hızlandır.
-- Rapor sayfasında açık/koyu tema ikisi de gösterilebilir (kısa geçiş) — görsel çeşitlilik için.
-- Ses kaydı ayrı yapılıp kurguda senkronlanabilir; script yukarıdaki metin birebir okunabilir.
+- Keep the terminal font size large (screen-recording readability).
+- Do a "dry run" of `make demo` once beforehand (so the Docker image is cached), so the
+  Playwright/Chromium download time doesn't show up in the recording — speed it up in editing if
+  needed.
+- Both the light and dark theme of the report page can be shown (a quick switch) — for visual
+  variety.
+- The audio can be recorded separately and synced in editing; the script text above can be read
+  verbatim.

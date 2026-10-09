@@ -27,8 +27,8 @@ PRODUCED_TYPES = [
     "ssrf", "rfi", "xxe", "cache_poisoning", "prototype_pollution",
     "info_leak", "exposure", "default_credentials", "vulnerable_component",
     "rate_limit", "session_lifecycle", "graphql_introspection", "graphql_bola",
-    # Dalga 5 — agent-security predicate'leri (agent/*.py + oracle/untrusted_to_action.py)
-    "untrusted_to_action", "exfiltration", "destructive_write", "confused_deputy",
+    # Dalga 5 — agent-security predicate'leri (agent/*.py vuln_type'ları)
+    "exfiltration", "destructive_write", "confused_deputy", "untrusted_to_action",
 ]
 
 

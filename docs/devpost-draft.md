@@ -1,7 +1,8 @@
 # Devpost Submission Draft — Sentinel-Agent
 
-> Draft for the TLN Cybersecurity Challenge (Sept 19–20, 2026) submission page. Copy each
-> section into the matching Devpost field; adjust tone/length to fit the form's character limits.
+> Draft for the **TLN Hackathon 2026** (TLN Cybersecurity Challenge, September 2026) submission
+> page. Copy each section into the matching Devpost field; adjust tone/length to fit the form's
+> character limits.
 
 ---
 
@@ -82,7 +83,7 @@ recon → hypothesis (LLM-assisted) → authorize(scope) → replay(actor) → o
 Sentinel-Agent's core engine (multi-actor sessions, the differential oracle, the policy/scope
 gate, IDOR/BFLA/BOPLA/injection oracles, the LLM hypothesis layer, and the self-improving
 orchestrator) was **designed and built before this hackathon**, as a personal project exploring
-AI-assisted security tooling. What we built **during the Sept 19–20 hackathon window** on top of
+AI-assisted security tooling. What we built **during the TLN Hackathon 2026 window** on top of
 that existing codebase:
 
 - a new **state-changing (PUT/DELETE) authorization oracle** — object-level authz testing beyond
@@ -122,6 +123,22 @@ through git history for verification.
 Deterministic verification is the hard 20% that makes an "AI pentest agent" trustworthy instead
 of a demo. The LLM layer is genuinely useful for triage and hypothesis breadth, but the value
 proposition of the whole tool rests entirely on the part that has no model in the loop.
+
+## AI tools disclosure
+
+*(Required by the challenge. Full statement: [docs/AI_DISCLOSURE.md](AI_DISCLOSURE.md).)*
+
+AI is used in **two clearly separated places**:
+
+- **Build-time:** the codebase was developed with **Claude Code** (Anthropic's CLI agent) in a
+  pair-programming style — scaffolding the OOP/modular structure, generating network-free tests, and
+  drafting docs. All AI output was human-reviewed; the architecture and security invariants are the
+  team's.
+- **Run-time (optional, off by default):** at scan time an LLM (**Google Gemini**, a local **Ollama**
+  model, or **Anthropic**) proposes *which* endpoints/vulnerability classes to test and writes
+  severity/impact/remediation prose. It **never touches the network** and **never decides
+  `CONFIRMED`** — that is always deterministic code. With `--llm none` the tool still finds and
+  proves findings.
 
 ## What's next
 

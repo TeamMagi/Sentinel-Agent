@@ -83,23 +83,23 @@ def _write_configs(out_dir: pathlib.Path, base_url: str, victim_bid: int, attack
 
 async def _run(base_url: str, out_dir: pathlib.Path) -> None:
     async with httpx.AsyncClient(timeout=15) as client:
-        print(f"[bootstrap] Juice Shop bekleniyor: {base_url}")
+        print(f"[bootstrap] waiting for Juice Shop: {base_url}")
         await _wait_ready(client, base_url)
 
-        print("[bootstrap] kalibrasyon hesapları oluşturuluyor (varsa atlanır)")
+        print("[bootstrap] creating calibration accounts (skipped if they already exist)")
         await _register(client, base_url, **VICTIM)
         await _register(client, base_url, **ATTACKER)
 
         victim_token, victim_bid = await _login(client, base_url, **VICTIM)
         _, attacker_bid = await _login(client, base_url, **ATTACKER)
 
-        print(f"[bootstrap] kurbanın sepetine ürün ekleniyor (bid={victim_bid})")
+        print(f"[bootstrap] adding an item to the victim's basket (bid={victim_bid})")
         await client.post(f"{base_url}/api/BasketItems", json={
             "ProductId": 1, "BasketId": victim_bid, "quantity": 3,
         }, headers={"Authorization": f"Bearer {victim_token}"})
 
         _write_configs(out_dir, base_url, victim_bid, attacker_bid)
-        print(f"[bootstrap] config yazıldı: {out_dir}/{{scope,actors,endpoints}}.yaml")
+        print(f"[bootstrap] config written: {out_dir}/{{scope,actors,endpoints}}.yaml")
 
 
 def main(argv=None) -> int:
