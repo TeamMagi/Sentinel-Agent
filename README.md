@@ -60,6 +60,14 @@ değil, kodun gördüğü kanıta bağlıdır; model belirsizse verdict `INCONCL
 Aynı ilke iki cephede birden geçerlidir — **klasik API yetkilendirmesi** (IDOR/BOLA/BFLA) *ve*
 **ajan-çağı yetkilendirmesi** (tool-use eden LLM ajanları): ikisini de deterministik olarak kanıtlarız.
 
+> **Bulucu/kanıtlayıcı (prover), savunma (guard) değil.** Piyasadaki birçok AI-güvenlik aracı bir
+> **runtime guard/firewall proxy**'sidir — trafiğin arasına girip riskli istekleri bloklar/karantinaya
+> alır. Sentinel-Agent araya girmez; **hedefin bu açığa sahip olduğunu tekrar-üretilebilir kanıtla
+> gösterir.** İkisi tamamlayıcıdır ama işimiz farklıdır: guard *korur*, Sentinel *ispatlar*. Ayrıca
+> bazı araçlar açık/ihlal kararını doğrudan bir LLM'e ("LLM-as-a-judge") verdirir — biz **vermeyiz**:
+> *evidence-first, model gets no vote.* Verdict'i her zaman deterministik motor üretir
+> (`test_verdict_invariance` bunu kanıtlar: LLM ne dönerse dönsün karar değişmez).
+
 ### 🔒 İhlal edilemez güvenlik değişmezleri
 
 | # | Değişmez |

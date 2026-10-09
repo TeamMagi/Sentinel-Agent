@@ -225,11 +225,11 @@ açığını **kanıtlarız**, trafiği filtrelemeyiz (ChainBreak/VaxGuard için
 
 ## Toplu "Yapılacaklar" (yeni tur — her repo sonrası güncellenir)
 
-- [ ] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard (+CyberSentinel)* · 🟡
-- [ ] (V2) Tek "duruş özeti" advisory rozeti (S ile birleşir) · *kaynak: VaxGuard* · 🟢
-- [ ] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢
-- [ ] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢
-- [ ] (X1) CI'da eval/benchmark artefaktı + trend (FP-rate/recall gidişi) · *kaynak: Talos* · 🟢
+- [x] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard (+CyberSentinel)* · 🟡 — scanner `on_phase` callback (opsiyonel, verdict'i etkilemez) → ScannerRunner her faz bitince '[faz] N bulgu · M CONFIRMED' akıtıyor; scan-status progress'te canlı görünür
+- [x] (V2) Tek "duruş özeti" advisory rozeti (S ile birleşir) · *kaynak: VaxGuard* · 🟢 — `report/posture.py` (0-100 advisory skor + grade, yalnız CONFIRMED sayılır, 'güvenli demez'); markdown rapor başlığında + web UI done payload'ında
+- [x] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢 — README 'Neyle farklı?'ya 'prover değil guard' + 'evidence-first, model gets no vote' bloğu eklendi (test_verdict_invariance referanslı)
+- [x] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢 — `report/triage_state.py` (runs/<id>/triage.json) + web UI GET/POST /api/runs/<id>/triage (traversal-korumalı); `tests/test_triage_state.py` (8)
+- [x] (X1) CI'da eval/benchmark artefaktı + trend (FP-rate/recall gidişi) · *kaynak: Talos* · 🟢 — sentinel.yml test job'ı self-eval'i koşup `eval/results.json`'ı 90 gün saklanan artefakt olarak yüklüyor
 
 **Tekrarlayan sinyaller:**
 - **Guard vs Prover (3/3 ajan-güvenlik repo):** ChainBreak + VaxGuard + Talos hepsi ajanı *koruyan*

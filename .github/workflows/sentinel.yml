@@ -40,6 +40,20 @@ jobs:
       - name: Testler
         run: pytest -q
 
+      # X1 (derece-analizi 2. tur, Talos dersi): çalıştırılabilir self-eval — ağsız FP-rate %0 kapısı.
+      - name: Self-eval (ağsız — planted TP/FP/near-miss)
+        run: python eval/evaluate.py
+
+      # Sonucu saklanan artefakt yap → "FP-rate/recall zamanla nasıl gidiyor" görünür (trend).
+      - name: Self-eval sonucunu sakla (trend)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sentinel-eval-results
+          path: eval/results.json
+          retention-days: 90
+          if-no-files-found: warn
+
   # AS-9: ruff kapısı (E,W,F,I,UP,B,SIM — bkz. pyproject.toml [tool.ruff]). Ağsız, hedefsiz.
   lint:
     runs-on: ubuntu-latest
