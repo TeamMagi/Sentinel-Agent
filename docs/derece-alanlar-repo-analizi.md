@@ -95,17 +95,82 @@ CLI + REST + Docker + GitHub Actions CI.
 
 ---
 
+## Repo 2 — `abhisheksinghyadav0004-ux/CyberSentinel-AI` = **CyberSentinel-AI**
+
+**Link:** https://github.com/abhisheksinghyadav0004-ux/CyberSentinel-AI
+**Tür:** SOC analisti için ağ-trafiği triyaj panosu — canlı paket metadata'sı + yüklenen CSV ağ
+loglarını "soruşturmaya-hazır uyarılara" çevirir. *(Bizden çok farklı alan: network SOC monitoring;
+üstelik olgunluk düşük — portfolyo/öğrenme projesi, 2 commit.)*
+**Yığın:** Python (Flask) · Scapy (paket yakalama) · JS/HTML/CSS + Chart.js pano · **LLM YOK** ·
+DB yok (in-memory / tarayıcı localStorage).
+
+### 2.1 Ne yapıyor (kısaca)
+Scapy ile canlı paket yakalar ya da CSV log yükler; kural-tabanlı eşiklerle (ör. 5 sn'de tek
+kaynaktan ≥30 paket = Medium, ≥80 = Critical; >1500 bayt = Medium) uyarı üretir, yerel IOC
+watchlist'e eşler, Chart.js panosunda protokol dağılımı/trafik trendi gösterir. Uyarı yaşam-döngüsü
+(New/Investigating/Resolved) + analist notları (tarayıcıda saklı) + JSON export.
+
+### 2.2 Öne çıkanlar
+1. **Tamamen deterministik, kural-tabanlı tespit** — LLM yok; kararı eşikler + analist verir.
+   (İsimde "AI" var ama AI yok; dürüstlük açısından README bunu gizlemiyor.)
+2. **MITRE ATT&CK eşlemesi entegre** (T1583 / T1046 / T1498) — bulguları taksonomiye bağlıyor.
+3. **Veri-minimizasyonu:** "yalnızca analiz için gereken metadata saklanır; kimlik bilgileri ve ham
+   payload'lar hariç" — redaction/gizlilik disiplininin akrabası.
+4. **Açık limitations:** "IOC watchlist yereldir/demo amaçlıdır", "eşikler gerçek ortama göre
+   ayarlanmalı", "üretim için değil, öğrenme/portfolyo" — dürüst sınır beyanı.
+5. **Analist triyaj iş-akışı:** uyarı durumu (New/Investigating/Resolved) + not + severity filtresi.
+6. **Canlı pano:** auto-update Chart.js (protokol dağılımı, trafik trendi) — VaxGuard'daki canlı
+   telemetri temasını tekrar ediyor.
+
+### 2.3 Bizde EKSİK / zayıf olanlar (bu repodan çıkan — yeni olanlar)
+- ⚠️ **Bulgu triyaj yaşam-döngüsü zayıf.** Web UI'de bulguları görüyoruz ama VaxGuard/CyberSentinel
+  gibi durum makinesi (New/Investigating/Resolved) + kalıcı analist notu (koşumlar arası) belirgin
+  değil. Bir güvenlik ekibinin "bunu inceledim/kapattım" akışı. (Salt sunum/iş-akışı katmanı.)
+- ✅ **Tekrar güçlenen:** MITRE ATT&CK eşlemesi (bizde T ile eklendi — 2. kez doğrulandı),
+  redaction/veri-minimizasyonu (bizde §5 kural 5), açık limitations (bizde Kısıtlar), canlı pano
+  (V1 ile örtüşür — 2. kez çıktı).
+
+### 2.4 KARŞIT DERS — olgunluk/rigor farkı
+- ❗ **Test yok, metrik yok, FP disiplini yok, kalıcı depolama yok.** "AI" ismi taşıyan ama ne AI ne
+  ölçüm içeren bir projeye karşı bizim farkımız net: **deterministik kanıt + ölçülmüş/tekrar-
+  üretilebilir eval (875 test, `eval/` FP-rate %0, benchmark holdout)**. CyberShield dersinin (sayısı
+  olmayan dürüstlük yetmez) daha uç bir hali. Anlatıda "rigor" farkını güçlendirir.
+
+### 2.5 Sentinel'e nasıl eklenir
+| # | Öneri | Nereye (modül/sınıf) | Not | Öncelik |
+|---|---|---|---|---|
+| W1 | **Bulgu triyaj durumu + notu**: New/Investigating/Resolved + kalıcı analist notu | `webui/` (+ `runs/` yanında hafif durum dosyası) | Salt iş-akışı katmanı; verdict'e dokunmaz; opsiyonel | 🟢 Düşük |
+
+*(MITRE eşlemesi zaten T ile eklendi; canlı pano V1 ile kapsanıyor — yeni madde açmadık.)*
+
+### 2.6 Bu repodan ALMAYACAKLARIMIZ (kapsam dışı)
+Scapy paket yakalama, ağ-trafiği/IOC watchlist mantığı, protokol-dağılımı görselleştirmesi, network-
+SOC domain'i — access-control bulucu/kanıtlayıcı aracımıza taşınmaz. In-memory/localStorage depolama
+modelini de almayız (bizde `runs/` + kanıt defteri var).
+
+### 2.7 Tek cümlelik ders
+> CyberSentinel-AI, "AI" adı taşıyan ama AI'sız + testsiz + metriksiz bir portfolyo projesi —
+> bizim **rigor** farkımızı (deterministik kanıt + ölçülmüş eval) tersinden vurguluyor; alacağımız
+> tek somut şey opsiyonel bir **analist triyaj-durumu** iş akışı, ve MITRE eşlemesinin (zaten yaptık)
+> bir kez daha doğru yol olduğu.
+
+---
+
 ## Toplu "Yapılacaklar" (yeni tur — her repo sonrası güncellenir)
 
-- [ ] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard* · 🟡
+- [ ] (V1) Canlı tarama telemetrisi (web UI olay akışı) · *kaynak: VaxGuard (+CyberSentinel)* · 🟡
 - [ ] (V2) Tek "duruş özeti" advisory rozeti (S ile birleşir) · *kaynak: VaxGuard* · 🟢
 - [ ] (V3) "Model oy vermez" karşıt-ders anlatısı (deck/README) · *kaynak: VaxGuard* · 🟢
+- [ ] (W1) Bulgu triyaj durumu (New/Investigating/Resolved) + kalıcı analist notu · *kaynak: CyberSentinel* · 🟢
 
 **Tekrarlayan sinyaller:**
-- **Erişilebilirlik/çok-yüzey** (CLI/API/CI/dashboard) — yine çıktı; bizde CLI/MCP/web UI + composite
-  Action ile karşılandı, eksik olan **canlı telemetri**.
+- **Erişilebilirlik/çok-yüzey + canlı pano** (CLI/API/CI/dashboard) — 2 repoda da çıktı; bizde
+  CLI/MCP/web UI + composite Action var, eksik olan **canlı telemetri** (V1).
 - **Dürüst limitations + yayınlanmış metrik** — yine "olmazsa-olmaz"; bizde `eval/` + Kısıtlar var.
-- **Karşıt ders:** LLM-as-judge (VaxGuard) vs evidence-first (biz) — anlatıda kullanılacak en net fark.
+- **MITRE ATT&CK eşlemesi** — 2 repoda görüldü; bizde T ile eklendi → doğru yolda.
+- **Karşıt ders (rigor + kararı kim verir):** VaxGuard LLM'e yargılatıyor, CyberSentinel test/metrik
+  içermiyor; ikisi de bizim **deterministik kanıt + ölçülmüş eval** farkımızı tersinden doğruluyor —
+  anlatının en net kartı.
 
 > **Sıradaki repolar:** gönderildikçe bu dosyaya Repo 2, Repo 3… olarak eklenecek ve sentez
 > güncellenecek.
