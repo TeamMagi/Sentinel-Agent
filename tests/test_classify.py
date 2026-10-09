@@ -23,7 +23,7 @@ PRODUCED_TYPES = [
     "injection", "sqli", "nosqli", "ssti", "path_traversal",
     "timing", "blind_sqli", "command_injection",
     "state_change_authz", "csrf", "mass_assignment", "stored_xss", "dom_xss", "file_upload",
-    "open_redirect", "cors", "clickjacking", "jwt", "user_enumeration",
+    "open_redirect", "cors", "clickjacking", "jwt", "jwt_privilege_escalation", "user_enumeration",
     "ssrf", "rfi", "xxe", "cache_poisoning", "prototype_pollution",
     "tls_misconfiguration", "certificate_misconfiguration", "http_request_smuggling",
     "race_condition", "host_header_injection",
