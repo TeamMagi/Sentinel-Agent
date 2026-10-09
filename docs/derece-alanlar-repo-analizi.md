@@ -241,5 +241,52 @@ açığını **kanıtlarız**, trafiği filtrelemeyiz (ChainBreak/VaxGuard için
   ne metrik → **deterministik + ölçülmüş + kararı kod verir** üçlüsünü aynı anda yapan biziz.
 - **MITRE ATT&CK eşlemesi** — birden çok repoda; bizde T ile eklendi → doğru yolda.
 
-> **Sıradaki repolar:** gönderildikçe bu dosyaya Repo 2, Repo 3… olarak eklenecek ve sentez
-> güncellenecek.
+---
+
+# 🎯 SENTEZ VE EYLEM (2. tur — 3 repo)
+
+## Ana teşhis (tek paragraf)
+Bu turdaki 3 reponun **hiçbiri access-control ekseninde bizden derin değil** ve **hiçbiri yeni bir
+zafiyet tipi/motor gerektirmiyor**. Üçü de ya farklı alan (VaxGuard: LLM-uygulama savunması;
+CyberSentinel: network SOC) ya da farklı **rol** (Talos: ajan-firewall/guard). En büyük değer
+**konumlandırma ve doğrulama**: (1) "guard değil, prover'ız" farkı 3 ajan-güvenlik reposuyla üst
+üste netleşti; (2) "kararı kod verir, model oy vermez" tezimiz VaxGuard'ın LLM-judge'una **karşıt**
+olarak parlıyor; (3) "deterministik **ve** ölçülmüş **ve** kararı kod verir" üçlüsünü aynı anda yapan
+tek proje biziz (Talos ölçmüyor, VaxGuard LLM'e yargılatıyor, CyberSentinel ne test ne metrik).
+Somut kod işi az ve hepsi 🟢/🟡 cila; çekirdeğe eklenecek yeni yetenek yok.
+
+## Örüntü tablosu — hangi ders kaç repoda?
+| Ders | VaxGuard | CyberSentinel | Talos | Sinyal |
+|---|:-:|:-:|:-:|---|
+| Guard/enforcement rolü (biz: prover) | ✅ | — | ✅ | **konumlandırma: prover farkı** |
+| Deterministik karar (LLM oy vermez) | ❌ (LLM-judge) | ✅ | ✅ | tezimiz doğru; VaxGuard karşıt örnek |
+| Yayınlanmış/ölçülmüş metrik | ✅ | ❌ | ❌ | bizde `eval/` var → fark |
+| Açık limitations | ✅ | ✅ | — | olmazsa-olmaz (bizde Kısıtlar) |
+| MITRE ATT&CK eşlemesi | ⚠️ | ✅ | ❌ | bizde T ile var |
+| Canlı pano/telemetri | ✅ | ✅ | ✅ | **3/3 — eksiğimiz (V1)** |
+| Çok-yüzey erişim (CLI/API/CI/dash) | ✅ | ⚠️ | ✅ | bizde var (+Action) |
+
+## Kendimize ne katacağız — önceliklendirilmiş
+**A) Kod GEREKTİRMEYEN (hemen, en yüksek getiri)**
+- **V3 — Konumlandırma/anlatı:** README/DESIGN'e iki net cümle: *"Guard değil, prover'ız"* (hedefin
+  açık olduğunu kanıtlarız, trafiği filtrelemeyiz) + *"evidence-first, model gets no vote"* (VaxGuard-
+  tarzı LLM-judge'a karşı). 3 repo bunu doğruladı → sıfır-risk, yüksek getiri.
+
+**B) Küçük kod (cila; istenirse)**
+- **X1 — CI eval artefaktı/trend:** `eval/results.json`'ı CI'da saklanan artefakt yap (zamanla
+  FP-rate/recall gidişi). Neredeyse bedava, jüriye "sayı zamanla korunuyor" der. (Talos deseni.)
+- **V1 — Canlı tarama telemetrisi:** web UI'de tarama sürerken bulgu-akışı (SSE/polling). 3/3 repoda
+  görülen tek gerçek UX eksiğimiz; demo değeri yüksek, orta iş.
+- **W1 — Bulgu triyaj durumu + notu:** New/Investigating/Resolved + kalıcı analist notu (web UI).
+  Küçük iş-akışı katmanı; verdict'e dokunmaz.
+- **V2 — Advisory "duruş özeti" rozeti:** severity dağılımından tek skor; **S ile birleştir**,
+  advisory tut (verdict'i asla ezmesin). Düşük öncelik.
+
+**C) YAPMAYACAKLARIMIZ (net):** LLM-as-judge (VaxGuard), vaccine/auto-immunity, firewall/proxy
+enforcement + karantina (Talos/ChainBreak/VaxGuard), Scapy/network-SOC (CyberSentinel). Hepsi ya
+tezimize aykırı ya da başka domain → scope-creep.
+
+## Öneri (eğer 2 şey yapılacaksa)
+1. **V3 (anlatı)** — kod yok, en yüksek getiri, 3 repo doğruladı.
+2. **X1 (CI eval artefaktı)** — neredeyse bedava, ölçülmüşlük vitrinini güçlendirir.
+> V1/W1 demo cilası isteğe bağlı; çekirdek zaten güçlü.
