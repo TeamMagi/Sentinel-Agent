@@ -118,3 +118,67 @@ def test_forge_variants_and_helpers_roundtrip():
     assert decode_payload(tok) == {"sub": "x", "role": "user"}
     assert _sig_valid(tok)
     assert decode_payload("not-a-jwt") is None
+
+
+# --- F3: admin-only endpoint saldırgana 403 döner; dikey yükseltme yine kanıtlanmalı ---
+
+def admin_only_app():
+    """İmza doğrulanMAZ (zafiyet) + rol admin değilse 403. Saldırgan (user) KENDİ token'ıyla 403
+    alır → positive_control False. Eski kapı burada INCONCLUSIVE'e düşerdi (recall boşluğu)."""
+    def handler(request):
+        p = decode_payload(_bearer(request)) or {}
+        if p.get("role") != "admin":
+            return httpx.Response(403, json={"error": "forbidden"})
+        return httpx.Response(200, json={"users": [{"email": "root@internal.local"}]})
+    return handler
+
+
+@pytest.mark.asyncio
+async def test_vertical_escalation_confirmed_when_attacker_gets_403():
+    store, oracle, A, B = _setup(admin_only_app(), victim_role="admin")
+    f = await oracle.run(EP, B, A)   # victim=B(admin), attacker=A(user) → role=admin forge
+    assert f.verdict == base.CONFIRMED
+    assert f.evidence.positive_control is False   # saldırgan kendi token'ıyla erişemiyordu (403)
+    assert any("root@internal.local" in m for m in f.evidence.leaked_markers)
+    await store.aclose_all()
+
+
+# --- F4: Authorization başlığı küçük harfle saklanmışsa da JWT çıkarılmalı ---
+
+@pytest.mark.asyncio
+async def test_lowercase_authorization_header_still_extracts_jwt():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000],
+                  allowed_path_prefixes=["/"], allowed_methods=["GET"])
+    store = SessionStore(transport=httpx.MockTransport(me_app(verify_sig=False)))
+    A = Actor(name="user_A", auth=AuthState(headers={"authorization": f"Bearer {_real_token('user_A')}"}))
+    B = Actor(name="user_B", auth=AuthState(headers={"authorization": f"Bearer {_real_token('user_B')}"}))
+    oracle = JwtForgeAccessOracle(Replayer(PolicyEngine(scope)), BASE)
+    f = await oracle.run(EP, store.create(B), store.create(A))
+    assert f.verdict == base.CONFIRMED   # eskiden "Authorization" tam-eşleşme arandığı için INCONCLUSIVE'di
+    await store.aclose_all()
+
+
+# --- F5: yalnız enjekte edilen claim'i yankılayan endpoint CONFIRMED üretmemeli (echo ≠ veri erişimi) ---
+
+def echo_email_app():
+    """İmza doğrulanmaz AMA yalnızca token'daki email claim'ini yankılar — gerçek veri erişimi yok.
+    Forge'a enjekte ettiğimiz kurban email'inin yankılanması IDOR/impersonation kanıtı değildir."""
+    def handler(request):
+        p = decode_payload(_bearer(request)) or {}
+        return httpx.Response(200, json={"email": p.get("email", "")})
+    return handler
+
+
+@pytest.mark.asyncio
+async def test_echoed_injected_claim_is_not_confirmed():
+    scope = Scope(allowed_hosts=["localhost"], allowed_ports=[3000],
+                  allowed_path_prefixes=["/"], allowed_methods=["GET"])
+    store = SessionStore(transport=httpx.MockTransport(echo_email_app()))
+    A = Actor(name="user_A",
+              auth=AuthState(headers={"Authorization": f"Bearer {encode_hs256({'sub': 'user_A', 'email': 'alice@test.local'}, SERVER_SECRET)}"}))
+    B = Actor(name="user_B",
+              auth=AuthState(headers={"Authorization": f"Bearer {encode_hs256({'sub': 'user_B', 'email': 'bob@test.local'}, SERVER_SECRET)}"}))
+    oracle = JwtForgeAccessOracle(Replayer(PolicyEngine(scope)), BASE)
+    f = await oracle.run(EP, store.create(B), store.create(A))
+    assert f.verdict == base.REJECTED   # yankılanan enjekte-email leaked-marker sayılmaz (FP kapanı)
+    await store.aclose_all()
