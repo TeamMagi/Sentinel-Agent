@@ -14,3 +14,12 @@ endpoints:
     id_param: id
     id_location: path
     resource_key: basketitem
+
+  # Query-param enjeksiyon yüzeyi: Juice Shop'un /rest/products/search?q= uç noktası error-based
+  # SQLi'ye açıktır (SQLITE_ERROR). injection oracle'ı q parametresinde SQLi/XSS'i yansıma+imza ile
+  # kanıtlar. id_location=query olduğundan planner enjeksiyonu doğru yüzeye (query) yöneltir.
+  - method: GET
+    path_template: "/rest/products/search"
+    id_param: q
+    id_location: query
+    resource_key: products

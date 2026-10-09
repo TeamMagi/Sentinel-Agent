@@ -1,6 +1,6 @@
 # Sentinel-Agent — Çalıştırılabilir self-eval (planted TP + FP + near-miss)
 
-**Vaka:** 15 · **TP/FP/FN/TN:** 7/0/0/8
+**Vaka:** 18 · **TP/FP/FN/TN:** 8/0/0/10
 
 - **Precision:** %100.0
 - **Recall:** %100.0
@@ -24,3 +24,6 @@
 | collection-leak:vulnerable | bola | positive | CONFIRMED | CONFIRMED | ✅ |
 | collection-leak:scoped | bola | negative | not:CONFIRMED | REJECTED | ✅ |
 | collection-leak:public | bola | near_miss | not:CONFIRMED | REJECTED | ✅ |
+| path-traversal:vulnerable | path_traversal | positive | CONFIRMED | CONFIRMED | ✅ |
+| path-traversal:hardened | path_traversal | negative | not:CONFIRMED | REJECTED | ✅ |
+| path-traversal:echo | path_traversal | near_miss | not:CONFIRMED | REJECTED | ✅ |

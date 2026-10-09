@@ -81,6 +81,10 @@ def _write_configs(out_dir: pathlib.Path, base_url: str, victim_bid: int, attack
     (out_dir / "endpoints.yaml").write_text(yaml.safe_dump({"endpoints": [
         {"method": "GET", "path_template": "/rest/basket/{id}", "id_param": "id",
          "id_location": "path", "resource_key": "basket"},
+        # Juice Shop'un bilinen SQLi yüzeyi: /rest/products/search?q= (error-based, SQLITE_ERROR).
+        # injection oracle'ı query-param'da SQLi'yi kanıtlar → demo CONFIRMED kapsamını genişletir.
+        {"method": "GET", "path_template": "/rest/products/search", "id_param": "q",
+         "id_location": "query", "resource_key": "products"},
     ]}, sort_keys=False), encoding="utf-8")
 
 
